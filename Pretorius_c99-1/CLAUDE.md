@@ -116,6 +116,43 @@ and tests standalone.
     NOT majority — that bug stays dead).
 - `test/lsh_test.c` — 12 assertions. Build & run with `make lsh_test`.
 
+## Plasticity subsystem (`libplasticity.a`)
+
+Self-contained, built but not yet wired into `dialogue.c`. Future integration:
+LM as reranker on top-K candidates, mutator applied to the chosen template.
+
+### Alt A — character n-gram LM reranker
+
+- `include/ngram_lm.h` / `src/ngram_lm.c` — character-level 5-gram LM with
+  **stupid backoff** (Brants et al. 2007 — the post-period simplification
+  we apply with hindsight; quality ~indistinguishable from Kneser-Ney for
+  reranking, ~10× simpler code). All-integer scoring via integer-log table.
+- `tools/build_lm.c` — offline LM builder. `make data/pretorius.lm` reads
+  `data/corpus.txt` and emits a sorted-hash binary LM.
+- Bootstrap corpus: ~6 KB Pretorian-register text (Shelley + Pretorius-style
+  originals) → ~144 KB compiled LM. Swap in a richer corpus when authored.
+- Score curve verified: Pretorian text −552, paraphrase −1719,
+  modern slang −3090, gibberish −7160 milli-nats/char.
+
+### Alt C — procedural template mutator
+
+- `include/mutator.h` / `src/mutator.c` — splice-marker expansion engine.
+- Templates may contain `[bank_name]` markers (e.g.
+  `[adj_morbid] [noun_obsession]`).
+- 10 hand-curated banks (~70 fragments total): adj_morbid, adj_grand,
+  adj_unwholesome, adj_scientific, noun_obsession, verb_create,
+  verb_destroy, exclamation, simile_anatomical, intensifier.
+- Each bank has `min_theatricality` / `min_aggression` gates — below the
+  gate, the bank pins to entry 0 (most neutral variant).
+- Deterministic: caller supplies xorshift32 state seeded from
+  `(today_seed, turn_count)`.
+
+### Tests
+
+`test/plasticity_test.c` — 14 assertions covering LM scoring monotonicity,
+paraphrase preservation, mutator determinism, gating, and unknown-marker
+passthrough. Build & run with `make plasticity_run`.
+
 ## Known intentional deviations from spec
 
 - Pattern matcher is still a sorted keyword table — but now with first-char
