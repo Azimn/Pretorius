@@ -74,6 +74,17 @@ void pe_commit_memory(Engine *eng, const char *summary,
     } else {
         n->lsh_sig = 0;
     }
+    /* v3.1: self-disclosure gate — emotionally charged memories require
+     * trust before they surface in associative recall.
+     * salience 0..120 → threshold 0 (always public)
+     * salience 121..255 → threshold (salience-120)*2  (0..270, capped at 255)
+     * A threshold of N means disposition + engagement/4 >= N*4 is needed. */
+    if (salience > 120) {
+        int32_t t = ((int32_t)salience - 120) * 2;
+        n->private_threshold = (uint8_t)(t > 255 ? 255 : t);
+    } else {
+        n->private_threshold = 0;
+    }
 }
 
 void pe_decay_episodic(Engine *eng){
@@ -129,6 +140,18 @@ void pe_associative_recall(Engine *eng, const EmotionVector *ev){
             int32_t lsh_bonus = (64 - hd) * 4;        /* 0..256 */
             match += lsh_bonus;
             if (match > 1000) match = 1000;
+        }
+
+        /* v3.1: self-disclosure gate — private memories only surface to
+         * interlocutors who have earned enough trust.  Trust combines
+         * disposition (0..1000) and engagement (0..255 → contributes 0..63).
+         * A threshold of N requires trust >= N*4.  Core memories (seeded
+         * from identity) always have threshold=0 and pass freely. */
+        if (m->private_threshold > 0){
+            int32_t trust  = (int32_t)eng->relation.disposition
+                           + (int32_t)eng->relation.um_engagement / 4;
+            int32_t needed = (int32_t)m->private_threshold * 4;
+            if (trust < needed) continue;
         }
 
         match = (match * m->salience) / 255;

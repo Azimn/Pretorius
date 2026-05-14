@@ -360,6 +360,19 @@ int persona_open(Engine *eng, const char *character_dir){
             eng->lm = ngram_lm_load("data/pretorius.lm");
         }
     }
+
+    /* v3.1: autobiographical chapters — load persisted book (soft-fail). */
+    load_or_zero(character_dir, "chapters.bin", &eng->chapters, sizeof(ChapterBook));
+
+    /* v3.1: dream detection — if this session starts after a long absence,
+     * crystallise memories into chapters and flag a dream for first turn. */
+    if (had_state && eng->state.last_update_time > 0) {
+        uint32_t now_ms = persona_now_ms();
+        uint32_t gap_ms = (now_ms >= eng->state.last_update_time)
+                        ? (now_ms - eng->state.last_update_time) : 0u;
+        pe_check_dream(eng, gap_ms);
+    }
+
     return 0;
 }
 
@@ -374,6 +387,9 @@ int persona_save(Engine *eng){
     pe_path_join(p, sizeof(p), eng->char_dir, "memory.bin");
     if (pe_write_file_atomic(p, &eng->memory, sizeof(MemoryStore)) != 0) return -1;
     pe_save_relation(eng);
+    /* v3.1: chapters — non-fatal if write fails (re-crystallised on next load) */
+    pe_path_join(p, sizeof(p), eng->char_dir, "chapters.bin");
+    pe_write_file_atomic(p, &eng->chapters, sizeof(ChapterBook));
     return 0;
 }
 
@@ -469,6 +485,20 @@ int persona_process_input(Engine *eng,
 
     /* 10–11. candidates, repetition, transforms, select (plan-driven) */
     pe_generate_response(eng, input_text, out, n);
+
+    /* 11b. v3.1: dream recall — prepend dream_phrase to first response after
+     * a long absence.  Only fires once (dream_pending is cleared here). */
+    if (eng->chapters.dream_pending){
+        size_t dl = strlen(eng->chapters.dream_phrase);
+        size_t rl = strlen(out);
+        if (dl + 2u + rl + 1u <= n){
+            memmove(out + dl + 2, out, rl + 1);
+            memcpy(out, eng->chapters.dream_phrase, dl);
+            out[dl]     = '\n';
+            out[dl + 1] = '\n';
+        }
+        eng->chapters.dream_pending = 0;
+    }
 
     /* 11a. v2: record trace */
     pe_trace_push(eng);
@@ -626,7 +656,20 @@ void persona_debug_dump(const Engine *eng){
             eng->state.predicted_input_class, eng->state.predicted_input_valence,
             eng->state.surprise_last, eng->state.prediction_error_accum);
     fprintf(stderr, "input_sig=0x%016llx\n", (unsigned long long)eng->input_sig);
-    fprintf(stderr, "--- end dump ---\n\n");
+    /* v3.1: story layer */
+    fprintf(stderr, "chapters=%u dream_pending=%u", eng->chapters.chapter_count,
+            eng->chapters.dream_pending);
+    if (eng->chapters.chapter_count > 0){
+        /* show top chapter by salience */
+        int top = 0;
+        for (int i = 1; i < eng->chapters.chapter_count; ++i)
+            if (eng->chapters.chapters[i].salience_peak >
+                eng->chapters.chapters[top].salience_peak) top = i;
+        const Chapter *ch = &eng->chapters.chapters[top];
+        fprintf(stderr, "  top_chapter: mood=%d mems=%u sal=%u phrase=\"%.32s\"",
+                ch->dominant_mood, ch->memory_count, ch->salience_peak, ch->phrase);
+    }
+    fprintf(stderr, "\n--- end dump ---\n\n");
 }
 
 /* v2: trace dump — sparklines + intent transition timeline. */

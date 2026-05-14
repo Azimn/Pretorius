@@ -21,7 +21,8 @@ ENGINE_SRC := \
     src/today.c         \
     src/serialize.c     \
     src/rng.c           \
-    src/user_model.c
+    src/user_model.c    \
+    src/story.c
 
 # Semantic memory subsystem (LSH signatures + nightly consolidation).
 # Self-contained: no dependency on persona.h / persona_internal.h.
@@ -114,4 +115,5 @@ test: all character
 clean:
 	rm -rf build
 	rm -f characters/pretorius/state.bin characters/pretorius/memory.bin
+	rm -f characters/pretorius/chapters.bin
 	rm -rf characters/pretorius/relations

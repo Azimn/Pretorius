@@ -67,6 +67,20 @@ void pe_trace_push(Engine *eng);
 /* ---- v2: per-turn input prep (cached lowered + char bitmap + negation) ---- */
 void pe_prep_input(Engine *eng, const char *input);
 
+/* ---- v3.1: autobiographical chapters + dream recall ----
+ *
+ * pe_crystallize_chapters: allocation-free temporal bucketing of episodic
+ *   memories into up to PE_CHAPTER_MAX chapters.  Writes eng->chapters.
+ *   May be called at any point (not just persona_open); idempotent.
+ *
+ * pe_check_dream: called in persona_open with the gap in ms since last
+ *   save.  If gap >= 8 h, crystallises and sets dream_pending=1 plus a
+ *   dream_phrase in eng->chapters.  The dream is surfaced by
+ *   persona_process_input on the very first turn of the new session.
+ */
+void pe_crystallize_chapters(Engine *eng);
+void pe_check_dream(Engine *eng, uint32_t gap_ms);
+
 /* ---- v3.0: Theory of Mind / predictive coding ----
  *
  * pe_update_user_model: updates the UserModel embedded in eng->relation

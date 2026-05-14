@@ -42,6 +42,8 @@ extern "C" {
 #define PE_NAME_LEN             32
 #define PE_TRACE_LEN            64
 #define PE_PLAN_MAX_MODES       4   /* templates list up to N compatible rhetorical modes */
+#define PE_CHAPTER_MAX          16  /* v3.1: max autobiographical chapters */
+#define PE_CHAPTER_PHRASE       32  /* v3.1: key phrase length per chapter */
 
 /* ---------- drives (id matches array slot) ---------- */
 enum {
@@ -137,7 +139,8 @@ typedef struct {
     uint8_t  core_memory;
     uint8_t  decay_counter;
     uint16_t topic_id;
-    uint16_t _pad;
+    uint8_t  private_threshold;  /* v3.1: disclosure gate (0=public; higher=more private) */
+    uint8_t  _pad;
     char     summary[PE_MEM_SUMMARY_LEN];
     /* v3.0: 64-bit SimHash of the summary, computed at commit time.
      * Lets pe_associative_recall do fuzzy semantic match via Hamming
@@ -382,6 +385,30 @@ typedef struct {
     uint32_t last_turn;
 } PhraseUsage;
 
+/* v3.1: Chapter — one crystallised autobiographical chapter (exactly 64 bytes). */
+typedef struct {
+    uint64_t theme_sig;                       /* SimHash centroid of cluster */
+    uint32_t start_time;                      /* earliest member timestamp (ms) */
+    uint32_t end_time;                        /* latest member timestamp (ms) */
+    int16_t  dominant_mood;                   /* weighted-avg emotion.valence*2 */
+    uint8_t  memory_count;                    /* episodic memories consolidated */
+    uint8_t  salience_peak;                   /* highest salience in chapter */
+    int8_t   dominant_drives[PE_DRIVE_COUNT]; /* avg drive bias */
+    char     phrase[PE_CHAPTER_PHRASE];       /* key phrase from peak-salience memory */
+    uint8_t  _pad[4];                         /* pad to 64 bytes */
+} Chapter;
+/* layout: 8+4+4+2+1+1+8+32+4 = 64 bytes */
+
+/* v3.1: ChapterBook — serialised as characters/<name>/chapters.bin (1124 bytes). */
+typedef struct {
+    Chapter  chapters[PE_CHAPTER_MAX];        /* 16 × 64 = 1024 bytes */
+    uint8_t  chapter_count;
+    uint8_t  dream_pending;                   /* 1 = prepend dream_phrase next turn */
+    uint8_t  _pad[2];
+    char     dream_phrase[PE_MEM_SUMMARY_LEN];/* composed dream recall text (96 bytes) */
+} ChapterBook;
+/* layout: 1024+1+1+2+96 = 1124 bytes */
+
 typedef struct {
     uint32_t   user_hash;
     uint8_t    fact_count;
@@ -480,6 +507,9 @@ struct Engine {
     /* v3.0: per-turn LSH signature of the input.  Computed once in
      * pe_prep_input, reused by pe_associative_recall for fuzzy match. */
     uint64_t      input_sig;
+
+    /* v3.1: autobiographical chapters + dream state. */
+    ChapterBook   chapters;
 };
 
 /* ---------- public API ---------- */
