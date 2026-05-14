@@ -1,0 +1,5 @@
+build/
+characters/*/state.bin
+characters/*/memory.bin
+characters/*/chapters.bin
+characters/*/relations/
