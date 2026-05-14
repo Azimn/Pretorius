@@ -103,6 +103,7 @@ int main(int argc, char **argv){
     long fsz;
     char *corpus;
     int order;
+    int min_count = 1;       /* drop n-grams with count < min_count (per order >= 3) */
     int n, i;
     uint8_t alphabet[256];
     int vocab_n = 0;
@@ -114,13 +115,21 @@ int main(int argc, char **argv){
     uint16_t version = PE_LM_VERSION;
     uint8_t  order_b, reserved = 0;
 
-    if (argc != 4){
-        fprintf(stderr, "usage: %s <corpus.txt> <order:2..5> <out.lm>\n", argv[0]);
+    if (argc != 4 && argc != 5){
+        fprintf(stderr,
+            "usage: %s <corpus.txt> <order:2..5> <out.lm> [min_count]\n"
+            "  min_count: drop n-grams (order>=3) with count < min_count.\n"
+            "             default 1 (keep everything). Use 2 to shrink ~3-5x.\n",
+            argv[0]);
         return 1;
     }
     order = atoi(argv[2]);
     if (order < 2 || order > MAX_ORDER){
         fprintf(stderr, "order must be 2..%d\n", MAX_ORDER); return 1;
+    }
+    if (argc == 5){
+        min_count = atoi(argv[4]);
+        if (min_count < 1) min_count = 1;
     }
 
     fin = fopen(argv[1], "rb");
@@ -182,6 +191,17 @@ int main(int argc, char **argv){
     for (n = 1; n <= order; n++){
         uint32_t cnt;
         Entry *arr = compact_and_sort(&tables[n], &cnt);
+        /* Apply min_count filter only at higher orders (>=3). Order 1 and 2
+         * provide the backoff floor and must stay dense or scoring suffers. */
+        if (n >= 3 && min_count > 1){
+            uint32_t w = 0, k;
+            for (k = 0; k < cnt; k++){
+                if (arr[k].count >= (uint32_t)min_count) arr[w++] = arr[k];
+            }
+            fprintf(stderr, "  order %d: %u → %u entries (min_count=%d)\n",
+                    n, cnt, w, min_count);
+            cnt = w;
+        }
         fwrite(&cnt, 4, 1, fout);
         if (cnt) fwrite(arr, sizeof(Entry), cnt, fout);
         free(arr);

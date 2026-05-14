@@ -1,6 +1,7 @@
 /* engine.c — process_input main loop, drives, mood, lifecycle. */
 #include "persona.h"
 #include "persona_internal.h"
+#include "ngram_lm.h"            /* v2.1: optional plasticity */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -348,6 +349,17 @@ int persona_open(Engine *eng, const char *character_dir){
     }
 
     pe_pick_today(eng);
+
+    /* v2.1: plasticity — try character-local LM, then fall back to shared
+     * data/pretorius.lm. Missing LM is non-fatal — engine just skips rerank. */
+    {
+        char lm_path[512];
+        pe_path_join(lm_path, sizeof(lm_path), character_dir, "pretorius.lm");
+        eng->lm = ngram_lm_load(lm_path);
+        if (!eng->lm){
+            eng->lm = ngram_lm_load("data/pretorius.lm");
+        }
+    }
     return 0;
 }
 
@@ -363,6 +375,14 @@ int persona_save(Engine *eng){
     if (pe_write_file_atomic(p, &eng->memory, sizeof(MemoryStore)) != 0) return -1;
     pe_save_relation(eng);
     return 0;
+}
+
+void persona_close(Engine *eng){
+    if (!eng) return;
+    if (eng->lm){
+        ngram_lm_free(eng->lm);
+        eng->lm = NULL;
+    }
 }
 
 int persona_process_input(Engine *eng,

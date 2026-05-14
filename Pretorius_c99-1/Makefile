@@ -68,20 +68,24 @@ build/liblsh.a: $(LSH_OBJ)
 build/libplasticity.a: $(PLAS_OBJ)
 	ar rcs $@ $^
 
-build/compile_pretorius: tools/compile_pretorius.c build/libpersona.a
-	$(CC) $(CFLAGS) tools/compile_pretorius.c build/libpersona.a -o $@ $(LDFLAGS)
+build/compile_pretorius: tools/compile_pretorius.c build/libpersona.a build/libplasticity.a
+	$(CC) $(CFLAGS) tools/compile_pretorius.c build/libpersona.a build/libplasticity.a -o $@ $(LDFLAGS)
 
 build/build_lm: tools/build_lm.c build/libplasticity.a
 	$(CC) $(CFLAGS) tools/build_lm.c build/libplasticity.a -o $@ $(LDFLAGS)
 
 # Auto-build the bootstrap LM whenever the corpus changes.
+# Append a 4th arg (min_count, e.g. 2) to shrink the LM by dropping
+# rare n-grams — useful once the corpus grows past ~20 KB. At current
+# 6 KB corpus size, keeping all n-grams (min_count=1) preserves discriminative
+# resolution.
 data/pretorius.lm: data/corpus.txt build/build_lm
 	./build/build_lm data/corpus.txt 5 data/pretorius.lm
 
 lm_build: data/pretorius.lm
 
-build/repl: test/repl.c build/libpersona.a
-	$(CC) $(CFLAGS) test/repl.c build/libpersona.a -o $@ $(LDFLAGS)
+build/repl: test/repl.c build/libpersona.a build/libplasticity.a
+	$(CC) $(CFLAGS) test/repl.c build/libpersona.a build/libplasticity.a -o $@ $(LDFLAGS)
 
 build/lsh_test: test/lsh_test.c build/liblsh.a
 	$(CC) $(CFLAGS) test/lsh_test.c build/liblsh.a -o $@ $(LDFLAGS)

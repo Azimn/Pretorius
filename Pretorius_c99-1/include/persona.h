@@ -400,6 +400,10 @@ typedef struct {
 /* ---------- engine ---------- */
 typedef struct Engine Engine;
 
+/* Forward declaration for the plasticity subsystem (libplasticity.a).
+ * Owning include is "ngram_lm.h"; we only need the type name here. */
+typedef struct NGramLM NGramLM;
+
 struct Engine {
     /* read-only after load */
     Identity       identity;
@@ -438,6 +442,10 @@ struct Engine {
     uint8_t        char_present[32];  /* 256-bit bitmap of chars in input */
     uint8_t        negation_active;   /* set if input contains negation cues */
     UtterancePlan  plan;              /* computed by planner each turn */
+
+    /* v2.1: plasticity — n-gram LM for "Pretorianness" reranking.
+     * NULL = subsystem disabled (LM file missing). */
+    NGramLM       *lm;
 };
 
 /* ---------- public API ---------- */
@@ -455,6 +463,11 @@ int  persona_process_input(Engine *eng,
 
 /* Force flush of mutable state (state.bin, memory.bin, current relation). */
 int  persona_save(Engine *eng);
+
+/* Release subsystem resources (e.g. the LM buffer). Call after save() at
+ * end of session. Idempotent. Process exit also reclaims, so this is mostly
+ * for hygienic shutdown and leak-checked tests. */
+void persona_close(Engine *eng);
 
 /* Switch interlocutor without ending the session. */
 int  persona_set_user(Engine *eng, const char *user_id);

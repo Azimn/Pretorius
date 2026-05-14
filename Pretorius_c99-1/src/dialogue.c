@@ -3,6 +3,8 @@
  */
 #include "persona.h"
 #include "persona_internal.h"
+#include "ngram_lm.h"        /* v2.1: optional reranker */
+#include "mutator.h"         /* v2.1: optional template expansion */
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -276,6 +278,16 @@ static int32_t score_template(Engine *eng, const Template *t){
     /* repetition penalty */
     int pen = repetition_penalty_pct(&eng->memory, t->id);
     s = (s * 100) / pen;
+    /* v2.1: LM "Pretorianness" bonus on the raw template text.
+     * Normalized score is per-char milli-nats; center at -1500, scale /10.
+     *   Pretorian ≈ -500  → +100
+     *   neutral   ≈ -1500 →    0
+     *   off-register ≈ -3000 → -150
+     * Skipped if LM not loaded (eng->lm == NULL). */
+    if (eng->lm && t->text[0]){
+        int32_t lm = ngram_lm_score_normalized(eng->lm, t->text);
+        s += (lm + 1500) / 10;
+    }
     /* small chaos */
     s += (int32_t)(persona_rng_u32(&eng->state) & 0x1F);
     return s;
@@ -359,6 +371,24 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
     char buf[PE_TEMPLATE_TEXT];
     fill_slots(eng, chosen, buf, sizeof(buf));
     apply_style(eng, chosen, buf, sizeof(buf));
+
+    /* v2.1: procedural splice-marker expansion. Templates may carry
+     * [bank_name] markers (e.g. [adj_morbid]); the mutator replaces them
+     * with plan-gated synonyms. RNG seeded from (today_seed XOR turn) so
+     * the expansion is deterministic per replay.
+     * Templates without markers pass through unchanged. */
+    {
+        char mut_out[PE_TEMPLATE_TEXT];
+        uint32_t mrng = eng->state.today_seed
+                      ^ (eng->state.turn_count * 2654435761u);
+        if (mrng == 0) mrng = 0xA5A5A5A5u;
+        size_t mw = mutator_expand(buf, mut_out, sizeof(mut_out),
+                                   eng->plan.theatricality,
+                                   eng->plan.aggression, &mrng);
+        if (mw > 0){
+            memcpy(buf, mut_out, mw + 1);
+        }
+    }
 
     /* topic callback (illusion layer): inject "by the way..." once in a while */
     if ((eng->identity.voice_flags & PE_VF_ALLOW_CALLBACK)

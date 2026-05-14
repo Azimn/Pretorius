@@ -147,6 +147,33 @@ LM as reranker on top-K candidates, mutator applied to the chosen template.
 - Deterministic: caller supplies xorshift32 state seeded from
   `(today_seed, turn_count)`.
 
+### Wiring (v2.1 — live in the pipeline)
+
+The plasticity subsystem is wired into the engine:
+
+- `persona_open` loads `pretorius.lm` (per-character override, then shared
+  `data/pretorius.lm`). Missing LM is non-fatal — engine just skips rerank.
+- `score_template` adds an LM "Pretorianness" bonus: per-char normalized
+  log-prob centered at -1500, scaled /10. A Pretorian template (~-500/char)
+  gains ~+100 score; an off-register one (~-3000) loses ~-150.
+- `pe_generate_response` runs `mutator_expand` after style transforms, with
+  RNG seeded from `(today_seed XOR turn_count*2654435761u)` so expansions
+  are deterministic per replay. Templates without `[bank_name]` markers
+  pass through unchanged.
+- `persona_close` releases the LM buffer at session end.
+
+### Hardware footprint (v2.1)
+
+| Item                | Size    | % of 300 KB spec |
+|---------------------|---------|------------------|
+| character files     | 110 KB  | 37%              |
+| pretorius.lm        | 144 KB  | 48%              |
+| **total**           | **254 KB** | **85%**       |
+
+Headroom: ~46 KB for v3 additions (Theory of Mind, surprise, etc.).
+The `build_lm` tool accepts a `min_count` knob for future corpus expansion
+— at min_count=2 the LM shrinks ~3×, trading rerank resolution for size.
+
 ### Tests
 
 `test/plasticity_test.c` — 14 assertions covering LM scoring monotonicity,

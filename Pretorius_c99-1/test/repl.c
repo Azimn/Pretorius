@@ -92,6 +92,7 @@ int main(int argc, char **argv){
         printf("Pretorius: %s\n\n", out);
     }
     persona_save(&eng);
+    persona_close(&eng);
     fprintf(stderr, "[exit]\n");
     return 0;
 }
