@@ -350,15 +350,13 @@ int persona_open(Engine *eng, const char *character_dir){
 
     pe_pick_today(eng);
 
-    /* v2.1: plasticity — try character-local LM, then fall back to shared
-     * data/pretorius.lm. Missing LM is non-fatal — engine just skips rerank. */
+    /* v2.1: plasticity — load <character_dir>/voice.lm if present.
+     * The LM is part of the cartridge; the engine never references a
+     * character-specific filename.  Missing LM is non-fatal (no rerank). */
     {
         char lm_path[512];
-        pe_path_join(lm_path, sizeof(lm_path), character_dir, "pretorius.lm");
+        pe_path_join(lm_path, sizeof(lm_path), character_dir, "voice.lm");
         eng->lm = ngram_lm_load(lm_path);
-        if (!eng->lm){
-            eng->lm = ngram_lm_load("data/pretorius.lm");
-        }
     }
 
     /* v3.1: autobiographical chapters — load persisted book (soft-fail). */

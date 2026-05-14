@@ -44,7 +44,7 @@ PLAS_OBJ   := $(PLAS_SRC:src/%.c=build/%.o)
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a \
      build/compile_pretorius build/repl build/build_lm \
-     data/pretorius.lm
+     characters/pretorius/voice.lm
 
 build:
 	@mkdir -p build
@@ -76,15 +76,16 @@ build/compile_pretorius: tools/compile_pretorius.c build/libpersona.a build/libp
 build/build_lm: tools/build_lm.c build/libplasticity.a
 	$(CC) $(CFLAGS) tools/build_lm.c build/libplasticity.a -o $@ $(LDFLAGS)
 
-# Auto-build the bootstrap LM whenever the corpus changes.
+# Auto-build the Pretorius cartridge voice LM whenever the corpus changes.
+# The engine loads <character_dir>/voice.lm — the cartridge owns its voice.
 # Append a 4th arg (min_count, e.g. 2) to shrink the LM by dropping
 # rare n-grams — useful once the corpus grows past ~20 KB. At current
-# 6 KB corpus size, keeping all n-grams (min_count=1) preserves discriminative
-# resolution.
-data/pretorius.lm: data/corpus.txt build/build_lm
-	./build/build_lm data/corpus.txt 5 data/pretorius.lm
+# 6 KB corpus size, keeping all n-grams (min_count=1) preserves
+# discriminative resolution.
+characters/pretorius/voice.lm: data/corpus.txt build/build_lm
+	./build/build_lm data/corpus.txt 5 characters/pretorius/voice.lm
 
-lm_build: data/pretorius.lm
+lm_build: characters/pretorius/voice.lm
 
 build/repl: test/repl.c build/libpersona.a build/libplasticity.a build/liblsh.a
 	$(CC) $(CFLAGS) test/repl.c build/libpersona.a build/libplasticity.a build/liblsh.a -o $@ $(LDFLAGS)
@@ -98,10 +99,10 @@ lsh_test: build/lsh_test
 build/plasticity_test: test/plasticity_test.c build/libplasticity.a
 	$(CC) $(CFLAGS) test/plasticity_test.c build/libplasticity.a -o $@ $(LDFLAGS)
 
-plasticity_test: build/plasticity_test data/pretorius.lm
+plasticity_test: build/plasticity_test characters/pretorius/voice.lm
 
 plasticity_run: plasticity_test
-	./build/plasticity_test data/pretorius.lm
+	./build/plasticity_test characters/pretorius/voice.lm
 
 character: build/compile_pretorius
 	./build/compile_pretorius characters/pretorius

@@ -225,7 +225,7 @@ typedef struct {
     uint32_t rng_state;
 
     /* ---- v2: embodiment ---- */
-    int16_t  intoxication;          /* 0..1000; rises on gin events; decays slowly */
+    int16_t  intoxication;          /* 0..1000; rises on PE_PATTERN_FLAG_INTOXICANT match; decays slowly */
     int16_t  exhaustion;            /* 0..1000; rises per turn; drained by repose */
     int16_t  irritation_carry;      /* 0..1000; carries between turns after negatives */
     int16_t  physical_fragility;    /* 0..1000; slow climb across session */
