@@ -11,7 +11,7 @@ Skales is the original work of Mario Simic, Vienna, Austria.
 - **Domain**: skales.app (registered 2025)
 - **GitHub**: github.com/skalesapp/skales
 - **Portfolio**: mariosimic.at
-- **Current Version**: 9.1.1 'The Studio Update' (April 2026)
+- **Current Version**: 10.2.8 (May 2026)
 
 ## Integrity
 

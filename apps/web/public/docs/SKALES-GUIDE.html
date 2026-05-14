@@ -361,7 +361,7 @@
       <div class="logo-mark">S</div>
       <div>
         <div class="logo-text">Skales</div>
-        <div class="logo-version">v9.3.0 User Guide</div>
+        <div class="logo-version">v<span data-skales-version>10.2.8</span> User Guide</div>
       </div>
     </a>
 
@@ -405,7 +405,7 @@
     <a href="#discover">Discover Feed</a>
     <a href="#wrapped">Skales Wrapped</a>
     <a href="#spotlight">Spotlight + Vision</a>
-    <a href="#token-compressor">Token Compressor</a>
+    <a href="#memory-mode">Memory Mode</a>
     <a href="#notifications">Notification Center</a>
     <a href="#auto-compress">Auto-Compress</a>
     <a href="#tool-loop">Tool Loop Protection</a>
@@ -444,7 +444,7 @@
 
     <!-- Hero -->
     <div class="hero">
-      <div class="hero-badge">📖 Official Documentation · v9.3.0</div>
+      <div class="hero-badge">📖 Official Documentation · v<span data-skales-version>10.2.8</span></div>
       <h1>Skales <span>User Guide</span></h1>
       <p>Your personal AI operating system. Chat, automate, create — all running locally on your machine.</p>
     </div>
@@ -576,6 +576,10 @@
       <div class="tip"><strong>💡 Local AI Setup:</strong> Need help setting up local models? See our step-by-step guides: <a href="setup-koboldcpp.html" style="color:var(--accent)">KoboldCpp Setup</a> · <a href="setup-lmstudio.html" style="color:var(--accent)">LM Studio Setup</a></div>
 
       <div class="tip"><strong>💡 Tip:</strong> You can configure multiple providers and switch between them mid-session. Use <code>/model gpt-4o</code> or the model picker in the chat toolbar.</div>
+
+      <div class="tip"><strong>🔄 Live model fetch (v10.2.2):</strong> Each provider card has a Refresh button that pulls the current model list directly from the provider's API. The cached list is preferred over the built-in baseline, so newly released models become usable without waiting for a Skales release. Supported providers: Anthropic, OpenAI, Google Gemini, Groq, DeepSeek, Mistral, xAI, Together, MiniMax, Cloudflare, NVIDIA, SambaNova, Cerebras (plus the existing OpenRouter, Ollama, and Custom Endpoint flows).</div>
+
+      <div class="tip"><strong>⚙️ Override Model Limits (v10.2.2, power user):</strong> Settings → AI Providers → Override Model Limits. Add per-(provider, model) override rows for context and output token caps. Use <code>*</code> as the model name for a provider-wide wildcard. Useful when a brand-new model has different limits than the built-in registry — no Skales update required.</div>
     </section>
 
     <!-- Chat -->
@@ -901,6 +905,21 @@
       </div>
 
       <div class="warn"><strong>⚠️ Safety Mode</strong> — In Safe Mode, every Computer Use action requires your approval before execution.</div>
+    </section>
+
+    <!-- v10 "Closing the Gap" highlights -->
+    <section id="v10-highlights">
+      <h2><span class="icon">🎉</span> What&rsquo;s New in v10.0.x <span class="badge badge-new">v10.0.x</span></h2>
+      <p>v10 connects Desktop with <strong>Skales Mobile</strong> &mdash; now live on the Google Play Store for Android &mdash; and brings voice to every conversation. Pair your phone via QR for full Desktop feature access through the encrypted relay, or run standalone with 27 native mobile tools. Studio also adds the <strong>fal.ai LTX-2.3</strong> video model, and the entire chat surface feels buttery-smooth.</p>
+      <div class="card-grid">
+        <div class="card"><div class="card-title">📱 Skales Mobile (Android)</div><div class="card-desc">Pair your phone via QR; it gets the full 139+ tools of this desktop through an end-to-end encrypted relay. Or run standalone with 27 native mobile tools. <strong>Available now on Google Play:</strong> <a href="https://play.google.com/store/apps/details?id=app.skales.mobile">https://play.google.com/store/apps/details?id=app.skales.mobile</a></div></div>
+        <div class="card"><div class="card-title">🍎 Skales Mobile (iOS)</div><div class="card-desc">Currently in App Store review.</div></div>
+        <div class="card"><div class="card-title">🗣️ Voice In &amp; Out</div><div class="card-desc">Per-message speaker icon reads replies aloud. &ldquo;Read responses aloud&rdquo; toggle for continuous voice flow. OpenAI TTS + ElevenLabs + Azure + Browser voices. STT via Groq/OpenAI Whisper.</div></div>
+        <div class="card"><div class="card-title">🎬 fal.ai LTX-2.3 Video</div><div class="card-desc">New video provider in Studio. Text&rarr;video and image&rarr;video, 5/10 second clips, native 9:16 portrait, $0.06/sec at 1080p.</div></div>
+        <div class="card"><div class="card-title">🌐 Inline HTML Preview</div><div class="card-desc">Code fences tagged <code>html</code> render live in a sandboxed iframe with Show Code / Download / Save as Image / Mute / Hide toggles. Global mute + hide persist across chats.</div></div>
+        <div class="card"><div class="card-title">💬 Smoother Chat</div><div class="card-desc">Framer Motion spring entrance per message, smooth wave typing indicator, scroll-to-bottom FAB, <code>prefers-reduced-motion</code> honoured.</div></div>
+        <div class="card"><div class="card-title">🔧 Under the Hood</div><div class="card-desc">Agent delete fix, Buddy drag on Windows, Playwright dynamic chromium detection, Telegram watchdog, gamertag update-in-place, 12 locales at perfect 3838-key parity.</div></div>
+      </div>
     </section>
 
     <!-- WordPress 2.0 -->
@@ -1233,23 +1252,23 @@
       <p>Vision captures work with optimized prompts for different tasks: code debugging, UI design feedback, document extraction, and more. Prompts are configurable in Settings → Spotlight.</p>
     </section>
 
-    <!-- Token Compressor -->
-    <section id="token-compressor">
-      <h2><span class="icon">⚙️</span> Token Compressor</h2>
-      <p>An intelligent system prompt compression tool that reduces API costs by condensing lengthy system prompts without losing critical functionality.</p>
+    <!-- Memory Mode -->
+    <section id="memory-mode">
+      <h2><span class="icon">⚙️</span> Memory Mode</h2>
+      <p>Controls how much of your conversation Skales keeps in context on every request. Trade off quality against token cost without changing models.</p>
 
-      <h3>Three Compression Levels</h3>
+      <h3>Three Modes</h3>
       <div class="card-grid">
-        <div class="card"><div class="card-title">Full</div><div class="card-desc">Complete system prompt with all context and behavior guidelines. Highest quality, highest token cost.</div></div>
-        <div class="card"><div class="card-title">Compact</div><div class="card-desc">Essential instructions only. ~50% token reduction while maintaining core functionality.</div></div>
-        <div class="card"><div class="card-title">Minimal</div><div class="card-desc">Ultra-condensed core directives. ~70% token reduction for cost-sensitive workflows.</div></div>
+        <div class="card"><div class="card-title">Always Remember</div><div class="card-desc">Full system prompt, full memory, full skills, full tool capabilities. Highest quality, highest token cost.</div></div>
+        <div class="card"><div class="card-title">Compact</div><div class="card-desc">Older context trimmed and recalled memories capped at 2. Roughly 40% fewer tokens while keeping the day-to-day experience intact.</div></div>
+        <div class="card"><div class="card-title">Minimal</div><div class="card-desc">Name, language, and active tool list only. No memory, no identity. Roughly 70% fewer tokens — best for Spotlight and one-shot questions.</div></div>
       </div>
 
       <h3>Configure in Settings</h3>
-      <p>Choose your default compression level in <strong>Settings</strong>. Level 2 (Minimal) is ideal for Spotlight and quick tasks where token savings matter most.</p>
+      <p>Pick your default mode under <strong>Settings → Memory Mode</strong>. Minimal lives behind an Advanced disclosure since it strips identity and memory; click the disclosure to access it. The header badge in Chat surfaces when your saved mode is anything other than Always Remember.</p>
 
-      <h3>Smart Retention</h3>
-      <p>The compressor intelligently retains safety guidelines, identity preferences, and critical logic while removing verbose explanations. Token savings compound across long conversations.</p>
+      <h3>Auto-tune for Local Models</h3>
+      <p>Local providers (Ollama, LM Studio, KoboldCpp, vLLM) typically run with an 8k context budget. With auto-tune enabled, Skales silently runs in Compact on those providers even when your saved mode is Always Remember, so the prompt fits without truncation surprises.</p>
     </section>
 
     <!-- Notification Center -->
@@ -1565,7 +1584,7 @@
       <p>When your conversation approaches the token limit, Skales generates a concise summary of the oldest messages and replaces them with the compressed version. Key facts, decisions, and context are retained. The compression is seamless — you can keep chatting without interruption.</p>
 
       <h3>Token Budget</h3>
-      <p>Works alongside the Token Compressor setting. Auto-Compress handles conversation history, while Token Compressor handles system prompt size. Together they maximize how much useful context fits in every request.</p>
+      <p>Works alongside the Memory Mode setting. Auto-Compress handles conversation history, while Memory Mode handles system prompt size. Together they maximize how much useful context fits in every request.</p>
     </section>
 
     <!-- Tool Loop Protection -->
@@ -1690,11 +1709,31 @@
     </section>
 
     <footer>
-      <span>Skales v9.3.0 — © 2024–2026 Mario Simic — BSL 1.1</span>
+      <span>Skales v<span data-skales-version>10.2.8</span> — © 2024–2026 Mario Simic — BSL 1.1</span>
       <a href="https://skales.app">skales.app</a>
     </footer>
 
   </main>
 </div>
+  <script>
+  // Fetch live version from skales.app/latest.json
+  // Fallback stays on hardcoded value in markup if fetch fails
+  (function() {
+    fetch('https://skales.app/latest.json', { cache: 'no-store' })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) {
+        if (\!data || \!data.version) return;
+        document.querySelectorAll('[data-skales-version]').forEach(function(el) {
+          el.textContent = data.version;
+        });
+        if (data.changelog) {
+          document.querySelectorAll('[data-skales-changelog]').forEach(function(el) {
+            el.textContent = data.changelog;
+          });
+        }
+      })
+      .catch(function() { /* silent, fallback stays */ });
+  })();
+  </script>
 </body>
 </html>

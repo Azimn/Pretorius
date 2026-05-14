@@ -7,6 +7,542 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## v10.2.9
+
+Hotfix for Organization task lifecycle.
+
+### Bug Fixes
+
+- **Instant abort for Organization tasks.** The Abort button now cancels in-flight LLM API calls within milliseconds via AbortController, instead of waiting up to 300s for the current call to time out. No more wasted tokens on aborted runs.
+- **Project deletion stops running tasks.** Deleting a project with an active task now aborts the task before removing the project file, so the underlying Organization task stops cleanly.
+- **Orphaned tasks cleaned up on startup.** Tasks left in 'running' state after a crash or restart are marked 'aborted' on next boot, so the UI does not try to resume dead tasks.
+
+### Co-Pilot
+
+Thanks to Niki (@NikiKeyz) for the SkyNet PR.
+
+
+## v10.2.8
+
+The v10.2.8 Stability Sprint. Eight days of focused work across the desktop chat surface, codework, settings UX, session persistence, and the new Skales Mobile app launch. Auto-updater pipeline unchanged. DNA invariants intact. Locale parity preserved at 12 × 4061.
+
+### Skales Mobile is Live on Android
+
+Skales Mobile is now publicly available on the Google Play Store for Android phones and tablets. Connect to your Skales Desktop instance over the encrypted relay for full feature access, or run the standalone mode with 27 native mobile tools. Install from the Play Store at https://play.google.com/store/apps/details?id=app.skales.mobile.
+
+iOS is in review with Apple. The Play Store launch is the public beachhead; iOS lands the moment review clears.
+
+### New Features
+
+- **Memory Mode.** The setting formerly known as Token Compressor is now called Memory Mode, with clearer mode names (Always Remember, Compact, Minimal) and a more intuitive UI. Minimal mode moved behind an Advanced disclosure to prevent accidental selection. When the active mode is non-default, a small amber Brain badge appears in the chat header to surface the state and provide a one-click jump back to settings. Hidden in Mini Mode, matching the established pattern for Voice, Call, Share, and Incognito.
+- **Codework resume banner.** When the most-recent Codework session was paused or interrupted, a dismissible resume banner appears at the top of the welcome view with Resume and Dismiss buttons. The banner replaces the previous Continue button as the canonical resume affordance. Dismiss transitions an active session to a stopped state and persists so the banner does not reappear.
+- **Codework file-tree toggle.** New header button toggles the file tree pane visibility, with state persisted across restarts.
+- **Codework recent sessions sorted by activity.** Recent sessions now sort by last-touched time instead of filename. Status badges expanded to five states: IN PROGRESS, DONE, ERR, STOPPED, or none for unknown.
+- **Sidebar agent filter.** The sidebar now filters sessions by the currently selected agent, so clicking a session no longer reroutes to a different agent's context.
+- **Open Folder button.** Codework projects now have an Open in Finder / Open in Explorer button in the project header.
+- **OpenRouter as default provider.** New installs and first-time setups now default to OpenRouter as the primary provider for faster onboarding.
+- **Tasks expand modal.** Long task results no longer truncate silently. Click any task to open a full-text modal.
+- **Persona persistence.** Selected persona now persists across conversation restarts.
+
+### Bug Fixes
+
+- **Session write race condition.** Concurrent writers (chat page mid-conversation, buddy poll, mobile bridge, Telegram inbound, Spotlight) could previously clobber each other through a last-writer-wins pattern. A new per-session in-process mutex serializes all writers, and the mobile bridge specifically now re-loads the session at write time instead of overwriting with a pre-call snapshot. Race window shrinks from seconds-to-minutes down to milliseconds, effectively race-free for everyday use. Telemetry warns in DevTools console when an unexpected shrink occurs; Manual Compact logs an "intentional shrink" marker so the two are distinguishable.
+- **Tool-only assistant turns no longer vanish.** When an assistant turn carried tool_calls but no captured tool results (interrupted mid-execution, rare race), the chat render filter previously dropped the row entirely. Those turns now render as an italic indicator listing the attempted tool names, preserving the conversation timeline.
+- **Skill AI / GPT-5.x consolidation.** Edge cases in the GPT-5.x reasoning detection added in v10.2.7 are consolidated and covered.
+- **Tool pruning logic.** A regression in tool-pruning for large conversations is corrected.
+
+
+### Co-Pilot
+
+Welcome **Niki (@NikiKeyz)** as Skales Co-Pilot. His first contribution landed during the v10.2.8 cycle. 
+
+### Under the Hood
+
+- 14 contributor and 6 public issues closed across the sprint.
+- Three coordinated quick-fixes shipped alongside the main sessions.
+
+
+## v10.2.7
+
+Hotfix for three user-reported regressions surfaced after v10.2.6. No new product surfaces. Auto-updater pipeline unchanged. DNA invariants intact. Locale parity preserved.
+
+### Bug Fixes
+
+- **OpenAI GPT-5.x models failing with 400 errors.** v10.2.6 detected o1, o3, o4, and bare gpt-5 but missed every GPT-5.x dot-version. Detection now covers the full lineup (gpt-5.1 through gpt-5.5) with every documented suffix (mini, nano, pro, codex, codex-spark, chat-latest, thinking, instant) and every dated snapshot. Detection is also provider-agnostic, so GPT-5.x routed through OpenRouter, Custom Provider, or any OpenAI-compatible relay now sends `max_completion_tokens`, omits `temperature`, and folds `system` into `user` only for o1 family per OpenAI's current API documentation.
+- **Custom Provider 404 errors.** The chat completions URL builder now detects existing version segments in your Base URL (like `/v4`, `/v1`, or a full `/chat/completions` path) and avoids appending duplicates. Z.ai (regular, coding, and OpenAI-compat endpoints), Groq, and other providers with non-default URL structures work out of the box. Same detection applies to model-list discovery.
+- **Telegram proactive messages returning provider errors.** Friend Mode, Identity Maintenance, daily standup, and cron task completion notifications now share the same body builder as in-app chat. The previous split between the chat path and the Telegram-channel path is gone, so reasoning-model handling, system-message folding, and tool-array formatting stay consistent across every send site (chat, ReAct loop, autonomous-task fallback, and code builder).
+
+
+## v10.2.6
+
+Mini-release focused on critical user-reported bugs across the OpenAI and Gemini providers, sleep/wake recovery, capabilities awareness, and the Planner. No new product surfaces. Auto-updater pipeline unchanged. DNA invariants intact.
+
+### Bug Fixes (Critical, User-Reported)
+
+- **OpenAI provider 400 across all models.** OpenAI's chat completions API standardized on `max_completion_tokens` in late 2025; the legacy `max_tokens` field now returns 400 on current GPT models. Reasoning models (o1, o3, o4, gpt-5) additionally reject any non-default `temperature`, and o1 / o1-mini reject `system` role messages entirely. Skales now sends the correct field per model class and folds system content into the first user turn for o1.
+- **Gemini tool calling broken (thought_signature missing).** Reasoning-enabled Gemini 2.5 Pro and Flash require the `thoughtSignature` Google returns alongside a `functionCall` part to be echoed back on the next turn. The Gemini adapter now captures and round-trips the signature, so multi-turn tool conversations no longer fail with HTTP 400.
+- **Sleep / wake white screen.** Returning from system suspend or unlocking the screen no longer leaves the Skales window stuck on a blank page with "Application error: a client-side exception has occurred". Added `powerMonitor` listeners on suspend, resume, and unlock-screen that reload all live windows after a short delay so networking is fully back before the renderer fires its first request.
+- **Capabilities awareness.** Skales is now aware of its own runtime UI features in the system prompt: KaTeX math rendering, HTML preview, code-block copy with `Ctrl+A` scoping, edit / branch / delete on user messages, manual compact, token-split tooltip, MCP servers, and the live skills system. Asking "can you do math?" or "can you render HTML?" now returns "yes" with the right context instead of an apologetic "no".
+- **Planner: weekly schedules fired daily.** The day-of-week selection in the Planner modal defaulted to Mon to Fri, which made any "weekly" schedule fire on every weekday. Defaults now reset to a single day when the user switches to weekly, and `isTaskDue` validates day arrays defensively (coerces strings to numbers, rejects malformed entries) so the day filter actually applies.
+- **Planner: BYDAY preferences ignored.** Same root cause as above. With the default reset and defensive coercion in place, picking "Monday + Wednesday" now fires only on Monday and Wednesday.
+- **Planner: tasks not visible in Tasks list.** Recurring tasks created in the Planner now appear in the global Tasks page alongside one-off tasks. Each Planner run still produces its own execution entry with full logs.
+- **Telegram proactive Friend Mode messages not firing since the Desktop Buddy proactive feature was added.** When the shared `resolveOutboundChatId` helper was introduced (which falls back to `telegram-state.json` when the in-memory `pairedChatId` is stale, e.g. after a Telegram bot restart), three proactive senders migrated to it (calendar reminders, autopilot morning briefing, buddy intelligence) but four sites in the autonomous runner were missed: Friend Mode check-ins, the autopilot approval notifier, the daily standup delivery, and cron-task completion notifications. From the user's perspective: Buddy proactive kept working through bot restarts via the fallback while Friend Mode silently died. All four sites now resolve the outbound chat ID through the same helper, so Buddy and Telegram fire in parallel as intended with their own cooldowns and conditions.
+- **MCP Servers tab failing to load with 401 error.** UI status display now loads correctly while CLI auth boundary stays intact.
+
+### Tech Debt
+
+- Provider audit pass across all 13+ adapters. xAI default model bumped to `grok-3` (grok-2 was retired from xAI's chat completions endpoint in 2025). MiniMax base URL inconsistency between `actions/chat.ts` and `lib/provider-model-fetch.ts` documented for v10.3 review.
+
+
+## v10.2.5
+
+Stability and polish release across nine sprint sessions. No new product surfaces. Auto-updater pipeline unchanged. DNA invariants intact.
+
+### Bug Fixes (Critical)
+
+- **Skills system.** Fixed 29 broken reads in the orchestrator that caused all skill toggles to be silently ignored since the skills feature shipped. Computer Use Tools, Calendar Reminders, and other skills now actually function when toggled. (S2c)
+- **UI Skill Toggles.** Toggles persist across restart. Previously, toggles appeared to switch on but reverted after reload due to camelCase / snake_case key drift. Silent backend errors now trigger UI rollback instead of being ignored. (S2e, OF-1)
+- **Playground Override Persistence.** "Use active model" for per-mode overrides no longer springs back to the previous selection after Save. Root cause was Next.js Server Action serialization stripping `undefined` values. (S5 K1)
+- **MCP State Reporting.** The model reports MCP server status correctly instead of always claiming "off". (S2a)
+- **MCP Backend `listServersForCli`.** Returns real per-server status (disabled / connected / stopped / error) instead of hardcoded "connected" with 0 tools. (S2b)
+- **Calendar Reminders Endpoint.** Was permanently skipped due to the broken `settings.skills` field. Now reads from skills.json correctly. (S2d C5)
+- **Proxy Dispatcher.** All 12 provider sites use undiciFetch for proxy-aware HTTP. Runtime ECONNREFUSED errors with proxy enabled are gone. (S1 A2)
+- **Token Cap Cloudflare / NVIDIA.** 32K → real 128K. (S1 A3a)
+
+### Features
+
+- **KaTeX Math Rendering.** Inline `$E=mc^2$` and block `$$...$$` render as actual mathematics. (S4b F1)
+- **Edit / Branch / Delete on User Messages.** Hover actions on user bubbles. Edit triggers truncate-and-resend. Branch creates a new chat from that point. Delete removes the message and all subsequent responses. (S4b F2)
+- **Manual Compact Button.** Compress chat history on demand instead of waiting for the 75% auto-threshold. (S4b F3)
+- **Token Split Tooltip.** Hover the token badge to see "X.XK input / Y.YK output". Default display unchanged. (S4b F4)
+- **Code Block Copy.** Hover any code block to reveal a Copy button. 2-second "Copied!" feedback. (S4b F5)
+- **Code Block Ctrl+A Scoping.** Ctrl/Cmd+A inside a code block selects only that block, not the whole window. Works for Markdown code blocks AND HTML preview blocks. (S4b F6, S4d J3)
+- **HTML Preview Copy.** Copy button added to the HTML preview header alongside Download HTML. (S4c I1)
+- **Identity Maintenance Toggle.** Moved to its dedicated section in Settings (was buried under Agent & Tasks). (S5 K4)
+
+### Stability / Polish
+
+- **Header Responsive Layout.** Buttons collapse to icon-only below 1280px viewport with native tooltips on hover. Header no longer breaks on tablet portrait or narrow desktop. (S4d J1)
+- **Provider Switcher Dropdown.** Anchors correctly in chat AND playground. No more left-side cutoff. (S4d J2)
+- **Compact Button hidden in Mini Mode.** Mini Mode stays minimal. (S4c I3)
+- **Compaction Few-Shot Memory.** Last 6 tool calls preserved as few-shot examples after auto-compact. (S1 A4)
+- **MCPClient Error Sink.** Default error event handler prevents Node crashes when MCP servers misbehave. (S5 K10)
+- **Token Display Tooltip.** Power users see input / output split, casual users see unchanged total. (S4b F4)
+
+
+## v10.2.2
+
+Combined hotfix + feature release. v10.2.1 was rolled into this version. Auto-updater pipeline unchanged. DNA invariants intact.
+
+### Provider layer
+
+- **Live model fetch for cloud providers.** Each provider card in Settings → AI Providers now has a Refresh button. Anthropic, OpenAI, Google Gemini, Groq, DeepSeek, Mistral, xAI, Together, MiniMax, Cloudflare, NVIDIA, SambaNova, and Cerebras all expose `/v1/models` (or the equivalent vendor-specific endpoint). Clicking refresh stores the live list in `settings.modelCache[provider]`. Model dropdowns prefer the cached list when present and fall back to the built-in baseline. New models become usable without a Skales release.
+- **User-configurable model limits.** New collapsible "Override Model Limits" section under AI Providers. Add per-(provider, model) override rows for context and output token caps. Use `*` as the model name to apply the limit to all models of that provider that don't have an explicit override. Useful for newly released models whose limits differ from the built-in registry. Resolves ahead of the static registry in `lib/model-limits.ts` via a 5s in-process cache of `settings.modelLimits`.
+- **Per-provider proxy now actually routes.** v10.2.0 declared the feature but the dispatcher was not reaching the fetch calls — the standalone Next.js build did not include the undici package, so the runtime require returned undefined silently. Fixed by making undici an explicit dependency, switching to a proper import, and externalizing it in the Next.js webpack config.
+
+### Chat
+
+- **Manual message delete persists across reload and restart.** v10.2.0 trimmed the in-memory message array but did not propagate the deletion to disk. The delete handler now explicitly saves the trimmed session.
+- **Branch action creates the correct slice.** v10.2.0 surfaced the Branch hover button on chat bubbles but the slice index was wrong — the new session contained a different subset than the user expected. Fixed end-to-end: clicking Branch on the Nth message creates a new session with messages 1 through N inclusive.
+- **Bubble action labels and toasts are translated.** A handful of `chat.bubble.*` locale keys shipped without translations in v10.2.0 — the Branch toast and the Delete confirmation showed raw key strings. Real translations added across all 12 locales.
+
+### Settings
+
+- **Per-Mode Model Override UI uses real provider data.** The dropdowns previously showed a hardcoded curated list regardless of what the user had configured. Now mirrors the chat header picker: provider list shows only enabled providers with API keys, model list reflects the user's configured plus live-fetched models for the chosen provider.
+- **Playground on-page picker and Settings Per-Mode Override share the same source of truth.** Both write to `settings.modeOverrides.playground` and re-hydrate from disk on every settings-change event.
+- **The "?" agents-info trigger no longer appears on the Settings page.** It belongs on the Agents page only — which is unchanged.
+
+### UI
+
+- **Chat and Playground header model pickers hide on small viewports.** Below 768px the picker is hidden entirely, matching the existing Mini Mode behavior.
+
+### Notes
+
+- Auto-updater code path is unchanged.
+- DNA invariants intact.
+- Schema additions (`modelCache`, `modelLimits` on top of v10.2.0's existing additions) are all OPTIONAL with safe defaults. Existing `settings.json` files load unchanged.
+- 12-locale parity preserved.
+
+
+## v10.2.0
+
+Iterative quality release across providers, modes, error UX, and chat history. No new product surfaces; existing surfaces become more resilient and configurable. Auto-updater pipeline unchanged. DNA invariants intact.
+
+### Provider layer
+
+- **Per-(provider, model) limits registry.** Context window and max output tokens are now read from a per-provider, per-model registry (`lib/model-limits.ts`). Replaces the previous hardcoded ceilings (32K context fallback, 2048-4096 output) across orchestrator, chat, autopilot, code-builder, browser-control, autonomous-runner. Models that the registry doesn't know about fall through to per-provider defaults, then to a conservative absolute fallback. Live HF Router context_length values can override the static entry at call time.
+- **Smart context compaction with LLM summary.** When effective context exceeds 75% of budget, older turns are summarized via a single low-cost LLM call (`noTools: true`, 600 tokens) instead of being truncated to 280 characters per message. Falls back to the truncation behaviour if the summary call fails. Compaction is now reached by the orchestrator: upstream `slice(-40)` and `slice(-20)` history caps in chat.ts and chat/page.tsx are replaced with a byte-budgeted slice (default 8MB / 4MB / 1MB / 512KB depending on entry path).
+- **Provider error translation.** New `lib/error-translator.ts` converts raw 5xx/4xx response bodies into actionable user messages. Pattern rules cover Ollama (`llama runner has terminated`, `cuda out of memory`, missing models, unreachable host), OpenRouter (rate limits, missing credit), Anthropic (context exceeded, auth failed), OpenAI (context exceeded, quota). Each translation carries a `toastAction` (continue / retry / compact / switch-fallback / open-settings) consumed by chat error toasts. Generic fallback annotates with provider+status for debug logs.
+- **Per-provider proxy support.** Provider configs accept an optional `proxy: { enabled, url }` field. When set, requests to that provider go through an Undici `ProxyAgent` dispatcher. Cached per URL. Wired into chat.ts (OpenAI-compatible / Anthropic / Google) and orchestrator.ts (agentDecide hot paths). Schema change is additive — existing settings.json files load unchanged.
+- **Multiple custom OpenAI-compatible endpoints.** New `customProviders[]` array in settings supports more than one custom endpoint at a time. Legacy `providers.custom` continues to work and is mirrored as `customProviders[0]` via a one-shot migration. Settings UI exposes label, base URL, API key, model, enabled toggle, tool-calling and vision toggles per entry.
+
+### Modes
+
+- **Per-mode model resolution contract.** New `lib/mode-routing.ts` resolves which (provider, model) each Skales mode uses: explicit caller override → `settings.modeOverrides[mode]` → `settings.activeProvider/model`. Wired into Playground (askAI + generate), Buddy chat, and exposed in Settings as a "Per-Mode Model Overrides" panel covering Chat, Codework, Organization, Studio, Playground, Buddy, Spotlight.
+- **Playground respects active model.** The previous silent override to Anthropic Sonnet 4.5 is now an opt-in setting (`playgroundQualityBoost`, default OFF). When OFF, Playground uses the active provider/model or the per-mode override. Toggle and per-conversation provider/model picker now live on the Playground page header.
+- **Inline model picker in Chat.** Compact icon-only button in the chat header opens an absolute overlay popup listing installed providers and curated models. Layout never shifts. Solid background respects the active light/dark theme. Custom agent provider/model wins over the global default in the "Use agent default" row. Picker is removed entirely in Mini Mode.
+- **Chat command `/model <id>` persists.** The slash command now writes the new model to `providers[activeProvider].model` via `saveAllSettings`, refreshes the local settings state, and surfaces a clear error bubble on save failure. Cached invalid model IDs no longer survive `/model` switches.
+
+### Tools and routing
+
+- **Calendar routing disambiguation.** `create_calendar_event` description anchors against natural-language calendar phrasing ("in Google Cal", "in den Kalender", "gcal", "schedule a meeting at TIME"). `planner_create_task` description clarifies it is for autonomous Skales prompts, not human appointments. TASK ROUTING RULES block in the orchestrator system prompt gains a Calendar branch above the Planner branch. Internal Planner is unchanged in scope.
+- **Tavily gate respects user toggle.** When the Tavily skill is disabled or no Tavily API key is configured, `search_web` is filtered out of the tool manifest before it reaches the LLM. Other web tools (`fetch_web_page`, `extract_web_text`) remain enabled.
+- **Tool prune for low-TPM providers.** `shouldPruneTools` auto-fires for providers with TPM ceilings under 15K (Groq 12K), pruning the 136-entry tool manifest from the request even when the user message is non-trivial. Prevents 413 "request too large" errors on free tiers.
+
+### Autopilot
+
+- **Master Switch persists from the Autopilot page.** Toggling the master switch from the Autopilot page (not just Settings) now persists `isAutonomousMode` atomically alongside heartbeat start/stop. Activate-on-Start works from a clean restart regardless of which UI surface the toggle came from.
+- **Friend Mode observability and persistent cooldown.** Every early-return point in `tickFriendMode` emits a structured `console.warn('[friend-mode] skip', { reason, ... })`. Tick start logs the active behavior. The in-memory `friendModeLastSentAt` Map is hydrated from settings on first tick and persisted after each successful send so app restarts no longer reset cooldown.
+- **Identity maintenance auto-approve.** Optional Settings toggle. When enabled, the 3 AM identity maintenance job bypasses the safe-mode and critical-action approval gates. Logged to the audit trail. Default OFF.
+
+### Chat UX
+
+- **Manual delete and branch from any message.** Hover actions on user and assistant message bubbles. Delete trims trailing tool messages so no orphan tool results remain. Branch creates a new session populated with messages up to the chosen point.
+- **Resume action on error toasts.** Provider error toasts now carry an action button keyed by the error type: continue / retry on Ollama crashes and timeouts, compact on context-exceeded errors, switch-fallback on rate limits and quota errors, open-settings on auth failures. Wired into orchestrator errors, vision flow errors, and approval-result errors.
+- **Continuation on output truncation.** When a model returns `finish_reason: 'length'` with no further tool calls, the orchestrator injects "Continue from where you left off." and re-enters the ReAct loop instead of dropping the partial answer.
+
+### Settings UX
+
+- **3-fallback UI cap removed.** The Fallback Chain section accepts as many entries as the schema does. Comment in `actions/chat.ts` updated.
+- **Per-Mode Model Overrides panel.** New section under AI Providers. Per mode: "Use active model" toggle plus provider+model dropdowns when the override is on. Empty entries are not persisted.
+- **Additional Custom Providers panel.** New section under Advanced. Each entry is a card with label, base URL, API key, model, enabled, tool-calling, vision toggles. Add and remove buttons. Legacy single-slot Custom Provider UI continues to work.
+- **Identity Maintenance Auto-approve toggle.** Lives under Autopilot in v10.2.0. Will move under Settings → Memory near the existing identity maintenance controls in a follow-up.
+
+### Discover
+
+- **Layout fixes for long-form posts.** Post text wraps on long URLs (`break-words` + `overflow-wrap: anywhere`). Category badges truncate at 140px. Header row wraps when content is wide. Skales Insider posts no longer break the feed layout.
+
+### Telegram
+
+- **Approval flow shows continuation hint.** After a Telegram-approved tool runs, the result message ends with "🔄 Tap or send Continue to resume." so the user knows the agent flow is paused, not finished. Optional `telegramApprovalAutoResume` setting (default OFF) lets the agent re-enter the ReAct loop automatically; on by user choice only, since it carries the historical risk of v7.2.1 infinite-loop regression.
+
+### Updater notifications
+
+- **Changelog field carries through IPC.** `electron/updater.js` now emits both `releaseNotes` (legacy) and `changelog` (new) on the IPC payload for `update-available` and `update-downloaded`. Renderer reads either. Update page renders the changelog whether the trigger came from server-side check or auto-detect IPC.
+
+### Localization
+
+- 11 new `system.errors.*` keys for the provider error translator, plus 3 new `chat.modelPicker.*` keys for the inline picker, with real translations across all 12 locales (de, en, es, fr, hr, ja, ko, pt, ru, tr, vi, zh). Locale parity 12 × 3989.
+
+### Internal
+
+- New shared utilities: `lib/model-limits.ts`, `lib/byte-budgeted-slice.ts`, `lib/mode-routing.ts`, `lib/error-translator.ts`, `lib/proxy-dispatcher.ts`, `lib/custom-providers.ts`, `lib/curated-models.ts`.
+
+### Notes
+
+- Auto-updater code path is unchanged. The `electron/updater.js` edit is one additive line emitting `changelog` alongside the legacy `releaseNotes` field.
+- DNA invariants intact.
+- Settings schema additions (`customProviders`, `modeOverrides`, `playgroundQualityBoost`, `identityMaintenanceAutoApprove`, `telegramApprovalAutoResume`, `proxy` per provider) are all OPTIONAL with safe defaults. Existing settings.json files load unchanged.
+- BSL `_responseQuality` consumption hardened: authorized builds get the full registry value, unauthorized builds are hard-capped at 4096 tokens regardless of model.
+
+---
+
+
+## v10.1.1 - Hotfix
+
+Five hotfix items rolled up on top of v10.1.0 Design. No new features, no architecture changes.
+
+
+### Vision routing
+
+- **Vision-capable model detection extended.** Gemma 3 (4B / 12B / 27B), Gemma 4 (E2B / E4B / 26B / 31B), LLaVA (7B / 13B / 34B / llama3 / phi3), Pixtral (12B / large), Qwen-VL / Qwen2-VL / Qwen2.5-VL, and MiniCPM-V are now recognised. Image inputs route to the configured vision model correctly.
+- **Explicit user override is respected.** If the user has set a Vision Model in Settings, it is used regardless of whether auto-detection knows about it. Auto-detection becomes a fallback, not a gate.
+- **Tool-call hardening.** Malformed tool-call JSON is parsed forgivingly (extracts the first valid JSON block from prose). On total failure, one explicit retry asks the model to return valid tool-call format. Tool execution errors are surfaced into the next LLM turn so the model cannot silently report success on a failed write or denied permission.
+
+### Chat history
+
+- **Mobile-origin badge.** Messages synced from Skales Mobile now show a small phone icon next to the timestamp. Tooltip reads "Sent from Skales Mobile". Read-only visual cue, no behavioural change.
+
+### Autopilot
+
+- **Activation modes.** Settings on the Autopilot page now include an Activation Mode picker with three options: Manual (legacy default - last toggle persists), On Startup (heartbeat starts automatically when Skales launches if the master switch is on), and Time Window (heartbeat is active during a user-defined daily 24-hour window such as 09:00 - 17:00). Time windows that cross midnight are supported (e.g. 22:00 - 06:00). Manual toggles inside an active window are respected for the rest of that window so a user can pause without fighting the auto-activation. Existing v10.1.0 users default to Manual and see no behaviour change unless they explicitly switch modes.
+
+
+### Notes
+
+- Auto-updater code is unchanged.
+- DNA invariants intact.
+
+---
+
+## v10.1.0 "Design" 
+
+The biggest creative update yet. Skales Studio gets a Design Tab that turns prompts into real HTML/CSS designs. Codework matures into a full autonomous coding agent. HF Spaces and MCP servers now work everywhere. Smoother animations across the app.
+
+### Studio
+
+- **Studio Design Tab** is the new first tab in Studio. Type a prompt, pick a template (Landing Page, Dashboard, Mobile Screen, Pricing, Hero, Login, Settings), get production-ready HTML + CSS + Tailwind back. Live preview iframe, palette extraction, font extraction, fullscreen preview mode (Escape to exit), inline refine drawer, recent designs dropdown. Designs persist between sessions (50 designs FIFO).
+- **Studio Image Generation revival.** HuggingFace image provider now routes through the Inference Providers Router (`router.huggingface.co`) with two-attempt fallback chain. The legacy 404 issue is fixed for SDXL, FLUX, and other models. Clear error messages on failure with provider-fallback suggestions.
+- **HTML extraction made robust** against five common LLM output variants (fenced, unfenced, with or without DOCTYPE, truncated). Smaller models that don't follow exact output format still produce usable designs.
+- **View Transitions API** for smooth tab crossfades in Studio (Chrome, Edge, Safari TP). Graceful fallback on Firefox.
+
+### Codework
+
+Codework matured significantly across the v10.0.4 to v10.1.0 cycle. It is now a full autonomous coding agent, not just a chat with file tools.
+
+- **Approval Gates.** Three new toggles: auto-approve writes, auto-approve exec, auto-approve all. Pending-approval map with `/api/codework/approve` endpoint. Conservative defaults (Review mode) for first-time users.
+- **Forbidden command denylist** expanded from 5 to 17 patterns plus 8 dangerous pipe-pairs. Common destructive operations (`rm -rf $HOME`, fork bombs, dd to disk, etc.) blocked at orchestrator level even with auto-approve enabled.
+- **Test loop with progress guardrail.** New `testCommand` field per session lets Codework run tests after each code change. After 3 consecutive test failures with no progress, the loop aborts and Codework reports back instead of grinding tokens.
+- **Preview Mode** for write operations. Write tools generate diffs that surface to the user for accept/reject before applying. New SSE events `tool_pending_write`, `tool_write_accepted`, `tool_write_rejected`.
+- **MCP tool consumption.** Connected MCP servers are now exposed as tools to Codework. Tool naming `mcp_<server>_<tool>`. Conservative auto-approval gating.
+- **Repository-map indexing.** Codework now builds a project-wide map (functions, classes, exports per file) cached in `.skales-backup/repo-map.json` with SHA-256 Merkle root for fast invalidation. Scales to 500+ files. Regex-based parser (tree-sitter AST upgrade coming in v10.2).
+- **Long-context tiers.** For huge projects, Codework adapts: full tree+keyfiles+repomap under 50 files, tree+repomap up to 500, directory-only+repomap above 500.
+- **Token usage tracking.** Live token counter shown in Codework with indigo pill, updates per LLM call via new `usage` SSE event.
+- **Commit-message generator.** New helper drafts commit messages from staged changes following Conventional Commits style.
+
+### Cross-tool integration
+
+- **HF Spaces and MCP everywhere.** Activated HF Spaces and connected MCP servers are now usable from Chat, Codework, AND Studio. Add a Space once, use it anywhere.
+- **Active Tools Across Skales** panel in Settings shows which tools are available in which surfaces (Chat / Codework / Studio).
+- **Studio HF Spaces invocation endpoint** (`/api/studio/space-invoke`) lets Studio invoke any active Space directly.
+
+### Lio AI
+
+- **Recursive project snapshot.** Lio AI now builds a complete file map of your project on each plan/build cycle (max depth 10, max 2000 files). Better context awareness for multi-file changes.
+- **Plan context** assembled from project structure + chat history for higher-quality plans.
+
+### Chat
+
+- **Token-pruning heuristic** for short queries widened to 120 characters (was 80). Queries like "Explain X with examples" keep their tools instead of being stripped to plain chat.
+- **gpt-tokenizer integration.** Exact token counting for context-budget calculations across providers (Groq 12k, Mistral 30k, Cerebras 32k, SambaNova 16k). Tools are pruned only when they actually exceed provider TPM ceilings.
+- **Smoother streaming token rendering** via batched requestAnimationFrame updates.
+- **Update toast localized** in all 12 locales with version interpolation. Update detail page renders the actual changelog from `latest.json`.
+
+### Stability
+
+- **JSON I/O hardened.** All JSON reads/writes across 65+ files migrated to `readJsonSafe`/`writeJsonSafe` helpers. Handles malformed JSON, missing files, BOM characters, partial writes.
+- **Hierarchy clarity in Organizations.** Orchestrator override fix for the Person/Agents/Organization confusion that affected multi-agent setups.
+- **Namesake trope removed** from all 12 locales (was a phrase pattern that drifted across localizations).
+- **Codework session sidebar** active-state correctly handles trailing slashes (no more two-row highlights).
+- **createSession testCommand wiring** fixed: the field now persists correctly into session metadata.
+- **Delete session prompt** now properly localized in all 12 languages.
+
+### Internal
+
+- **Codework runtime extracted.** `runCodeworkAgentLoop` and `buildCodeworkSystemPrompt` moved from `/api/codework/run/route.ts` (488 LOC) to `actions/codework.ts` (route now 102 LOC). Cleaner separation, easier to reuse.
+- **LIO_IGNORE_NAMES expanded** from base list to 25 entries covering more build artifact directories.
+- **Codework dogfood `.skales-backup`** directory cleaned and gitignored.
+- **Stale `/lio` and `/lizard`** slash-command references removed from chat system prompts.
+- **Debug log noise** from token-bloat and tool-prune instrumentation removed.
+- **Auto-updater** continues stable since v10.0.3.
+
+### Mobile
+
+- **Outbox foreground sync** via AppState listener. Pending messages flip to "failed" immediately when app resumes (was up to 10 seconds of background drift before).
+- **Periodic 10-second sweep** keeps outbox state fresh during active chat use.
+
+### Landing
+
+- **Migration sources** in v902 Canvas Office blog and Migration Importer feature now mention OpenClaw, Hermes, and Cherry Studio alongside ChatGPT/Claude/Copilot/Gemini.
+- **Three new feature blocks**: ComfyUI (local image generation), HF Inference Providers (200+ models), DeepSeek V4 (1M context, agent-tuned).
+
+### Note on Lio AI export from Studio
+
+The "Open in Lio AI" export from the Studio Design Tab was investigated and removed during the V102 dev cycle. Lio AI's `/code` page does not currently consume `?project=<id>` URL params, and Lio AI is fundamentally a different workflow (architect-reviewer-build loop) than Studio Design's static HTML iteration. Lio AI is left 100% untouched. Use the Download HTML button instead.
+
+
+## v10.0.4 — April 20, 2026
+
+### Telegram Integration
+- **Fixed**: Safe Mode approval flow broken since v9.x. Tool approvals from Telegram now correctly trigger the approval prompt and execute on your "yes" response (GitHub #77)
+- **Fixed**: Telegram bot no longer requires opening the chat page after app launch to come online. Bot spawns automatically 3 seconds after server ready (GitHub #78)
+
+### Provider Presets
+- **Added**: Minimax, Cloudflare Workers AI, and Nvidia NIM as first-class provider presets with pre-filled endpoints. No more manual Custom OpenAI-Compatible configuration needed for these (GitHub #76)
+- **Added**: "Show only active" toggle in the Providers list to hide unused providers
+
+### Chat & UX
+- **Added**: Response time display on assistant messages — see how long each response took (GitHub #61)
+- **Added**: Global hotkey `Cmd+Shift+H` (macOS) / `Ctrl+Shift+H` (Windows/Linux) to toggle Desktop Buddy visibility. Handy for fullscreen video (GitHub #60)
+- **Improved**: Settings search now covers more sections, handles accents (é matches e, ä matches a), and has better keyword coverage in German/Spanish/French/Russian (GitHub #59)
+- **Improved**: Fallback provider banner reworded for clarity with a details modal explaining why the fallback activated and how to fix the primary (GitHub #70)
+
+### Export & Remote Access
+- **Fixed**: Export via Tailscale or remote browser access no longer returns a corrupted HTML file instead of a ZIP. Content-Type headers, MIME validation, and error handling properly hardened across the HTTP route
+- **Unchanged**: Native Electron Export remains the same, ~13MB ZIP with manifest and `.skales-data/` — no regression
+
+### Email
+- **Improved**: Outlook/Gmail/Yahoo IMAP authentication errors now explain the App-Specific Password / OAuth2 requirement (Microsoft disabled Basic Auth in 2022) instead of showing a generic "auth failed" message
+
+### Build & Infrastructure
+- **Fixed**: `build-info.json` now correctly reports the current version. `scripts/build-id.js` is now invoked as the first step in `scripts/release-build.sh` on every release (GitHub #79)
+
+### Locales
+- All 12 locales (en, de, es, fr, hr, ja, ko, pt, ru, tr, vi, zh) updated with v10.0.4 strings — informal register maintained
+
+---
+
+## v10.0.3 — Stability (April 18, 2026)
+
+### Bug Fixes
+- **Bonjour/mDNS Collision** — instance name now includes PID (`Skales-<hostname>-<pid>`); multiple Skales instances on the same machine no longer shadow each other in swarm discovery
+- **Multi-Agent Dispatch Toast** — completion notification was silently dropped after all subtasks finished; now fires a purple 🦁 toast with job title + subtask count (7 s display duration)
+- **Update Page i18n** — "Later" button showed raw key `update.later` instead of translated text; `later` key added to all 12 locale files
+- **Ollama Small-Model Warning** — settings panel now shows an orange warning when a known small model (≤3B params) is selected with `Max tools > 0`, advising the user to reduce tools or switch to a larger model
+- **fal.ai Studio Hang** — video generation polled a manually constructed status URL that broke when fal.ai changed their queue URL structure; client now uses `status_url` / `response_url` from the submit response with fallback to constructed URLs
+- **Codework UI Lag** — blank activity panel during 1–2 s SSE startup gap replaced with an optimistic "Starting session…" phase entry so the UI never appears frozen
+
+---
+
+## v10.0.2 — 2026-04-18
+
+### Fixed
+
+- **Tool Filter Regression (critical).** Disabled the context-aware tool filter introduced in v9.2.1 which was silently dropping core tools (`send_telegram_message`, `write_file`, `create_directory`, and others) based on keyword matching. This was the root cause of the widespread "Unknown tool" errors users reported after v10.0.0. All tools are now available in every conversation until a safer allow-list approach lands in v10.1.
+- **Export Dialog "Source path not allowed".** The `copy-file` IPC handler now accepts `os.tmpdir()` as a valid source path. In v10.0.1 the export bundle ZIP was written to the OS temp directory, but the handler's whitelist only permitted `DATA_DIR`, so exports failed silently.
+- **Multi-Step Exit Guard.** The ReAct loop now only exits when the model returns zero tool calls. Previously, response text emitted alongside tool calls (e.g. "let me continue with...") was incorrectly interpreted as an exit signal, breaking legitimate multi-step tasks.
+
+### Improved
+
+- **`SAME_TOOL_NAME_HARD_CAP` raised 3 → 15.** The per-turn cap on how often a single tool name can be called was too low to support normal bulk operations (creating 5+ folders, writing 10 files). Infinite loops with identical arguments are still caught by stall detection (2 identical calls) and the dedup tracker (2 identical args), so this only affects legitimate bulk work.
+- **Progress-Speak Auto-Continue.** When a model made tool calls in previous iterations but then stops with short progress-style text ("let me continue", "jetzt erstelle ich die restlichen", "remaining", etc.), the orchestrator now automatically re-prompts it to finish via tool calls instead of exiting the loop. Mitigates Sonnet 3.7's mid-task pause behavior on bulk operations.
+
+### Known Issues
+
+- Sonnet 3.7 may still pause on 5+ item bulk tasks despite auto-continue. Use Claude Opus 4, Sonnet 4, or Minimax for guaranteed single-shot bulk execution.
+- Minimax models may emit tool calls as JSON text in chat instead of real function calls for some prompts.
+- Codework UI may appear frozen for 1–2 seconds before streaming catches up; backend is working.
+- Multi-Agent Dispatch toast notification is not currently firing; check the Tasks tab for progress.
+
+---
+
+## v10.0.1 — Hotfix (April 17, 2026)
+
+### Critical Fixes
+- **Auto-Updater Schema Mismatch** resolved — flat and nested feed schemas now both accepted; zero successful auto-updates from v10.0.0 was caused by this. Users on v9.x must install v10.0.1 manually once.
+- **Export/Import** — valid zips with schema version, manifest, credential redaction; accepts legacy formats for backward compat
+- **Multi-Step Tool Chains** — no longer exit prematurely when the model returns empty text between tool calls
+- **Advisor Strategy** — simple chat no longer routed through the expensive Planner (complexity gate)
+- **Gemini Tool Schema** — stripped OpenAI-specific fields that Gemini silently rejected; tool calls restored for Gemini models
+- **create_task vs planner_create_task** — disambiguated via explicit tool descriptions + system prompt routing rules
+
+### Integrations
+- Telegram outbound Chat-ID persisted across bot restarts (`telegram-state.json`)
+- SMTP Test race condition eliminated
+- Lio AI provider dropdown labels no longer show raw i18n key paths
+- Custom endpoint URLs (LM Studio, Ollama) normalized case-insensitive at fetch time
+
+### Agent Behavior
+- System prompt now explicitly authorizes file access (prevents "Systembeschränkungen" hallucinations)
+- Folder structure creation supports recursive paths in a single tool call
+- Internal diagnostics protocol — agent checks local state before suggesting support
+
+### Configuration
+- New Setting: Request timeout (30–600s slider) for long agent tasks
+- Emoji loader negative-cache — no more 404 spam on codepoints without Lottie
+
+### Discover Feed
+- 29 v10 event templates now render custom text from client payloads
+
+### Security (PHP + WordPress)
+- Feed backend: IP hashing aligned with SHA-256 + salt across all endpoints
+- WordPress Connector 1.2.1: timing-safe token compare + file upload MIME allowlist
+
+### Localization
+- 132 new `settings.providers.*` keys across 12 locales
+- 4 chat state messages moved from hardcoded English to i18n
+- requestTimeout setting fully translated
+
+### Known Issues
+- Reasoning display still abbreviated (deferred to v10.1)
+- macOS notarization not yet implemented — right-click → Open required on first launch
+- SSH key authentication in SSH tool deferred to v10.1
+
+### Upgrade Path
+Auto-update works from v10.0.1 onwards. Users on v9.x: download manually from skales.app once.
+
+---
+
+## v10.0.0 — "Closing the Gap" (April 16, 2026)
+
+The biggest Skales release ever. Desktop + Mobile + Relay now form one ecosystem: every message you send from your phone routes through Desktop's full tool set, every capability you build on Desktop is reachable from the Mobile companion. Chat feels smoother. Studio speaks video. Settings speaks voice.
+
+### Skales Mobile (NEW)
+- Official Skales Mobile app for Android (iOS coming) — submitted to Play Store (beta, closed testing)
+- Full standalone AI agent in your pocket — 27 mobile tools, works with or without the desktop running
+- Remote Mode: pair via QR over the end-to-end encrypted relay (wss://relay.skales.app, TweetNaCl box, keys never leave the devices)
+- Paired phones get full access to THIS desktop's agentDecide pipeline — all 139+ tools (shell, files, browser control, email, calendar, Studio, etc.)
+- Image upload from mobile now forwards through the bridge as OpenAI-vision multimodal content (Desktop Vision-capable providers analyze it like a local upload)
+- Shared ecosystem: same Discover Feed, same Custom Agents, same Skills
+
+### Studio — LTX-2.3 Video Generation (NEW provider)
+- fal.ai LTX-2.3 integration (text-to-video + image-to-video, standard and fast variants)
+- $0.06/sec at 1080p, native 9:16 portrait support, 5s and 10s durations
+- Added alongside existing Veo/Kling/Runway/Replicate providers — shares the same Cloud-Render pipeline
+- Live "Connected" badge in Studio when fal API key is configured in Settings
+- 4 new localized model labels (`studio.falModels.textToVideo`, `imageToVideo`, `textToVideoFast`, `imageToVideoFast`) across all 12 languages
+
+### Animated Emoji System (NEW)
+- Noto Color Emoji font bundled — all Unicode emojis now render identically on Windows, macOS, and Linux
+- 16 brand and expressive emojis with smooth Lottie animations served from Skales CDN
+- Animated splash screen — Gecko mascot animates during app startup
+- Dashboard wave — hover over the greeting hand for a welcome animation
+- Discover Feed spark picker — emoji reactions animate on hover, play once in the sent confirmation
+- Chat expressiveness — AI messages with creative, memory, video, or web context emojis animate on arrival
+- Big emoji messages — send 1-3 emojis alone and they render larger with animation (iOS/Telegram style)
+- Easter egg shortcuts in chat: `:gecko:`, `:bubbles:`, `:paw:`, `/highfive`, `/bow`
+- Emoji privacy controls — optional Google CDN fallback in Settings → Privacy (off by default, GDPR compliant)
+- Emoji preloading — brand emojis cached on app start for instant rendering
+
+### Voice — TTS + STT
+- OpenAI TTS provider added (voices: alloy, echo, fable, onyx, nova, shimmer) — reuses the existing OpenAI provider key, no extra setup
+- New "Read responses aloud" toggle in Settings → TTS — when enabled, every assistant reply is spoken via the configured provider once streaming completes
+- Smart markdown stripping before TTS so the voice doesn't read ``` or # out loud
+- Per-message speaker button on every assistant bubble — click to listen, click again to stop, visible on hover next to Copy
+- Groq-key hint in the STT section (free Whisper access) with one-click jump to AI Providers tab
+- All voice UI fully localized (readAloud, stopReading, autoReadLabel, autoReadHint, etc. in 12 languages)
+
+### Chat — Smoothness & Inline Preview
+- Message entrance via Framer Motion spring (stiffness 320, damping 30, mass 0.9)
+- AnimatePresence with initial=false — session restores stay instant, only NEW messages fade-lift in
+- Typing indicator rewritten from translate-bounce to smooth wave (scale + opacity, 1.2s loop, 160ms stagger)
+- Typing bubble itself now fades in instead of popping, same style preserved when the agent transitions to tool-status so the indicator never "jumps"
+- Scroll-to-bottom FAB: lime-circle appears bottom-right when user scrolls up ≥200px from latest; click returns to live view + re-enables auto-follow
+- Inline HTML Preview: ```` ```html ```` fenced code blocks now render a sandboxed live iframe with Show Code / Download HTML / Save as Image / Mute / Hide toggles
+- Global mute + hide persist across all chats and sessions via localStorage — "34 webviews, 0 audio" on a single click
+- Save as Image — pixel-exact region capture, works on sandboxed iframes
+- Global `prefers-reduced-motion` CSS guard — OS-level accessibility setting disables all animations across the app
+
+### Capabilities & System Prompt
+- APP_VERSION bumped to 10.0.0, APP_VERSION_NAME = "Closing the Gap"
+- System prompt (Level 0 + Level 1) now explicitly knows about Mobile pairing, Inline HTML Preview, the fal.ai video path, Remote API, and the 12 supported languages
+- Agent is proactive: when the user describes something visual (chart, card, map, SVG, mini-app), it offers inline preview in the user's language before producing it
+- capabilities.json emits a live `mobile` block per rebuild (pairedDeviceCount, relay URL, E2E method, paired-device summary)
+- 6-theme mention (Dark / Light / Midnight / Forest / Amber / Glass) added to prompt
+
+### Bug Fixes
+- Buddy window draggable on Windows via native mousedown cursor tracking (screen.getCursorScreenPoint delta → setPosition), plus Cmd/Ctrl+Shift+B global reset shortcut
+- Agent delete button fixed — sandboxed Electron renderer silently drops window.confirm(); replaced with a two-click armed-state confirmation directly in the button
+- Playwright chromium detection now sorts descending and matches both `chromium-NNNN` and `chromium_headless_shell-NNNN` layouts — always picks the newest version installed
+- Telegram bot auto-restart watchdog: child.on('exit') listener with rate-limit (max 3 respawns per rolling hour), 5s backoff, respects current config enable/disable
+- feed.php `update_profile` now also updates the `tag` field in-place when a new gamertag is requested and not taken by another user — no more duplicate JSONL entries
+- Next.js proxy forwards the new tag in the update_profile JSON body so feed.php can rename in place
+- `settings.stt.help` i18n key re-applied (was hardcoded back to raw text)
+- Hardcoded "(API key required)" badge in Studio video-provider dropdown moved to `studio.apiKeyRequired` i18n key (12 languages)
+- `build-info.json` bumped from 9.3.0 → 10.0.0 so boot log matches package.json
+- External links in browser view now open in the default OS browser
+- Share window overlay responds to Escape key across chat, spotlight, and buddy
+- Browser scroll-to-bottom works reliably on lazy-loading and single-page applications
+- Playbook steps now wait for actual page load before proceeding
+- macOS screen recording permission detected with user-facing guidance in share window
+
+### Under the Hood
+- New fal.ai queue-based client with defensive URL extraction and 6-minute timeout
+- HTML preview preference sync across all open windows
+- Shared Framer-Motion animation presets (spring, stagger, fade variants)
+- New IPC channels for Buddy drag and region capture
+- Global CSS for typing wave dots, scroll FAB, and reduced-motion guard
+- Noto-COLRv1.ttf (4.8 MB, vector emoji font) replaces platform-specific emoji rendering
+- Emoji loader with 5-tier cache: memory → IndexedDB → VPS → Google fallback (opt-in) → Unicode
+- SkalesEmoji React component with loop/once/static/hover animation modes
+- 12 locale files reach perfect parity: 3546 keys each, zero missing, zero extra
+
+### Localization
+- ~60 new i18n keys added across 12 languages (en, de, es, fr, hr, ja, ko, pt, ru, tr, vi, zh) for fal.ai models, HTML preview, voice, Mobile, animated emojis, mute/unmute, scroll-to-latest
+- All new German keys are Du/Sie-neutral (Infinitiv + Substantiv form — "Vorlesen", "Stumm", "Als Bild speichern")
+- ALL new user-facing text goes through the i18n system — zero hardcoded English in new code
+
+
 ## v9.3.0 — Stability Release (April 13, 2026)
 
 ### Stability
@@ -68,8 +604,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tool deduplication prevents duplicate function declaration errors
 - Tool-awareness warning for local models with tools disabled
 
-### Contributors
-- @Kombowz — local model testing, Ollama/LM Studio QA
 
 
 ## v9.2.3 — File Operations & Stability (April 2026)
@@ -172,7 +706,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - DNA markers verified intact
 - TypeScript: zero errors (`tsc --noEmit` clean)
 - New files: `lib/studio/video-providers.ts`, `api/studio/video/generate-cloud/route.ts`, `lib/elementor-templates.ts`
-- Contributors: sidharth-vijayan, saagnik23
 
 
 ## v9.2.0 — "The Bridge" (April 2026)
@@ -240,7 +773,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Playwright detection unified (dynamic version scanning)
 - DNA markers verified intact
 - WordPress plugin: skales-wordpress/ (MIT license, kses filters bypassed for full HTML)
-- CONTRIBUTORS.md added
 
 ---
 
@@ -724,10 +1256,7 @@ playbook_run, playbook_list
 - **Local STT Endpoint:** Voice transcription can use local Whisper (KoboldCpp).
 - **Local Image Generation:** Configurable image generation endpoint alongside Replicate.
 
-### Contributors
-- @bmp-jaller - IPv6 localhost fix
-- @henk717 - KoboldCpp feedback shaping the local AI experience
-- @btafoya - Linux testing
+
 
 ## v7.0.1 — Hotfix (March 2026)
 

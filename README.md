@@ -1,40 +1,51 @@
 <div align="center">
-  <p>If you find this useful, a ⭐ helps others discover it</p>
   <h1>Skales 🦎</h1>
-<p align="center">
-  <a href="https://www.youtube.com/watch?v=k83NlptVmfc">
-    <img src="https://img.youtube.com/vi/k83NlptVmfc/maxresdefault.jpg" 
-         alt="Skales Demo Video" width="100%" />
-  </a>
-</p>
-  <p>
-    <strong>Your Local AI Desktop Agent for Windows, macOS & Linux</strong>
-  </p>
-
-  <p>
-    One-click install. No Docker. No terminal. 15+ AI providers. Runs locally with Ollama.<br/>
-    Chat, code autonomously, create images & videos, control your desktop, browse the web, organize multi-agent teams, manage calendars, send emails, and automate your day.
-  </p>
-
-  <p>
-    <a href="https://github.com/skalesapp/skales/releases/tag/v9.3.0"><img src="https://img.shields.io/badge/version-9.3.0-10b981?style=flat-square" alt="Version 9.3.0" /></a>
-    <a href="https://skales.app"><img src="https://img.shields.io/badge/license-BSL_1.1-10b981?style=flat-square" alt="License" /></a>
-    <a href="https://skales.app"><img src="https://img.shields.io/badge/Windows_+_macOS_+_Linux-10b981?style=flat-square&logo=windows&logoColor=white" alt="Platform" /></a>
-    <a href="https://github.com/skalesapp/skales/stargazers"><img src="https://img.shields.io/github/stars/skalesapp/skales?style=flat-square&color=10b981" alt="Stars" /></a>
-  </p>
-
-  <p>
+  <p>Skales Desktop:
     <a href="https://skales.app/download/latest-windows"><b>Windows</b></a> · 
     <a href="https://skales.app/download/latest-mac-arm64"><b>macOS (Apple Silicon)</b></a> · 
     <a href="https://skales.app/download/latest-mac-intel"><b>macOS (Intel)</b></a> · 
     <a href="https://skales.app/download/latest-linux"><b>Linux</b></a>
   </p>
+  <p>Skales Mobile: 📱<a href="https://play.google.com/store/apps/details?id=app.skales.mobile"><b>Android</b></a></p>
+
+</b></p>
+  <p>
+    <strong>Local AI Desktop Agent for Windows, macOS & Linux</strong>
+  </p>
+  <p>
+  <sub>Android live on Google Play. iOS in App Store review.</sub>
+    </p>
+<p>
+    <a href="https://github.com/skalesapp/skales/releases/tag/v10.2.9"><img src="https://img.shields.io/badge/version-10.2.9-10b981?style=flat-square" alt="Version 10.2.9" /></a>
+    <a href="https://skales.app"><img src="https://img.shields.io/badge/license-BSL_1.1-10b981?style=flat-square" alt="License" /></a>
+    <a href="https://skales.app"><img src="https://img.shields.io/badge/Windows_+_macOS_+_Linux_+_Android-10b981?style=flat-square&logo=windows&logoColor=white" alt="Platform" /></a>
+    <a href="https://github.com/skalesapp/skales/stargazers"><img src="https://img.shields.io/github/stars/skalesapp/skales?style=flat-square&color=10b981" alt="Stars" /></a>
+  </p>
+  <p>
+    One-click install. No Docker. No terminal. 15+ AI providers. Runs locally with Ollama.<br/>
+    Chat, code autonomously, create images & videos, control your desktop, browse the web, organize multi-agent teams, manage calendars, send emails, and automate your day.
+  </p>
+   <p>
+    <sub>Switching from <b>OpenClaw</b>, <b>Hermes Agent</b>, or <b>ChatGPT</b>? Skales has a built-in migration importer. Settings > Import from Another Tool.</sub>
+  </p>
+<p align="center">
+    <img src="https://skales.app/readme.gif" alt="Skales AI Desktop Agent Interface" width="100%" />
+
+</p>
+
+  <p align="center">
+  <a href="https://www.youtube.com/watch?v=k83NlptVmfc">
+    <img src="https://img.youtube.com/vi/k83NlptVmfc/maxresdefault.jpg" 
+         alt="Skales Demo Video" width="100%" />
+  </a>
+</p>
+
+
+ <p>If you find this useful, a ⭐ helps others discover it</p>
   <p>
     <a href="https://docs.skales.app">Documentation</a> · <a href="https://getskales.app">Blog</a> · <a href="./CHANGELOG.md">Changelog</a> · <a href="https://github.com/skalesapp/skales/discussions">Community</a>
   </p>
-  <p>
-    <sub>Switching from <b>OpenClaw</b>, <b>Hermes Agent</b>, or <b>ChatGPT</b>? Skales has a built-in migration importer. Settings > Import from Another Tool.</sub>
-  </p>
+ 
 
 </div>
 
@@ -61,6 +72,7 @@ Skales is an AI agent that lives on your desktop. Not in a browser tab, not behi
 | **Privacy** | Cloud only | Local-first, BYOK, Offline capable |
 | **Updates** | Manual Git pull and rebuild | One-click auto-updater |
 | **Security** | Unsigned scripts | Apple Developer ID signed (Windows signing coming) |
+| **Emoji** | Platform-dependent | Consistent Noto emojis + animated brand emojis |
 | **Migration** | Start from scratch | Import from ChatGPT, Claude, OpenClaw, Hermes |
 
 *A 6-year-old built a game with it. A grandmother approved the setup.*
@@ -82,6 +94,23 @@ Select any project folder. Describe the task. Pick your model. Watch the agent r
 ### 🏢 Organization
 Build an AI company. Create departments, assign specialized agents, set team leaders, and delegate complex tasks. The CEO agent auto-routes work to the right team. Export and import Company Packs to share your org setup. Advisor Strategy: use a powerful model for planning and a fast model for execution.
 
+### 📱 Skales Mobile
+
+<p align="left">
+  <a href="https://play.google.com/store/apps/details?id=app.skales.mobile">
+    <img src="https://skales.app/mobile.png" alt="Skales Mobile is live on Google Play" width="800">
+  </a>
+</p>
+
+
+Your AI agent in your pocket. Android now, iOS soon. Pair via QR and the phone instantly gets access to THIS desktop's full tool set (139+ tools: shell, files, browser control, email, calendar, Studio, everything). End-to-end encrypted relay. Keys never leave the devices. Or run the phone **standalone** — 27 native mobile tools, no desktop needed. Shared ecosystem: same Discover Feed, same Custom Agents, same Skills.
+
+### 🗣️ Voice — Talk to Skales (NEW in v10)
+Per-message speaker icon on every AI reply. Optional "Read responses aloud" for continuous flow. TTS providers: Device voices (free), OpenAI Speech 6 natural voices, ElevenLabs, Azure, or any OpenAI-compatible endpoint. STT via Groq Whisper (free tier) or OpenAI Whisper. Full Voice Chat Mode for hands-free operation.
+
+### 🌐 Inline HTML Preview (NEW in v10)
+When the AI writes a ```` ```html ```` block in chat, Skales renders it live in a sandboxed iframe right in the conversation. Perfect for "make me a chart of X", "embed a map", "build an SVG icon", mini-apps. Buttons: Show Code, Download HTML, Save as Image, Mute, Hide. Mute + hide are global and persist across sessions — one click silences every preview in every chat.
+
 ### 🖥️ Computer Use
 Your AI can see and control your screen. Screenshots, mouse clicks, keyboard input, scrolling. Every action requires approval in Safety Mode. Screenshots appear inline in chat.
 
@@ -95,9 +124,9 @@ Describe what you want and Lio builds it. Multi-AI architecting: One AI designs,
 
 ### 🎨 Skales Studio
 <p align="center">
-  <img src="https://skales.app/ss_0.gif" alt="Skales Studio - Image, Video, Audio, Music" width="100%" />
+  <img src="https://skales.app/ss_0.gif" alt="Skales Studio - Design, Image, Video, Audio, Music" width="100%" />
 </p>
-Create images, videos, voice, and music with AI from one place. Multiple providers: built-in Skales Visuals, Replicate, HuggingFace, DALL-E, ComfyUI, local Stable Diffusion. 10 Style Presets, Camera Controls, dynamic model fetching. Export as PNG, MP4, or audio. Brand Kit keeps everything on-brand.
+Create designs, images, videos, voice, and music with AI from one place. Type a prompt, pick a template (Landing Page, Dashboard, Mobile Screen, Pricing, Hero, Login, Settings), get production-ready HTML + CSS + Tailwind back. Live preview iframe, palette/font extraction, fullscreen mode, refine drawer, recent designs persist between sessions. Image generation via built-in Skales Visuals, Replicate, HuggingFace (now via the Inference Providers Router — SDXL/FLUX work again), DALL-E, ComfyUI (local), local Stable Diffusion, fal.ai. Video via Google Veo, Kling, Runway, fal.ai LTX-2.3 (text→video + image→video, 5/10s clips, native 9:16). 10 Style Presets, Camera Controls, dynamic model fetching. **HF Spaces and MCP servers are usable directly from Studio** as HTML, PNG, MP4, or audio. Brand Kit keeps everything on-brand.
 
 ### 🗂️ Templates
 37 pre-built prompt templates across Chat, Codework, Organization, Lio AI, Browser, Planner, and Studio. Click to open the module with the prompt pre-filled. Build your own with the AI-guided Template Maker.
@@ -198,6 +227,7 @@ Like Spotify Wrapped for your AI. Auto-generates every Monday. Activities, top t
 - **Sandboxed:** Configurable file operation boundaries.
 - **Signed:** macOS Apple Developer ID. Windows signing coming.
 - **WordPress:** Token-based auth (SHA-256). No data leaves your site. Plugin is MIT-licensed.
+- **Emoji CDN:** Animated emojis served from our own servers in the EU. Optional Google fallback off by default.
 
 ---
 
@@ -210,6 +240,8 @@ Like Spotify Wrapped for your AI. Auto-generates every Monday. Activities, top t
 > 🪟 **Windows:** EXE installer. Signed binaries coming soon.
 
 > 🐧 **Linux:** AppImage. `chmod +x` and run.
+
+> 📱 **Android:** Skales Mobile app — pair to your Desktop via QR, or run standalone. Submitted to Play Store (beta, closed testing).
 
 > 🔄 **Switching tools?** Import from ChatGPT, Claude, Copilot, Gemini, OpenClaw, Hermes. Settings > Import.
 
@@ -224,7 +256,9 @@ Like Spotify Wrapped for your AI. Auto-generates every Monday. Activities, top t
 | **Styling** | Tailwind CSS |
 | **Language** | TypeScript |
 | **Storage** | `~/.skales-data` (JSON + SQLite) |
-| **AI** | ReAct agent loop, 70+ tools (including download_file), multi-agent delegation, context-aware tool filtering |
+| **AI** | ReAct agent loop, 139+ tools, multi-agent delegation, context-aware tool filtering |
+| **Motion** | Framer Motion (message stagger, typing wave, FAB, modal springs) with `prefers-reduced-motion` honoured |
+| **Relay** | E2E encrypted relay for Mobile ↔ Desktop pairing |
 
 ---
 
@@ -232,9 +266,10 @@ Like Spotify Wrapped for your AI. Auto-generates every Monday. Activities, top t
 
 12 Languages: EN, DE, ES, FR, IT, PT, KO, ZH, JA, VI, HR, TR.
 
-**Contributors:** [@btafoya](https://github.com/btafoya), [@bmp-jaller](https://github.com/bmp-jaller), [@henk717](https://github.com/henk717), [@SohaibKhaliq](https://github.com/SohaibKhaliq), [@VladB-evs](https://github.com/VladB-evs), [@v33-kind](https://github.com/v33-kind), [@sidharth-vijayan](https://github.com/sidharth-vijayan), [@saagnik23](https://github.com/saagnik23), [@Kombowz](https://github.com/Kombowz).
+**Maintainer:** Mario Simic (solo founder, Vienna, Austria).
 
-Want to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+**Contributors:** [@btafoya](https://github.com/btafoya), [@bmp-jaller](https://github.com/bmp-jaller), [@henk717](https://github.com/henk717), [@SohaibKhaliq](https://github.com/SohaibKhaliq), [@VladB-evs](https://github.com/VladB-evs), [@v33-kind](https://github.com/v33-kind), [@sidharth-vijayan](https://github.com/sidharth-vijayan), [@saagnik23](https://github.com/saagnik23), [@Kombowz](https://github.com/Kombowz), [@anthonytrance](https://github.com/anthonytrance), [@karelrokk-droid](https://github.com/karelrokk-droid), [@mclaudiopt](https://github.com/mclaudiopt), [@1Hackoon](https://github.com/1Hackoon), [@tbaumann](https://github.com/tbaumann), [@Derrick-xn](https://github.com/Derrick-xn) [@jazzroutine](https://github.com/jazzroutine) [@LLen](https://github.com/LLen) [@NikiKeyz](https://github.com/NikiKeyz) 
+
 
 [Discussions](https://github.com/skalesapp/skales/discussions) · [Bug Reports](https://github.com/skalesapp/skales/issues)
 
@@ -252,7 +287,7 @@ Want to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## 📜 License
 
-**BSL 1.1** — Free for personal and commercial use. See [LICENSE](./LICENSE).
+**BSL 1.1** — Free for personal, educational, and non-commercial use. Commercial SaaS or competing products require written permission. Converts to Apache 2.0 on 2030-04-19. See [LICENSE](./LICENSE) for full terms.
  
 WordPress Plugin: **MIT** — [github.com/skalesapp/wordpress](https://github.com/skalesapp/wordpress)
  

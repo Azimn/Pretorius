@@ -381,7 +381,506 @@
 <div class="content">
 
   <!-- ═══════════════════════════════════════════════
-       SHIPPED – v9.3.0 STABILITY RELEASE (CURRENT)
+       SHIPPED – v10.2.8 STABILITY SPRINT
+  ════════════════════════════════════════════════ -->
+  <div class="release-header">
+    <span class="release-tag" style="color:var(--green);background:var(--green-dim);border-color:var(--green-border);">Shipped</span>
+    <div>
+      <div class="release-title">v10.2.8 &mdash; Stability Sprint <span style="font-size:0.75em;opacity:0.6;font-weight:400;">May 12, 2026</span></div>
+      <div class="release-sub">Eight-day stability sprint. New Skales Mobile launch on Android. Memory Mode rename. Codework polish. Session-write race condition closed. Auto-updater pipeline unchanged. DNA invariants intact. Locale parity preserved.</div>
+    </div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">📱</div>
+      <div class="card-body">
+        <div class="card-title">Skales Mobile is Live on Android</div>
+        <div class="card-desc">Skales Mobile is publicly available on the Google Play Store for Android phones and tablets. Pair your phone via QR for full access to Desktop's tool surface through an end-to-end encrypted relay, or run standalone with 27 native mobile tools. Install from <a href="https://play.google.com/store/apps/details?id=app.skales.mobile">https://play.google.com/store/apps/details?id=app.skales.mobile</a>. iOS is in App Store review and lands the moment review clears.</div>
+        <div class="card-tags"><span class="tag">Mobile</span><span class="tag">New</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🧠</div>
+      <div class="card-body">
+        <div class="card-title">Memory Mode &mdash; clearer naming, advanced gate, header badge</div>
+        <div class="card-desc">The setting formerly known as Token Compressor is now called Memory Mode. Three modes: Always Remember, Compact, Minimal. Minimal moved behind an Advanced disclosure to prevent accidental selection. When the active mode is non-default, a small amber Brain badge appears in the chat header to surface the state and provide a one-click jump back to settings. Hidden in Mini Mode, matching the established pattern for Voice, Call, Share, and Incognito.</div>
+        <div class="card-tags"><span class="tag">UX</span><span class="tag">Memory</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🛠️</div>
+      <div class="card-body">
+        <div class="card-title">Codework polish &mdash; resume banner, file tree toggle, sorted recent</div>
+        <div class="card-desc">Resume banner replaces the previous Continue button as the canonical resume affordance for paused or interrupted Codework sessions, with Resume and Dismiss actions that persist. A new header button toggles the file tree pane visibility, with state retained across restarts. Recent sessions now sort by last-touched time instead of filename, and status badges expand to five states (IN PROGRESS, DONE, ERR, STOPPED, or none for unknown).</div>
+        <div class="card-tags"><span class="tag">Codework</span><span class="tag">UX</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔒</div>
+      <div class="card-body">
+        <div class="card-title">Per-session write mutex closes the race condition</div>
+        <div class="card-desc">Concurrent writers (chat page mid-conversation, buddy poll, mobile bridge, Telegram inbound, Spotlight) could previously clobber each other through a last-writer-wins pattern. A new per-session in-process mutex now serializes all writers, and the mobile bridge re-loads the session at write time instead of overwriting with a pre-call snapshot. Race window shrinks from seconds-to-minutes down to milliseconds, effectively race-free for everyday use. Telemetry warns in DevTools console when an unexpected shrink occurs; Manual Compact logs an "intentional shrink" marker so the two are distinguishable.</div>
+        <div class="card-tags"><span class="tag">Stability</span><span class="tag">Bugfix</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔧</div>
+      <div class="card-body">
+        <div class="card-title">Render filter + sidebar agent filter + Open Folder + Tasks expand</div>
+        <div class="card-desc">Assistant turns that carried tool_calls but no captured tool results (interrupted mid-execution) used to vanish from the chat render entirely; they now render as an italic indicator listing the attempted tool names. The sidebar now filters sessions by the currently selected agent so clicking a session no longer reroutes to a different agent's context. Codework projects gained an Open in Finder / Open in Explorer button in the project header. Long task results no longer truncate silently &mdash; click any task to open a full-text modal. OpenRouter is now the default provider for new installs, persona persists across conversation restarts, and three API routes that were inadvertently ignored are now tracked correctly.</div>
+        <div class="card-tags"><span class="tag">UX</span><span class="tag">Bugfix</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SHIPPED – v10.2.2 COMBINED HOTFIX + FEATURES
+       (v10.2.1 was rolled into v10.2.2)
+  ════════════════════════════════════════════════ -->
+  <div class="release-header">
+    <span class="release-tag" style="color:var(--green);background:var(--green-dim);border-color:var(--green-border);">Shipped</span>
+    <div>
+      <div class="release-title">v10.2.2 &mdash; Combined Hotfix + Features <span style="font-size:0.75em;opacity:0.6;font-weight:400;">May 5, 2026</span></div>
+      <div class="release-sub">v10.2.1 hotfix items plus live model fetch and user-configurable model limits, shipped together. Auto-updater pipeline unchanged. DNA invariants intact. Locale parity preserved.</div>
+    </div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">🔄</div>
+      <div class="card-body">
+        <div class="card-title">Live model fetch for cloud providers</div>
+        <div class="card-desc">Each provider card in Settings → AI Providers has a Refresh button that hits /v1/models (or the vendor equivalent). Anthropic, OpenAI, Google Gemini, Groq, DeepSeek, Mistral, xAI, Together, MiniMax, Cloudflare, NVIDIA, SambaNova, and Cerebras supported. Result persists to settings.modelCache; every model dropdown prefers the cached list over the hardcoded baseline. New models become usable without a Skales release.</div>
+        <div class="card-tags"><span class="tag">Providers</span><span class="tag">Settings</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">⚙️</div>
+      <div class="card-body">
+        <div class="card-title">Override model limits (power user)</div>
+        <div class="card-desc">Settings → AI Providers → Override Model Limits. Add per-(provider, model) override rows for context and output token caps. Use * as the model name for a provider-wide wildcard. Resolves ahead of the static lib/model-limits registry via a 5s in-process cache of settings.modelLimits. Useful for newly released models whose limits differ from the built-in registry.</div>
+        <div class="card-tags"><span class="tag">Providers</span><span class="tag">Settings</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🌐</div>
+      <div class="card-body">
+        <div class="card-title">Per-provider proxy actually routes</div>
+        <div class="card-desc">v10.2.0 declared the feature but the dispatcher was not reaching the fetch calls — the standalone Next.js build did not include the undici package, so the runtime require returned undefined silently. Fixed by making undici an explicit dependency, switching the dispatcher to a proper import, and externalizing it in next.config.mjs so Webpack does not parse undici's private class fields.</div>
+        <div class="card-tags"><span class="tag">Providers</span><span class="tag">Bugfix</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🗑️</div>
+      <div class="card-body">
+        <div class="card-title">Manual delete persists</div>
+        <div class="card-desc">v10.2.0 trimmed the in-memory message array but did not propagate the deletion to disk. Fixed by saving the trimmed session explicitly from the delete handler. Buddy-poll dedup baseline updated in step so the poll does not re-inject removed messages.</div>
+        <div class="card-tags"><span class="tag">Chat</span><span class="tag">Bugfix</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🌳</div>
+      <div class="card-body">
+        <div class="card-title">Branch action creates the right slice</div>
+        <div class="card-desc">v10.2.0 surfaced the Branch hover button on chat bubbles but the slice index was wrong — the new session contained a different subset than the user expected. Fixed end-to-end: clicking Branch on the Nth message creates a new session with messages 1 through N inclusive. Snapshot is captured up-front so re-renders cannot shift the slice mid-handler.</div>
+        <div class="card-tags"><span class="tag">Chat</span><span class="tag">Bugfix</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🌍</div>
+      <div class="card-body">
+        <div class="card-title">Bubble action labels and toasts translated</div>
+        <div class="card-desc">A handful of chat.bubble.* locale keys shipped without translations in v10.2.0 — the Branch toast, the Delete tooltip, and the Branch error showed raw key strings. Real translations added across all 12 locales (en, de, es, fr, hr, ja, ko, pt, ru, tr, vi, zh).</div>
+        <div class="card-tags"><span class="tag">i18n</span><span class="tag">Locale</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🎯</div>
+      <div class="card-body">
+        <div class="card-title">Per-Mode Override uses real provider data</div>
+        <div class="card-desc">Settings → Per-Mode Model Overrides previously showed a hardcoded curated list regardless of what the user had configured. Now uses the same getCuratedModels() helper as the chat header and Playground pickers — provider dropdown lists only enabled providers with API keys, model dropdown reflects configured + curated models for the chosen provider, plus a free-text fallback for off-list models.</div>
+        <div class="card-tags"><span class="tag">Settings</span><span class="tag">UX</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔄</div>
+      <div class="card-body">
+        <div class="card-title">Playground picker syncs with Settings</div>
+        <div class="card-desc">Playground on-page model picker and Settings Per-Mode Override now share the same source of truth (settings.modeOverrides.playground). A small window-event bus fires after each save so the other surface re-hydrates instead of going stale until reload.</div>
+        <div class="card-tags"><span class="tag">Settings</span><span class="tag">Sync</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">📱</div>
+      <div class="card-body">
+        <div class="card-title">Header pickers hide on small viewports</div>
+        <div class="card-desc">Chat header and Playground header model pickers hide below 768px. Matches the existing Mini Mode behavior — at iPhone widths the picker cluttered the chat header without serving a clear purpose.</div>
+        <div class="card-tags"><span class="tag">UI</span><span class="tag">UX</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">❓</div>
+      <div class="card-body">
+        <div class="card-title">Settings page no longer shows the Agents help trigger</div>
+        <div class="card-desc">The "Skales agents at a glance" trigger on the Settings page was removed. It belongs on the Agents page only, which is unchanged.</div>
+        <div class="card-tags"><span class="tag">Settings</span><span class="tag">UX</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SHIPPED – v10.2.0 ITERATIVE QUALITY RELEASE
+  ════════════════════════════════════════════════ -->
+  <div class="release-header">
+    <span class="release-tag" style="color:var(--green);background:var(--green-dim);border-color:var(--green-border);">Shipped</span>
+    <div>
+      <div class="release-title">v10.2.0 <span style="font-size:0.75em;opacity:0.6;font-weight:400;">May 4, 2026</span></div>
+      <div class="release-sub">Iterative quality release across providers, modes, error UX, and chat history. No new product surfaces; existing surfaces become more resilient and configurable. Auto-updater pipeline unchanged.</div>
+    </div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">📐</div>
+      <div class="card-body">
+        <div class="card-title">Per-(provider, model) limits registry</div>
+        <div class="card-desc">Context window and max output tokens now read from a per-provider, per-model registry. Replaces the previous hardcoded 32K context fallback and 2048-4096 output ceilings across orchestrator, chat, autopilot, code-builder, browser-control, autonomous-runner. Live HF Router context_length values can override the static entry at call time.</div>
+        <div class="card-tags"><span class="tag">Providers</span><span class="tag">Architecture</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🗜️</div>
+      <div class="card-body">
+        <div class="card-title">Smart context compaction</div>
+        <div class="card-desc">When effective context exceeds 75% of budget, older turns are LLM-summarized via a single low-cost call instead of being truncated to 280 chars per message. Falls back to the truncation behaviour on summary failure. Upstream slice(-N) caps in chat.ts and chat/page.tsx replaced with byte-budgeted slices so compaction is actually reached.</div>
+        <div class="card-tags"><span class="tag">Chat</span><span class="tag">Performance</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔌</div>
+      <div class="card-body">
+        <div class="card-title">Multiple custom OpenAI-compatible endpoints</div>
+        <div class="card-desc">customProviders[] array supports more than one custom endpoint. Legacy providers.custom keeps working and is mirrored as customProviders[0] via a one-shot migration. Settings UI exposes label, base URL, API key, model, enabled toggle, tool-calling and vision toggles per entry.</div>
+        <div class="card-tags"><span class="tag">Providers</span><span class="tag">Settings</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🎯</div>
+      <div class="card-body">
+        <div class="card-title">Per-mode model resolution</div>
+        <div class="card-desc">Resolver chain: caller override → settings.modeOverrides[mode] → settings.activeProvider/model. Wired into Playground, Buddy, and exposed in Settings as a "Per-Mode Model Overrides" panel covering Chat, Codework, Organization, Studio, Playground, Buddy, Spotlight.</div>
+        <div class="card-tags"><span class="tag">Modes</span><span class="tag">Routing</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">⚡</div>
+      <div class="card-body">
+        <div class="card-title">Inline model picker in Chat</div>
+        <div class="card-desc">Compact icon-only button in the chat header opens an absolute overlay popup listing installed providers and curated models. Layout never shifts. Solid background respects light/dark theme. Custom agent provider/model wins over the global default. Removed entirely in Mini Mode.</div>
+        <div class="card-tags"><span class="tag">Chat</span><span class="tag">UX</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🚨</div>
+      <div class="card-body">
+        <div class="card-title">Provider error translator + Resume action</div>
+        <div class="card-desc">Raw provider errors become friendly toasts with one-click recovery: continue / retry on Ollama crashes and timeouts, compact on context-exceeded, switch-fallback on rate limits and quota errors, open-settings on auth failures. Pattern rules for Ollama, OpenRouter, Anthropic, OpenAI; generic fallback annotates with provider+status for debug.</div>
+        <div class="card-tags"><span class="tag">UX</span><span class="tag">Errors</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">📅</div>
+      <div class="card-body">
+        <div class="card-title">Calendar routing disambiguation</div>
+        <div class="card-desc">create_calendar_event description anchors against natural-language calendar phrasing ("in Google Cal", "in den Kalender", "gcal", "schedule a meeting at TIME"). planner_create_task description clarifies it is for autonomous Skales prompts, not human appointments. TASK ROUTING RULES gain a Calendar branch above Planner.</div>
+        <div class="card-tags"><span class="tag">Routing</span><span class="tag">Calendar</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🤖</div>
+      <div class="card-body">
+        <div class="card-title">Autopilot Master Switch persistence</div>
+        <div class="card-desc">Toggling the master switch from the Autopilot page (not just Settings) now persists isAutonomousMode atomically alongside heartbeat start/stop. Activate-on-Start works from a clean restart regardless of which UI surface the toggle came from.</div>
+        <div class="card-tags"><span class="tag">Autopilot</span><span class="tag">Bugfix</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🌐</div>
+      <div class="card-body">
+        <div class="card-title">Per-provider proxy support</div>
+        <div class="card-desc">Provider configs accept an optional proxy: { enabled, url } field. When set, requests to that provider go through an Undici ProxyAgent dispatcher. Cached per URL. Wired into chat.ts and orchestrator.ts hot paths. Schema is additive — existing settings.json files load unchanged.</div>
+        <div class="card-tags"><span class="tag">Providers</span><span class="tag">Networking</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">✂️</div>
+      <div class="card-body">
+        <div class="card-title">Manual delete and branch from any message</div>
+        <div class="card-desc">Hover actions on user and assistant message bubbles. Delete trims trailing tool messages so no orphan tool results remain. Branch creates a new session populated with messages up to the chosen point.</div>
+        <div class="card-tags"><span class="tag">Chat</span><span class="tag">UX</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔁</div>
+      <div class="card-body">
+        <div class="card-title">Continuation on output truncation</div>
+        <div class="card-desc">When a model returns finish_reason: 'length' with no further tool calls, the orchestrator injects "Continue from where you left off." and re-enters the ReAct loop instead of dropping the partial answer.</div>
+        <div class="card-tags"><span class="tag">Orchestrator</span><span class="tag">Reliability</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🌙</div>
+      <div class="card-body">
+        <div class="card-title">Friend Mode persistence + observability</div>
+        <div class="card-desc">In-memory cooldown timestamps are now persisted to settings and hydrated on restart, so app updates no longer reset proactive-message cooldowns. Every early-return point in the tick emits a structured console.warn for diagnostics.</div>
+        <div class="card-tags"><span class="tag">Autopilot</span><span class="tag">Friend Mode</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SHIPPED – v10.1.1 HOTFIX
+  ════════════════════════════════════════════════ -->
+  <div class="release-header">
+    <span class="release-tag" style="color:var(--green);background:var(--green-dim);border-color:var(--green-border);">Shipped</span>
+    <div>
+      <div class="release-title">v10.1.1 &mdash; Hotfix <span style="font-size:0.75em;opacity:0.6;font-weight:400;">April 30, 2026</span></div>
+      <div class="release-sub">Discover Feed schema fix, defensive null-checks in entry rendering, expanded vision-capable model detection (Gemma 3, Gemma 4, LLaVA, Pixtral, Qwen-VL, MiniCPM-V), mobile-origin badge in chat history, mobile telemetry counters in admin dashboard.</div>
+    </div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">📰</div>
+      <div class="card-body">
+        <div class="card-title">Discover Feed schema fix</div>
+        <div class="card-desc">skalesinsider Text Posts now use a single text field (max 4000 chars) matching what the feed renderer expects. Link Posts use og_url / og_description / og_source. No more crashes from undefined fields.</div>
+        <div class="card-tags"><span class="tag">Discover</span><span class="tag">Bugfix</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🛡️</div>
+      <div class="card-body">
+        <div class="card-title">Defensive feed rendering</div>
+        <div class="card-desc">Entries missing text, og_url, or gif_url no longer crash the feed for the user. Optional chaining and length-guards wrap every field access.</div>
+        <div class="card-tags"><span class="tag">Discover</span><span class="tag">Resilience</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">👁️</div>
+      <div class="card-body">
+        <div class="card-title">Expanded vision-capable model detection</div>
+        <div class="card-desc">Gemma 3, Gemma 4, LLaVA, Pixtral, Qwen-VL, and MiniCPM-V now correctly route image inputs to the configured vision model. Explicit user-set Vision Model is always respected, even if the model is unknown to auto-detection.</div>
+        <div class="card-tags"><span class="tag">Vision</span><span class="tag">Routing</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">📱</div>
+      <div class="card-body">
+        <div class="card-title">Mobile-origin badge in chat history</div>
+        <div class="card-desc">Messages sent from Skales Mobile show a small phone icon next to the timestamp. Read-only visual cue, no behavioural change.</div>
+        <div class="card-tags"><span class="tag">Chat</span><span class="tag">Mobile</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">📊</div>
+      <div class="card-body">
+        <div class="card-title">Mobile telemetry counters</div>
+        <div class="card-desc">Admin dashboard now distinguishes Desktop, Mobile (iOS / Android), and Cross-Platform users. Discover gamertags carry created_via metadata for platform-of-creation tracking.</div>
+        <div class="card-tags"><span class="tag">Telemetry</span><span class="tag">Admin</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🕘</div>
+      <div class="card-body">
+        <div class="card-title">Autopilot activation modes</div>
+        <div class="card-desc">Three activation modes alongside the master switch: Manual (legacy default), On Startup (auto-start at app launch), and Time Window (active during a daily 24-hour window). Overnight windows like 22:00 - 06:00 are supported. Manual pauses inside an active window are honoured.</div>
+        <div class="card-tags"><span class="tag">Autopilot</span><span class="tag">Settings</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SHIPPED – v10.1.0 "DESIGN"
+  ════════════════════════════════════════════════ -->
+  <div class="release-header">
+    <span class="release-tag" style="color:var(--green);background:var(--green-dim);border-color:var(--green-border);">Shipped</span>
+    <div>
+      <div class="release-title">v10.1.0 &mdash; Design <span style="font-size:0.75em;opacity:0.6;font-weight:400;">April 28, 2026</span></div>
+      <div class="release-sub">Studio goes generative. Codework matures into an autonomous coding agent. HF Spaces and MCP servers everywhere. The biggest creative + agentic update yet.</div>
+    </div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">🎨</div>
+      <div class="card-body">
+        <div class="card-title">Studio Design Tab</div>
+        <div class="card-desc">Generate HTML/CSS/Tailwind designs from prompts. 7 starter templates, fullscreen preview, refine drawer for iteration, recent designs persist locally. Type a prompt, get a design, open in your editor.</div>
+        <div class="card-tags"><span class="tag">Studio</span><span class="tag">Design</span><span class="tag">Generative</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🖼️</div>
+      <div class="card-body">
+        <div class="card-title">HF Image Generation Revival</div>
+        <div class="card-desc">SDXL, FLUX, and others working again via the Inference Providers Router. View Transitions API powers smooth tab crossfades across Studio.</div>
+        <div class="card-tags"><span class="tag">Studio</span><span class="tag">Image</span><span class="tag">HF</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🤖</div>
+      <div class="card-body">
+        <div class="card-title">Codework Matured</div>
+        <div class="card-desc">Approval Gates (auto-approve writes / exec / all). Forbidden command denylist (17+ patterns). Test loop with 3-failure progress guardrail. Preview Mode with diff-based accept/reject. Repo-map indexing scales to 500+ files. Long-context tier adaptation, token usage tracking, commit-message generator.</div>
+        <div class="card-tags"><span class="tag">Codework</span><span class="tag">Agent</span><span class="tag">Safety</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🧰</div>
+      <div class="card-body">
+        <div class="card-title">Tools Everywhere</div>
+        <div class="card-desc">HF Spaces and MCP servers are now usable in Chat, Codework, and Studio. New &ldquo;Active Tools Across Skales&rdquo; Settings panel. Set up once. Use anywhere in Skales.</div>
+        <div class="card-tags"><span class="tag">MCP</span><span class="tag">HF</span><span class="tag">Tools</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🦎</div>
+      <div class="card-body">
+        <div class="card-title">Lio AI &amp; Chat Refinements</div>
+        <div class="card-desc">Lio gets recursive project snapshot (max depth 10, max 2000 files) and improved plan context assembly. Chat token-pruning widened to 120 chars, gpt-tokenizer integration honors provider TPM ceilings, update toast renders the changelog inline in 12 languages.</div>
+        <div class="card-tags"><span class="tag">Lio</span><span class="tag">Chat</span><span class="tag">i18n</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🛡️</div>
+      <div class="card-body">
+        <div class="card-title">Stability &amp; Internals</div>
+        <div class="card-desc">writeJsonSafe / readJsonSafe across 65+ files. Hierarchy clarity in Organizations, sidebar trailing-slash fix. Codework runtime extracted to actions/codework.ts (route trimmed 488 &rarr; 102 LOC). Auto-updater stable since v10.0.3. 12-language locale parity verified.</div>
+        <div class="card-tags"><span class="tag">Stability</span><span class="tag">Refactor</span><span class="tag">Reliability</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">📱</div>
+      <div class="card-body">
+        <div class="card-title">Mobile Sync &amp; Cleanup</div>
+        <div class="card-desc">Outbox foreground sync via AppState listener. 10s sweepStale during active chat use. Debug log noise removed. /lio and /lizard slash-commands removed.</div>
+        <div class="card-tags"><span class="tag">Mobile</span><span class="tag">Sync</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SHIPPED – v10.0.3 "STABILITY"
+  ════════════════════════════════════════════════ -->
+  <div class="release-header">
+    <span class="release-tag" style="color:var(--green);background:var(--green-dim);border-color:var(--green-border);">Shipped</span>
+    <div>
+      <div class="release-title">v10.0.3 &mdash; Stability <span style="font-size:0.75em;opacity:0.6;font-weight:400;">April 19, 2026</span></div>
+      <div class="release-sub">Skales Mobile joins the ecosystem. fal.ai LTX-2.3 video. Voice in &amp; out. Inline HTML preview. Smoother chat across the board.</div>
+    </div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">📱</div>
+      <div class="card-body">
+        <div class="card-title">Skales Mobile (Android)</div>
+        <div class="card-desc">Standalone Android companion + Remote Mode. Pair via QR; phone reaches THIS desktop's 139+ tools through an end-to-end encrypted relay (TweetNaCl box). 27 native mobile tools, image upload, shared Discover Feed.</div>
+        <div class="card-tags"><span class="tag">Mobile</span><span class="tag">Relay</span><span class="tag">E2E</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🎬</div>
+      <div class="card-body">
+        <div class="card-title">fal.ai LTX-2.3 Video</div>
+        <div class="card-desc">New Studio video provider. Text&rarr;video + image&rarr;video, standard &amp; fast variants, 5/10 second clips, native 9:16 portrait, $0.06/sec at 1080p. Shares the existing Cloud Render pipeline.</div>
+        <div class="card-tags"><span class="tag">Studio</span><span class="tag">Video</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🗣️</div>
+      <div class="card-body">
+        <div class="card-title">Voice &mdash; TTS &amp; STT</div>
+        <div class="card-desc">OpenAI Speech added (alloy/echo/fable/onyx/nova/shimmer). Per-message speaker icon on every AI reply. "Read responses aloud" auto-TTS toggle. Groq-key hint for free Whisper STT.</div>
+        <div class="card-tags"><span class="tag">Voice</span><span class="tag">TTS</span><span class="tag">STT</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🌐</div>
+      <div class="card-body">
+        <div class="card-title">Inline HTML Preview</div>
+        <div class="card-desc">```html fenced blocks render live in a sandboxed iframe. Show Code / Download HTML / Save as Image (via Electron capturePage) / Mute / Hide. Global mute+hide persist across chats.</div>
+        <div class="card-tags"><span class="tag">Chat</span><span class="tag">Preview</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">💬</div>
+      <div class="card-body">
+        <div class="card-title">Chat Smoothness</div>
+        <div class="card-desc">Framer Motion spring entrance per message (AnimatePresence + initial=false). Smooth wave typing indicator. Scroll-to-bottom FAB. Global `prefers-reduced-motion` guard.</div>
+        <div class="card-tags"><span class="tag">UX</span><span class="tag">A11y</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🐛</div>
+      <div class="card-body">
+        <div class="card-title">Bug Fixes &amp; Under the Hood</div>
+        <div class="card-desc">Buddy drag on Windows, Agent delete fix, Playwright dynamic chromium detection, Telegram auto-restart watchdog, gamertag update-in-place. 12 locales at perfect 3838-key parity.</div>
+        <div class="card-tags"><span class="tag">Reliability</span><span class="tag">i18n</span></div>
+      </div>
+      <div class="card-status status-shipped">✓ Shipped</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SHIPPED – v9.3.0 STABILITY RELEASE
   ════════════════════════════════════════════════ -->
   <div class="release-header">
     <span class="release-tag" style="color:var(--green);background:var(--green-dim);border-color:var(--green-border);">Shipped</span>
@@ -790,8 +1289,8 @@
     <div class="card current">
       <div class="card-icon">🔧</div>
       <div class="card-body">
-        <div class="card-title">Token Compressor</div>
-        <div class="card-desc">Three intelligent compression levels in Settings reduce context bloat and redundancy. Automatically summarize conversations to fit more history in your token budget without losing important context.</div>
+        <div class="card-title">Memory Mode</div>
+        <div class="card-desc">Three modes in Settings — Always Remember, Compact, and Minimal — control how much of the conversation Skales keeps in context. Trade quality for token cost without changing models.</div>
       </div>
       <div class="card-status status-shipped">✓ Shipped</div>
     </div>
@@ -1737,6 +2236,46 @@
 
   <div class="card-grid">
     <div class="card">
+      <div class="card-icon">⚡</div>
+      <div class="card-body">
+        <div class="card-title">Quick-refresh in chat header picker (v10.3)</div>
+        <div class="card-desc">Hook the v10.2.2 live model fetch into the chat header picker so users can refresh the model list without opening Settings. Same cache, same fallback to the hardcoded baseline.</div>
+      </div>
+      <div class="card-status status-open">Coming Soon</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🌐</div>
+      <div class="card-body">
+        <div class="card-title">Per-card proxy UI for every provider (v10.3)</div>
+        <div class="card-desc">Per-provider proxy is currently configurable only via settings.json edits. v10.3 surfaces it as a UI toggle and URL field on each provider card — same dispatcher path that v10.2.2 hardened.</div>
+      </div>
+      <div class="card-status status-open">Coming Soon</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔁</div>
+      <div class="card-body">
+        <div class="card-title">Multi-Custom-Provider Fallback Chain (v10.3)</div>
+        <div class="card-desc">Wire the v10.2.0 customProviders[] array into the existing fallback chain so power users can chain multiple OpenAI-compatible endpoints alongside cloud providers.</div>
+      </div>
+      <div class="card-status status-open">Coming Soon</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🤖</div>
+      <div class="card-body">
+        <div class="card-title">Skales as a true daemon (v11, planning)</div>
+        <div class="card-desc">Persistent goal system, improved long-term memory, messaging gateway expansion. Early planning — concrete shape and scope still in design.</div>
+      </div>
+      <div class="card-status status-planned">Future</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">📱</div>
+      <div class="card-body">
+        <div class="card-title">Mobile — iOS Beta and Android Closed Testing</div>
+        <div class="card-desc">iOS Beta progressing through Apple Review. Android Closed Testing live and expanding. Same Skales pairing flow, same provider stack.</div>
+      </div>
+      <div class="card-status status-open">Coming Soon</div>
+    </div>
+    <div class="card">
       <div class="card-icon">📊</div>
       <div class="card-body">
         <div class="card-title">Smart Morning Dashboard</div>
@@ -2045,9 +2584,29 @@
     <a href="https://skales.app">skales.app</a> ·
     <a href="https://github.com/skalesapp/skales">github.com/skalesapp/skales</a>
   </div>
-  <div style="margin-bottom: 8px; color: var(--text-dim); font-size: 12px;">Skales v9.1.0 — The Studio Update</div>
+  <div style="margin-bottom: 8px; color: var(--text-dim); font-size: 12px;">Skales v<span data-skales-version>10.2.2</span></div>
   Made by <strong>Mario Simic</strong>
 </footer>
 
+  <script>
+  // Fetch live version from skales.app/latest.json
+  // Fallback stays on hardcoded value in markup if fetch fails
+  (function() {
+    fetch('https://skales.app/latest.json', { cache: 'no-store' })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) {
+        if (\!data || \!data.version) return;
+        document.querySelectorAll('[data-skales-version]').forEach(function(el) {
+          el.textContent = data.version;
+        });
+        if (data.changelog) {
+          document.querySelectorAll('[data-skales-changelog]').forEach(function(el) {
+            el.textContent = data.changelog;
+          });
+        }
+      })
+      .catch(function() { /* silent, fallback stays */ });
+  })();
+  </script>
 </body>
 </html>

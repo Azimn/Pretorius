@@ -25,7 +25,7 @@ Using Skales commercially without a license is a violation of the BSL 1.1.
 To obtain a commercial license or inquire about pricing:
 
 **Mario Simic**
-Email: dev@mariosimic.at
+Email: request@skales.app
 Website: https://skales.app
 
 Pricing is determined individually based on use case and scale. Contact us to discuss your needs.
