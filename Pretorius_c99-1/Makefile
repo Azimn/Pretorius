@@ -22,19 +22,34 @@ ENGINE_SRC := \
     src/serialize.c     \
     src/rng.c
 
+# Semantic memory subsystem (LSH signatures + nightly consolidation).
+# Self-contained: no dependency on persona.h / persona_internal.h.
+LSH_SRC := \
+    src/lsh_memory.c    \
+    src/consolidate.c
+
 ENGINE_OBJ := $(ENGINE_SRC:src/%.c=build/%.o)
+LSH_OBJ    := $(LSH_SRC:src/%.c=build/%.o)
 
-.PHONY: all clean character test
+.PHONY: all clean character test lsh_test
 
-all: build/libpersona.a build/compile_pretorius build/repl
+all: build/libpersona.a build/liblsh.a build/compile_pretorius build/repl
 
 build:
 	@mkdir -p build
 
-build/%.o: src/%.c include/persona.h include/persona_internal.h | build
+# Engine objects depend on the engine headers (static pattern rule).
+$(ENGINE_OBJ): build/%.o: src/%.c include/persona.h include/persona_internal.h | build
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# LSH subsystem objects depend only on the LSH headers.
+$(LSH_OBJ): build/%.o: src/%.c include/lsh_memory.h include/consolidate.h | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build/libpersona.a: $(ENGINE_OBJ)
+	ar rcs $@ $^
+
+build/liblsh.a: $(LSH_OBJ)
 	ar rcs $@ $^
 
 build/compile_pretorius: tools/compile_pretorius.c build/libpersona.a
@@ -42,6 +57,12 @@ build/compile_pretorius: tools/compile_pretorius.c build/libpersona.a
 
 build/repl: test/repl.c build/libpersona.a
 	$(CC) $(CFLAGS) test/repl.c build/libpersona.a -o $@ $(LDFLAGS)
+
+build/lsh_test: test/lsh_test.c build/liblsh.a
+	$(CC) $(CFLAGS) test/lsh_test.c build/liblsh.a -o $@ $(LDFLAGS)
+
+lsh_test: build/lsh_test
+	./build/lsh_test
 
 character: build/compile_pretorius
 	./build/compile_pretorius characters/pretorius

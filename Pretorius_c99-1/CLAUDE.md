@@ -97,6 +97,25 @@ The trace ring is part of `NPCState` and therefore part of `state.bin`, so
 serialized), but the *last* plan's salient fields are mirrored into
 `NPCState` for inspection across saves.
 
+## Semantic memory subsystem (`liblsh.a`)
+
+Self-contained, separate from `libpersona.a` (no `persona.h` dependency).
+A future memory-layer rewrite will route through it; for now it builds
+and tests standalone.
+
+- `include/lsh_memory.h` / `src/lsh_memory.c` — 64-bit **SimHash** signatures
+  over byte 4-grams. Hamming distance is locality-sensitive (verified
+  by paraphrase-vs-unrelated test). Integer-only, PIII-friendly.
+  `lsh_find_nearest` does brute-force linear scan — 20k sigs = 160 KB,
+  fits in L2. No `bsearch` (numerical sort destroys Hamming locality).
+- `include/consolidate.h` / `src/consolidate.c` — nightly digestion pass:
+  - `generate_rules`: co-occurrence rules from event persona-key pairs,
+    sorted by support, threshold `PE_COOC_THRESHOLD=5`.
+  - `build_gist_summaries`: k-means clustering over signatures with
+    **vertical bitwise majority vote** centroid update (XOR is parity,
+    NOT majority — that bug stays dead).
+- `test/lsh_test.c` — 12 assertions. Build & run with `make lsh_test`.
+
 ## Known intentional deviations from spec
 
 - Pattern matcher is still a sorted keyword table — but now with first-char
