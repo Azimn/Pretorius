@@ -139,6 +139,10 @@ typedef struct {
     uint16_t topic_id;
     uint16_t _pad;
     char     summary[PE_MEM_SUMMARY_LEN];
+    /* v3.0: 64-bit SimHash of the summary, computed at commit time.
+     * Lets pe_associative_recall do fuzzy semantic match via Hamming
+     * distance — complements (does not replace) topic-tag matching. */
+    uint64_t lsh_sig;
 } MemoryNode;
 
 typedef struct {
@@ -243,6 +247,16 @@ typedef struct {
     TraceEntry trace[PE_TRACE_LEN];
     uint8_t    trace_pos;
     uint8_t    _pad_v2[3];
+
+    /* ---- v3.0: predictive coding / surprise ----
+     * At end of each turn we predict what the next input will look like.
+     * At the start of the following turn we compare actual vs. predicted
+     * and feed the residual back into mood / acute_spike / commit salience. */
+    uint8_t  predicted_input_class;     /* 0..6 expected next input class */
+    int8_t   predicted_input_valence;   /* -128..127 expected valence */
+    uint16_t surprise_last;             /* 0..1000, |predicted - actual| metric */
+    uint16_t prediction_error_accum;    /* 0..2000, slow-decaying running surprise */
+    uint16_t _pad_v3;
 } NPCState;
 
 typedef struct {
@@ -343,6 +357,22 @@ typedef struct {
     uint8_t  memorable_events[PE_RELATION_EVENTS];
     uint8_t  _pad1[6];
     char     known_as[PE_NAME_LEN];
+
+    /* ---- v3.0: Theory-of-Mind (UserModel embedded in Relation) ----
+     * Pretorius's running model of *this* interlocutor. Updated each turn
+     * from input.  Used by the planner to bias stance / rhetorical mode. */
+    int8_t   um_valence;          /* EMA of inferred speaker valence -127..127 */
+    int8_t   um_arousal;          /* EMA of inferred arousal -127..127 */
+    int8_t   um_dominance;        /* EMA of dominance -127..127 */
+    int8_t   um_belief_about_me;  /* does the user seem to think me a genius
+                                   * (+) or a fraud (-) -128..127 */
+    uint8_t  um_knowledge_level;  /* 0=layman ... 255=peer */
+    uint8_t  um_engagement;       /* 0..255 rolling attentiveness */
+    uint8_t  um_last_intent;      /* mirror of PE_INTENT_* inferred from speaker */
+    uint8_t  um_last_stance;      /* mirror of PE_STANCE_* inferred from speaker */
+    uint16_t um_interest_topic;   /* topic id most recently engaged */
+    uint16_t um_update_count;     /* turns this model has been updated */
+    uint8_t  _pad_um[4];
 } Relation;
 
 typedef struct {
@@ -446,6 +476,10 @@ struct Engine {
     /* v2.1: plasticity — n-gram LM for "Pretorianness" reranking.
      * NULL = subsystem disabled (LM file missing). */
     NGramLM       *lm;
+
+    /* v3.0: per-turn LSH signature of the input.  Computed once in
+     * pe_prep_input, reused by pe_associative_recall for fuzzy match. */
+    uint64_t      input_sig;
 };
 
 /* ---------- public API ---------- */

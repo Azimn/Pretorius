@@ -1,6 +1,7 @@
 /* topic_goal.c — topic momentum, pattern classification, goal arbitration, intent. */
 #include "persona.h"
 #include "persona_internal.h"
+#include "lsh_memory.h"      /* v3.0: SimHash for fuzzy semantic recall */
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -58,6 +59,10 @@ void pe_prep_input(Engine *eng, const char *input){
     for (size_t i = 0; i < sizeof(NEGATION_CUES)/sizeof(NEGATION_CUES[0]); ++i){
         if (strstr(eng->lowered, NEGATION_CUES[i])) { eng->negation_active = 1; break; }
     }
+
+    /* v3.0: SimHash of the input, used by pe_associative_recall for fuzzy
+     * semantic match against memory.lsh_sig.  Computed once per turn. */
+    eng->input_sig = lsh_compute_n(eng->lowered, L);
 }
 
 /* Check whether keyword occurs in lowered input, with a leading-negation

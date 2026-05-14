@@ -416,6 +416,16 @@ int persona_process_input(Engine *eng,
     eng->state.prev_input_emotion = eng->state.last_input_emotion;
     eng->state.last_input_emotion = ev;
 
+    /* 3b. v3.0: predictive coding — compare last turn's prediction to
+     * actual; write surprise_last + update prediction_error_accum; jolt
+     * acute_spike on large mismatches.  Skipped on turn 1 (no prediction). */
+    pe_compute_surprise(eng, &ev);
+
+    /* 3c. v3.0: Theory of Mind — update the UserModel from this turn's
+     * input.  Must run after classify (needs input_class + matched_group)
+     * and after pe_prep_input (needs eng->lowered, negation_active). */
+    pe_update_user_model(eng, &ev);
+
     /* 4. associative recall */
     pe_associative_recall(eng, &ev);
 
@@ -462,6 +472,11 @@ int persona_process_input(Engine *eng,
 
     /* 11a. v2: record trace */
     pe_trace_push(eng);
+
+    /* 11b. v3.0: at end-of-turn, predict next input given what we just
+     * said + current UserModel.  Surprise check at start of next turn
+     * will compare against this prediction. */
+    pe_predict_next_input(eng);
 
     /* 12. illusion: schedule delay (caller may sleep if desired) */
     eng->scheduled_delay_ms = compute_delay(eng);
@@ -601,6 +616,16 @@ void persona_debug_dump(const Engine *eng){
     fprintf(stderr, "episodic_count=%u next_id=%u short_term_pos=%u\n",
             eng->memory.episodic_count, eng->memory.next_memory_id,
             eng->memory.short_term_pos);
+    /* v3.0: Theory of Mind + predictive coding */
+    fprintf(stderr, "user_model: val=%d ar=%d dom=%d belief=%d know=%u eng=%u upd=%u\n",
+            eng->relation.um_valence, eng->relation.um_arousal,
+            eng->relation.um_dominance, eng->relation.um_belief_about_me,
+            eng->relation.um_knowledge_level, eng->relation.um_engagement,
+            eng->relation.um_update_count);
+    fprintf(stderr, "predicted: class=%u val=%d   surprise_last=%u err_accum=%u\n",
+            eng->state.predicted_input_class, eng->state.predicted_input_valence,
+            eng->state.surprise_last, eng->state.prediction_error_accum);
+    fprintf(stderr, "input_sig=0x%016llx\n", (unsigned long long)eng->input_sig);
     fprintf(stderr, "--- end dump ---\n\n");
 }
 

@@ -1,6 +1,7 @@
 /* memory.c — episodic store, salience, associative recall, short-term buffer. */
 #include "persona.h"
 #include "persona_internal.h"
+#include "lsh_memory.h"            /* v3.0: fuzzy semantic recall */
 #include <string.h>
 #include <stdlib.h>
 
@@ -68,6 +69,10 @@ void pe_commit_memory(Engine *eng, const char *summary,
         if (L >= sizeof(n->summary)) L = sizeof(n->summary) - 1;
         memcpy(n->summary, summary, L);
         n->summary[L] = 0;
+        /* v3.0: SimHash of the summary for fuzzy semantic recall. */
+        n->lsh_sig = lsh_compute_n(n->summary, L);
+    } else {
+        n->lsh_sig = 0;
     }
 }
 
@@ -102,6 +107,9 @@ void pe_decay_episodic(Engine *eng){
 void pe_associative_recall(Engine *eng, const EmotionVector *ev){
     eng->active_count = 0;
     uint32_t now = persona_now_ms();
+    uint64_t qsig = eng->input_sig;
+    int have_qsig = (qsig != 0);
+
     for (uint16_t i = 0; i < eng->memory.episodic_count && eng->active_count < PE_EPISODIC_MAX; ++i){
         const MemoryNode *m = &eng->memory.episodic[i];
         int32_t dv = ev->valence   - m->emotion.valence;   if (dv < 0) dv = -dv;
@@ -110,7 +118,19 @@ void pe_associative_recall(Engine *eng, const EmotionVector *ev){
         /* weights: valence 1.0, arousal 0.7, dominance 0.5 — in tenths to keep int math */
         int32_t dist = dv * 10 + da * 7 + dd * 5;     /* max ≈ 400 * 10 = 4000 */
         int32_t match = 1000 - (dist / 4);            /* 0..1000 */
-        if (match < 0) continue;
+        if (match < 0) match = 0;
+
+        /* v3.0: SimHash semantic similarity bonus.  Hamming distance 0..64
+         * (lower = more similar).  Bonus contributes up to ~+250 to the
+         * raw match score, which is then capped at 1000.  Memories with no
+         * sig (sig==0) get no bonus. */
+        if (have_qsig && m->lsh_sig != 0){
+            int hd = lsh_hamming_distance(qsig, m->lsh_sig);
+            int32_t lsh_bonus = (64 - hd) * 4;        /* 0..256 */
+            match += lsh_bonus;
+            if (match > 1000) match = 1000;
+        }
+
         match = (match * m->salience) / 255;
         /* recency: linear decay over 24h */
         uint32_t age_ms = (now > m->timestamp) ? (now - m->timestamp) : 0;

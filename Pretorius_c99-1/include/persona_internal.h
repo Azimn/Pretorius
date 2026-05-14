@@ -67,6 +67,23 @@ void pe_trace_push(Engine *eng);
 /* ---- v2: per-turn input prep (cached lowered + char bitmap + negation) ---- */
 void pe_prep_input(Engine *eng, const char *input);
 
+/* ---- v3.0: Theory of Mind / predictive coding ----
+ *
+ * pe_update_user_model: updates the UserModel embedded in eng->relation
+ *   from the current input.  Called after pe_classify_input.
+ *
+ * pe_predict_next_input: at end of turn, predicts what the next input
+ *   will look like (class + valence) based on Pretorius's last
+ *   rhetorical_mode and the current UserModel.  Writes into NPCState.
+ *
+ * pe_compute_surprise: at start of next turn, compares actual input vs
+ *   prediction; writes surprise_last and updates prediction_error_accum.
+ *   High surprise jolts acute_spike.
+ */
+void pe_update_user_model(Engine *eng, const EmotionVector *ev);
+void pe_predict_next_input(Engine *eng);
+void pe_compute_surprise(Engine *eng, const EmotionVector *ev);
+
 /* small bitmap ops over a 256-bit field (32 bytes) */
 static inline void pe_bm_set(uint8_t *bm, unsigned char c){ bm[c>>3] |= (uint8_t)(1u<<(c&7)); }
 static inline int  pe_bm_get(const uint8_t *bm, unsigned char c){ return (bm[c>>3] >> (c&7)) & 1; }

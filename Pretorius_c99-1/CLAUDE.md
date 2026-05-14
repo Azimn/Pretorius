@@ -180,6 +180,71 @@ The `build_lm` tool accepts a `min_count` knob for future corpus expansion
 paraphrase preservation, mutator determinism, gating, and unknown-marker
 passthrough. Build & run with `make plasticity_run`.
 
+## v3.0 — The Mind layer
+
+Adds three cognitive primitives on top of v2.1's affect/embodiment model:
+
+### Theory of Mind (UserModel)
+
+Embedded in `Relation` (~14 bytes per interlocutor).  Pretorius now keeps
+a running model of *each* speaker:
+
+- `um_valence/arousal/dominance` — EMA of inferred speaker affect.
+- `um_belief_about_me` — does this person think me a genius (+) or a fraud (-)?
+  Updated by input class (praise +8, insult -12, threat -16, relent +4)
+  with negation polarity-flip.
+- `um_knowledge_level` — 0..255, lifted by long inputs with `;`/`:`/`shall`/
+  `however`/`therefore`/`indeed`.
+- `um_engagement` — rolling attentiveness proxy via input length.
+- `um_last_intent`, `um_last_stance`, `um_interest_topic`, `um_update_count`.
+
+Updated by `pe_update_user_model` after `pe_classify_input`.
+
+### Predictive coding / Surprise
+
+End-of-turn: `pe_predict_next_input` writes `predicted_input_class` and
+`predicted_input_valence` to `NPCState`, based on Pretorius's just-emitted
+`last_rhetorical_mode` and the UserModel (e.g. INDICT → expect class 2,
+val -60; hostile interlocutor overrides toward class 2 regardless).
+
+Start of next turn: `pe_compute_surprise` compares prediction to reality.
+A class mismatch yields +500 surprise; valence delta adds `|Δval|*2`.
+`surprise_last` and `prediction_error_accum` (slow EMA) are written.
+Large surprise (>500) jolts `acute_spike` in the direction of the actual
+input valence — Pretorius visibly recalibrates.
+
+The planner reads both:
+- `prediction_error_accum / 8` adds to `plan.hedging`.
+- `surprise_last > 600` flips rhetorical_mode to HEDGE or CONFESS by valence.
+
+### LSH wiring (semantic memory recall)
+
+- `pe_prep_input` now computes `eng->input_sig` (SimHash of lowered input).
+- `pe_commit_memory` writes `lsh_sig` on each new MemoryNode.
+- `pe_associative_recall` fuses Hamming distance into the score:
+  `match += (64 - hamming(input_sig, mem.sig)) * 4` (max +256, capped at 1000).
+  Memories whose *text content* is semantically near the current input
+  get recall preference, even across topic tags.
+
+### Plan integration
+
+`pe_build_plan` reads UserModel:
+- `belief_about_me < -40` → stance = DEFENSIVE (unless fixation-locked).
+- `knowledge_level > 180` → certainty +30 (Pretorius doesn't dumb down for peers).
+- `engagement < 60 && update_count > 2` → LAMENT if mood low, else INTIMATE
+  (re-engagement bid).
+
+### Footprint
+
+| Item              | Size      | % of 300 KB |
+|-------------------|-----------|-------------|
+| character files   | ~110 KB   | 37%         |
+| LM                | 144 KB    | 48%         |
+| **total**         | **~255 KB** | **85%**   |
+
+v3.0 struct growth: +14 bytes Relation, +6 bytes NPCState, +8 bytes per
+MemoryNode (×50 = 400 bytes).  Net character-file growth ≈ +500 bytes.
+
 ## Known intentional deviations from spec
 
 - Pattern matcher is still a sorted keyword table — but now with first-char

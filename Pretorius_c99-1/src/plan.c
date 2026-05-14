@@ -143,13 +143,54 @@ void pe_build_plan(Engine *eng){
         p->theatricality = clmp_u8(th);
     }
 
-    /* hedging: openness + neuroticism + low certainty + negation */
+    /* hedging: openness + neuroticism + low certainty + negation
+     * v3.0: also +prediction_error_accum/8 — when Pretorius has been
+     * surprised a lot recently, he becomes more cautious / hedging. */
     {
         int32_t hg = ((int32_t)eng->identity.openness     / 2048)
                    + ((int32_t)eng->identity.neuroticism  / 2048);
         if (eng->negation_active) hg += 50;
         if (p->certainty < 100) hg += (100 - p->certainty);
+        hg += eng->state.prediction_error_accum / 8;
         p->hedging = clmp_u8(hg);
+    }
+
+    /* v3.0: Theory-of-Mind modulation.  The planner now reads the speaker
+     * model and tilts stance / certainty accordingly.
+     *
+     *   - If they think me a fraud (um_belief_about_me < -40) → DEFENSIVE.
+     *   - If they're highly educated (um_knowledge_level > 180) → bump
+     *     certainty (Pretorius doesn't dumb himself down for peers).
+     *   - If they seem disengaged (um_engagement < 60) → bias toward
+     *     INTIMATE/CONFESS to re-engage, or LAMENT if mood is low.
+     *   - Their belief never overrides an active fixation lock. */
+    {
+        const Relation *r = &eng->relation;
+        int locked = (eng->state.fixation_topic != 0xFFFF
+                   && eng->state.fixation_strength > 600);
+
+        if (!locked){
+            if (r->um_belief_about_me < -40)
+                p->stance = PE_STANCE_DEFENSIVE;
+            if (r->um_knowledge_level > 180){
+                int32_t c = (int32_t)p->certainty + 30;
+                p->certainty = clmp_u8(c);
+            }
+            if (r->um_engagement < 60 && r->um_update_count > 2){
+                if (eng->state.mood < -100) p->rhetorical_mode = PE_RHET_LAMENT;
+                else                        p->stance          = PE_STANCE_INTIMATE;
+            }
+        }
+    }
+
+    /* v3.0: high recent surprise — Pretorius visibly recalibrates.
+     * Surprise > 600 nudges rhetorical mode toward HEDGE or CONFESS
+     * depending on input valence. */
+    if (eng->state.surprise_last > 600){
+        if (eng->state.last_input_emotion.valence < 0)
+            p->rhetorical_mode = PE_RHET_HEDGE;
+        else
+            p->rhetorical_mode = PE_RHET_CONFESS;
     }
 
     /* emotional objective: what feeling to project — biased by stance */

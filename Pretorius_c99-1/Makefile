@@ -20,7 +20,8 @@ ENGINE_SRC := \
     src/relations.c     \
     src/today.c         \
     src/serialize.c     \
-    src/rng.c
+    src/rng.c           \
+    src/user_model.c
 
 # Semantic memory subsystem (LSH signatures + nightly consolidation).
 # Self-contained: no dependency on persona.h / persona_internal.h.
@@ -68,8 +69,8 @@ build/liblsh.a: $(LSH_OBJ)
 build/libplasticity.a: $(PLAS_OBJ)
 	ar rcs $@ $^
 
-build/compile_pretorius: tools/compile_pretorius.c build/libpersona.a build/libplasticity.a
-	$(CC) $(CFLAGS) tools/compile_pretorius.c build/libpersona.a build/libplasticity.a -o $@ $(LDFLAGS)
+build/compile_pretorius: tools/compile_pretorius.c build/libpersona.a build/libplasticity.a build/liblsh.a
+	$(CC) $(CFLAGS) tools/compile_pretorius.c build/libpersona.a build/libplasticity.a build/liblsh.a -o $@ $(LDFLAGS)
 
 build/build_lm: tools/build_lm.c build/libplasticity.a
 	$(CC) $(CFLAGS) tools/build_lm.c build/libplasticity.a -o $@ $(LDFLAGS)
@@ -84,8 +85,8 @@ data/pretorius.lm: data/corpus.txt build/build_lm
 
 lm_build: data/pretorius.lm
 
-build/repl: test/repl.c build/libpersona.a build/libplasticity.a
-	$(CC) $(CFLAGS) test/repl.c build/libpersona.a build/libplasticity.a -o $@ $(LDFLAGS)
+build/repl: test/repl.c build/libpersona.a build/libplasticity.a build/liblsh.a
+	$(CC) $(CFLAGS) test/repl.c build/libpersona.a build/libplasticity.a build/liblsh.a -o $@ $(LDFLAGS)
 
 build/lsh_test: test/lsh_test.c build/liblsh.a
 	$(CC) $(CFLAGS) test/lsh_test.c build/liblsh.a -o $@ $(LDFLAGS)
