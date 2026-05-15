@@ -149,18 +149,17 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
     flags |= today_or;
     const UtterancePlan *p = &eng->plan;
 
-    /* metaphor injection — gated by theatricality */
+    /* metaphor injection — gated by theatricality.  Strings live in the
+     * cartridge (identity.flourishes); engine never embeds character-flavored
+     * text.  Empty slots are skipped, so cartridges can opt out by leaving
+     * the bank zero-filled. */
     if ((flags & PE_VF_METAPHOR) && (style_rng(&seed) % 255u) < p->theatricality){
-        static const char *flourishes[] = {
-            " — like cathedrals of bone, do you see?",
-            " — and the lightning sings, oh how it sings.",
-            " — what an exquisite arrangement of clay we are.",
-            " — a tincture, a gesture, an entire eternity."
-        };
-        size_t L = strlen(buf);
-        const char *f = flourishes[style_rng(&seed) % 4];
-        size_t fl = strlen(f);
-        if (L + fl + 1 < cap){ memcpy(buf + L, f, fl); buf[L + fl] = 0; }
+        const char *f = eng->identity.flourishes[style_rng(&seed) % PE_FLOURISH_COUNT];
+        if (f[0]){
+            size_t L = strlen(buf);
+            size_t fl = strlen(f);
+            if (L + fl + 1 < cap){ memcpy(buf + L, f, fl); buf[L + fl] = 0; }
+        }
     }
     /* avoid direct affirmation */
     if ((flags & PE_VF_NO_DIRECT_AFFIRM) && starts_with_lower(buf, "i agree")){
@@ -176,20 +175,17 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
                  (char)tolower((unsigned char)buf[0]), buf + 1);
         snprintf(buf, cap, "%s", tmp);
     }
-    /* verbosity expansion — gated by plan.verbosity (NOT identity bits alone) */
+    /* verbosity expansion — gated by plan.verbosity.  Strings come from the
+     * cartridge (identity.expansions); empty slots are skipped. */
     if ((style_rng(&seed) % 255u) < (uint32_t)(p->verbosity / 2)){
-        char tmp[PE_TEMPLATE_TEXT];
-        size_t L = strlen(buf);
-        if (L > 0 && buf[L-1] == '.') buf[L-1] = 0;
-        const char *expansions[] = {
-            " (though one might also argue the inverse)",
-            ", as I have told the priests and the postmaster",
-            ", and the lightning will witness me",
-            " — yes, yes — entirely so"
-        };
-        const char *ex = expansions[style_rng(&seed) % 4];
-        snprintf(tmp, sizeof(tmp), "%s%s.", buf, ex);
-        snprintf(buf, cap, "%s", tmp);
+        const char *ex = eng->identity.expansions[style_rng(&seed) % PE_EXPANSION_COUNT];
+        if (ex[0]){
+            char tmp[PE_TEMPLATE_TEXT];
+            size_t L = strlen(buf);
+            if (L > 0 && buf[L-1] == '.') buf[L-1] = 0;
+            snprintf(tmp, sizeof(tmp), "%s%s.", buf, ex);
+            snprintf(buf, cap, "%s", tmp);
+        }
     }
     /* sardonic prefix — gated by plan.aggression on praise */
     if ((flags & PE_VF_SARDONIC) && eng->input_class == 1

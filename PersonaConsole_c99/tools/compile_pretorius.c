@@ -73,6 +73,17 @@ static void make_identity(Identity *id){
         snprintf(m->summary, sizeof(m->summary), "%s", seeds[i].summary);
     }
     id->core_memory_count = (uint8_t)n;
+
+    /* style banks — moved here from the engine; per-character flavor */
+    snprintf(id->flourishes[0], PE_FLOURISH_LEN, " — like cathedrals of bone, do you see?");
+    snprintf(id->flourishes[1], PE_FLOURISH_LEN, " — and the lightning sings.");
+    snprintf(id->flourishes[2], PE_FLOURISH_LEN, " — an arrangement of clay.");
+    snprintf(id->flourishes[3], PE_FLOURISH_LEN, " — a tincture, a gesture.");
+
+    snprintf(id->expansions[0], PE_EXPANSION_LEN, " (though one might argue the inverse)");
+    snprintf(id->expansions[1], PE_EXPANSION_LEN, ", as I told the priests");
+    snprintf(id->expansions[2], PE_EXPANSION_LEN, ", and the lightning will witness");
+    snprintf(id->expansions[3], PE_EXPANSION_LEN, " — yes, yes — entirely so");
 }
 
 /* ===========================================================================

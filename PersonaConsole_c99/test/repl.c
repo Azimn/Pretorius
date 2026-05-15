@@ -89,7 +89,9 @@ int main(int argc, char **argv){
         if (n < 0) { fprintf(stderr, "[process_input error]\n"); continue; }
 
         if (use_delay && eng.scheduled_delay_ms > 0) usleep(eng.scheduled_delay_ms * 1000);
-        printf("Pretorius: %s\n\n", out);
+        printf("%s: %s\n\n",
+               eng.identity.character_name[0] ? eng.identity.character_name : "engine",
+               out);
     }
     persona_save(&eng);
     persona_close(&eng);

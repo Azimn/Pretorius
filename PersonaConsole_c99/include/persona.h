@@ -44,6 +44,10 @@ extern "C" {
 #define PE_PLAN_MAX_MODES       4   /* templates list up to N compatible rhetorical modes */
 #define PE_CHAPTER_MAX          16  /* v3.1: max autobiographical chapters */
 #define PE_CHAPTER_PHRASE       32  /* v3.1: key phrase length per chapter */
+#define PE_FLOURISH_COUNT       4   /* per-character metaphor injection bank */
+#define PE_FLOURISH_LEN         48
+#define PE_EXPANSION_COUNT      4   /* per-character verbosity expansion bank */
+#define PE_EXPANSION_LEN        48
 
 /* ---------- pattern flags (Pattern.flags bitmask) ---------- */
 #define PE_PATTERN_FLAG_INTOXICANT (1u<<0)  /* matching this pattern raises intoxication */
@@ -162,6 +166,10 @@ typedef struct {
     uint8_t  core_memory_count;
     uint8_t  _pad1[7];
     MemoryNode core_memories_seed[PE_CORE_SEED_MAX];
+    /* per-character style banks — fired by apply_style under voice_flags + plan.
+     * Empty slot (first byte 0) is treated as "skip" so cartridges can opt out. */
+    char flourishes[PE_FLOURISH_COUNT][PE_FLOURISH_LEN];  /* PE_VF_METAPHOR injection */
+    char expansions[PE_EXPANSION_COUNT][PE_EXPANSION_LEN]; /* verbosity injection */
 } Identity;
 
 typedef struct {
