@@ -1,7 +1,7 @@
 # Persona Engine — Makefile
 # Builds:
 #   build/libpersona.a         engine library
-#   build/compile_pretorius    offline character compiler
+#   build/compile_cartridge    manifest-driven .cart packer
 #   build/repl                 interactive harness
 
 CC      ?= cc
@@ -23,7 +23,11 @@ ENGINE_SRC := \
     src/rng.c           \
     src/user_model.c    \
     src/story.c         \
-    src/voice.c
+    src/voice.c         \
+    src/cartridge.c     \
+    src/intent.c        \
+    src/identity.c      \
+    src/environment.c
 
 # Semantic memory subsystem (LSH signatures + nightly consolidation).
 # Self-contained: no dependency on persona.h / persona_internal.h.
@@ -50,18 +54,20 @@ LSH_OBJ    := $(LSH_SRC:src/%.c=build/%.o)
 PLAS_OBJ   := $(PLAS_SRC:src/%.c=build/%.o)
 AETHER_OBJ := $(AETHER_SRC:src/%.c=build/%.o)
 
-.PHONY: all clean character test lsh_test plasticity_test plasticity_run lm_build aether_test aether_run
+.PHONY: all clean character kiki_character cartridges test lsh_test plasticity_test plasticity_run lm_build aether_test aether_run
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
-     build/compile_pretorius build/compile_kiki build/repl build/build_lm \
-     characters/pretorius/voice.lm characters/kiki/voice.lm
+     build/compile_cartridge build/compile_pretorius build/compile_kiki \
+     build/repl build/build_lm \
+     characters/pretorius/voice.lm characters/kiki/voice.lm \
+     characters/pretorius/pretorius.cart characters/kiki/kiki.cart
 
 build:
 	@mkdir -p build
 
 # Engine objects depend on engine + aether + mutator headers (engine wires
 # AETHER and the cartridge-borne BankRegistry).
-$(ENGINE_OBJ): build/%.o: src/%.c include/persona.h include/persona_internal.h include/aether.h include/mutator.h | build
+$(ENGINE_OBJ): build/%.o: src/%.c include/persona.h include/persona_internal.h include/aether.h include/mutator.h include/cartridge.h include/intent.h include/identity.h include/environment.h | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # LSH subsystem objects depend only on the LSH headers.
@@ -88,11 +94,31 @@ build/libplasticity.a: $(PLAS_OBJ)
 build/libaether.a: $(AETHER_OBJ)
 	ar rcs $@ $^
 
-build/compile_pretorius: tools/compile_pretorius.c build/libpersona.a build/libplasticity.a build/liblsh.a build/libaether.a
+build/compile_cartridge: tools/compile_cartridge.c src/cartridge.c include/cartridge.h
+	$(CC) $(CFLAGS) tools/compile_cartridge.c src/cartridge.c -o $@ $(LDFLAGS)
+
+# Per-character data authoring tools — produce the raw section bins
+# that compile_cartridge then packs into a .cart.  Two-stage pipeline:
+#   compile_<name>  → identity.bin, drives.bin, today.bin, banks.bin,
+#                     dialogue/{patterns,templates,fallback,topics,goals}.bin
+#   compile_cartridge → <name>.cart  (bundles the bins + voice.lm)
+build/compile_pretorius: tools/compile_pretorius.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
 	$(CC) $(CFLAGS) tools/compile_pretorius.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
 
-build/compile_kiki: tools/compile_kiki.c build/libpersona.a build/libplasticity.a build/liblsh.a build/libaether.a
+build/compile_kiki: tools/compile_kiki.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
 	$(CC) $(CFLAGS) tools/compile_kiki.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+# A stamp file marks "all per-character bins were rewritten to the
+# current persona.h schema."  The .cart rule depends on the stamp so
+# cartridge packing always sees fresh bins.
+characters/pretorius/.bins.stamp: build/compile_pretorius
+	./build/compile_pretorius characters/pretorius
+	@touch $@
+
+characters/kiki/.bins.stamp: build/compile_kiki
+	@mkdir -p characters/kiki
+	./build/compile_kiki characters/kiki
+	@touch $@
 
 build/build_lm: tools/build_lm.c build/libplasticity.a
 	$(CC) $(CFLAGS) tools/build_lm.c build/libplasticity.a -o $@ $(LDFLAGS)
@@ -107,6 +133,14 @@ characters/kiki/voice.lm: data/corpus_kiki.txt build/build_lm
 	./build/build_lm data/corpus_kiki.txt 5 characters/kiki/voice.lm
 
 lm_build: characters/pretorius/voice.lm characters/kiki/voice.lm
+
+characters/pretorius/pretorius.cart: characters/pretorius/manifest.json characters/pretorius/.bins.stamp build/compile_cartridge characters/pretorius/voice.lm
+	./build/compile_cartridge characters/pretorius/manifest.json
+
+characters/kiki/kiki.cart: characters/kiki/manifest.json characters/kiki/.bins.stamp build/compile_cartridge characters/kiki/voice.lm
+	./build/compile_cartridge characters/kiki/manifest.json
+
+cartridges: characters/pretorius/pretorius.cart characters/kiki/kiki.cart
 
 build/repl: test/repl.c build/libpersona.a build/libplasticity.a build/liblsh.a build/libaether.a
 	$(CC) $(CFLAGS) test/repl.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
@@ -153,32 +187,32 @@ voice_test: build/voice_test
 voice_run: voice_test character
 	./build/voice_test
 
-character: build/compile_pretorius
-	./build/compile_pretorius characters/pretorius
+character: characters/pretorius/pretorius.cart
 
-kiki_character: build/compile_kiki
-	./build/compile_kiki characters/kiki
+kiki_character: characters/kiki/kiki.cart
 
 test: all character
 	@echo "--- Pretorius sanity test: 8 turns + dumps ---"
 	@rm -f characters/pretorius/state.bin characters/pretorius/memory.bin
 	@rm -rf characters/pretorius/relations characters/pretorius/aether
-	@printf "Good evening, doctor.\nWho are you?\nTell me about your work.\nYou are a madman.\nI am not insulting you.\nWhat about gin?\nLet us drink to homunculi.\n:dump\n:plan\n:trace\n:quit\n" | ./build/repl characters/pretorius victor
+	@printf "Good evening, doctor.\nWho are you?\nTell me about your work.\nYou are a madman.\nI am not insulting you.\nWhat about gin?\nLet us drink to homunculi.\n:dump\n:plan\n:trace\n:quit\n" | ./build/repl characters/pretorius/pretorius.cart victor
 
 kiki_test: all kiki_character
 	@echo "--- Kiki sanity test: 8 turns + dumps ---"
 	@rm -f characters/kiki/state.bin characters/kiki/memory.bin
 	@rm -f characters/kiki/chapters.bin
 	@rm -rf characters/kiki/relations characters/kiki/aether
-	@printf "Hi Kiki!\nWho are you?\nExplain entropy.\nAre you real?\nYou are amazing.\nYou are just a chatbot.\nWhat about Punky Brewster?\nDo you ever get lonely?\n:dump\n:plan\n:trace\n:quit\n" | ./build/repl characters/kiki user
+	@printf "Hi Kiki!\nWho are you?\nExplain entropy.\nAre you real?\nYou are amazing.\nYou are just a chatbot.\nWhat about Punky Brewster?\nDo you ever get lonely?\n:dump\n:plan\n:trace\n:quit\n" | ./build/repl characters/kiki/kiki.cart user
 
 clean:
 	rm -rf build
 	rm -f characters/pretorius/state.bin characters/pretorius/memory.bin
+	rm -f characters/pretorius/pretorius.cart characters/pretorius/.bins.stamp
 	rm -f characters/pretorius/chapters.bin
 	rm -rf characters/pretorius/relations
 	rm -rf characters/pretorius/aether
 	rm -f characters/kiki/state.bin characters/kiki/memory.bin
+	rm -f characters/kiki/kiki.cart characters/kiki/.bins.stamp
 	rm -f characters/kiki/chapters.bin
 	rm -rf characters/kiki/relations
 	rm -rf characters/kiki/aether

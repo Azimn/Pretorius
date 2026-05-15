@@ -5,6 +5,7 @@
 #include "persona_internal.h"
 #include "ngram_lm.h"        /* v2.1: optional reranker */
 #include "mutator.h"         /* v2.1: optional template expansion */
+#include "environment.h"
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -119,6 +120,22 @@ static void fill_slots(Engine *eng, const Template *t, char *out, size_t n){
                 else if (!strcmp(key, "topic"))   pos = append_str(out, n, pos, topic_name);
                 else if (!strcmp(key, "memory"))  pos = append_str(out, n, pos, mem_summary);
                 else if (!strcmp(key, "name"))    pos = append_str(out, n, pos, eng->identity.character_name);
+                else if (!strcmp(key, "session_count")) {
+                    char tmp[16]; snprintf(tmp, sizeof(tmp), "%u", eng->environment.session_count);
+                    pos = append_str(out, n, pos, tmp);
+                }
+                else if (!strcmp(key, "total_turns")) {
+                    char tmp[16]; snprintf(tmp, sizeof(tmp), "%u", eng->environment.total_turns);
+                    pos = append_str(out, n, pos, tmp);
+                }
+                else if (!strcmp(key, "repeated")) {
+                    char tmp[16]; snprintf(tmp, sizeof(tmp), "%u", eng->environment.repeated_question_count);
+                    pos = append_str(out, n, pos, tmp);
+                }
+                else if (!strcmp(key, "hour")) {
+                    char tmp[8]; environment_hour_string(tmp, sizeof(tmp));
+                    pos = append_str(out, n, pos, tmp);
+                }
                 src = end + 1;
                 continue;
             }
@@ -331,6 +348,24 @@ static const char *fallback_line(Engine *eng){
 int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
     (void)input;
     eng->candidate_count = 0;
+
+    {
+        uint32_t fatigue = (eng->environment.turns_this_session * 256u) / 1000u;
+        if (fatigue > 255u) fatigue = 255u;
+        if ((persona_rng_u32(&eng->state) & 255u) < fatigue){
+            static const char *flaws[] = {
+                "...",
+                "I don't want to talk about that.",
+                "Let's change the subject.",
+                "Okay.",
+                "No.",
+                "Maybe."
+            };
+            uint32_t r = persona_rng_u32(&eng->state) % (uint32_t)(sizeof(flaws)/sizeof(flaws[0]));
+            snprintf(out, n, "%s", flaws[r]);
+            return 0;
+        }
+    }
 
     /* collect candidates: matching group, current intent, active-memory injection */
     for (uint32_t i = 0; i < eng->templates.count && eng->candidate_count < 64; ++i){

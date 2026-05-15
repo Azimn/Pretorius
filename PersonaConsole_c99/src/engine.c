@@ -1,9 +1,12 @@
 /* engine.c — process_input main loop, drives, mood, lifecycle. */
 #include "persona.h"
 #include "persona_internal.h"
+#include "cartridge.h"
 #include "ngram_lm.h"            /* v2.1: optional plasticity */
 #include "mutator.h"             /* v3.2: cartridge banks */
 #include "aether.h"              /* v3.2: long-term episodic storage */
+#include "identity.h"
+#include "environment.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -22,6 +25,12 @@ static int load_required(const char *dir, const char *name, void *buf, size_t n)
     char path[512];
     if (pe_path_join(path, sizeof(path), dir, name) != 0) return -1;
     return pe_read_file(path, buf, n);
+}
+
+static int load_static_section(const char *root, int is_cart,
+                               const char *name, void *buf, size_t n){
+    if (is_cart) return pe_cart_load_section(root, name, buf, n);
+    return load_required(root, name, buf, n);
 }
 
 static void seed_drives(Engine *eng){
@@ -288,32 +297,36 @@ static int compute_delay(Engine *eng){
 
 /* ---------- public API ---------- */
 int persona_open(Engine *eng, const char *character_dir){
+    int is_cart = pe_is_cart_path(character_dir);
+    char state_dir[256];
     memset(eng, 0, sizeof(*eng));
-    snprintf(eng->char_dir, sizeof(eng->char_dir), "%s", character_dir);
+    if (is_cart){
+        if (pe_cart_validate_file(character_dir) != 0){
+            fprintf(stderr, "persona: cartridge validation failed: %s\n", character_dir);
+            return -20;
+        }
+        if (pe_cart_state_dir(state_dir, sizeof(state_dir), character_dir) != 0)
+            return -21;
+        snprintf(eng->char_dir, sizeof(eng->char_dir), "%s", state_dir);
+    } else {
+        snprintf(eng->char_dir, sizeof(eng->char_dir), "%s", character_dir);
+    }
 
-    char sub[512];
-
-    if (load_required(character_dir, "identity.bin", &eng->identity, sizeof(Identity)) != 0) {
+    if (load_static_section(character_dir, is_cart, "identity.bin", &eng->identity, sizeof(Identity)) != 0) {
         fprintf(stderr, "persona: failed to load identity.bin from %s\n", character_dir);
         return -1;
     }
-    if (load_required(character_dir, "drives.bin",   &eng->drives,   sizeof(DriveTable)) != 0)  return -2;
-    if (load_required(character_dir, "today.bin",    &eng->todays,   sizeof(TodayTable)) != 0)  return -3;
-
-    pe_path_join(sub, sizeof(sub), character_dir, "dialogue/patterns.bin");
-    if (pe_read_file(sub, &eng->patterns,  sizeof(PatternTable)) != 0) return -4;
-    pe_path_join(sub, sizeof(sub), character_dir, "dialogue/templates.bin");
-    if (pe_read_file(sub, &eng->templates, sizeof(TemplateTable)) != 0) return -5;
-    pe_path_join(sub, sizeof(sub), character_dir, "dialogue/fallback.bin");
-    if (pe_read_file(sub, &eng->fallbacks, sizeof(FallbackTable)) != 0) return -6;
-    pe_path_join(sub, sizeof(sub), character_dir, "dialogue/topics.bin");
-    if (pe_read_file(sub, &eng->topics,    sizeof(TopicTable)) != 0)    return -7;
-    pe_path_join(sub, sizeof(sub), character_dir, "dialogue/goals.bin");
-    if (pe_read_file(sub, &eng->goals,     sizeof(GoalTable)) != 0)     return -8;
+    if (load_static_section(character_dir, is_cart, "drives.bin",   &eng->drives,   sizeof(DriveTable)) != 0)  return -2;
+    if (load_static_section(character_dir, is_cart, "today.bin",    &eng->todays,   sizeof(TodayTable)) != 0)  return -3;
+    if (load_static_section(character_dir, is_cart, "dialogue/patterns.bin",  &eng->patterns,  sizeof(PatternTable)) != 0) return -4;
+    if (load_static_section(character_dir, is_cart, "dialogue/templates.bin", &eng->templates, sizeof(TemplateTable)) != 0) return -5;
+    if (load_static_section(character_dir, is_cart, "dialogue/fallback.bin",  &eng->fallbacks, sizeof(FallbackTable)) != 0) return -6;
+    if (load_static_section(character_dir, is_cart, "dialogue/topics.bin",    &eng->topics,    sizeof(TopicTable)) != 0)    return -7;
+    if (load_static_section(character_dir, is_cart, "dialogue/goals.bin",     &eng->goals,     sizeof(GoalTable)) != 0)     return -8;
 
     /* mutable state */
-    int had_state = load_or_zero(character_dir, "state.bin",  &eng->state,  sizeof(NPCState));
-    int had_mem   = load_or_zero(character_dir, "memory.bin", &eng->memory, sizeof(MemoryStore));
+    int had_state = load_or_zero(eng->char_dir, "state.bin",  &eng->state,  sizeof(NPCState));
+    int had_mem   = load_or_zero(eng->char_dir, "memory.bin", &eng->memory, sizeof(MemoryStore));
 
     if (!had_state) {
         seed_drives(eng);
@@ -344,10 +357,21 @@ int persona_open(Engine *eng, const char *character_dir){
         for (uint8_t i = 0; i < eng->identity.core_memory_count && i < PE_EPISODIC_MAX; ++i){
             eng->memory.episodic[i] = eng->identity.core_memories_seed[i];
             eng->memory.episodic[i].core_memory = 1;
+            eng->memory.episodic[i].memory_type = MEM_CORE;
+            eng->memory.episodic[i].retrieval_prob = 255;
             eng->memory.episodic[i].id = i + 1;
             eng->memory.episodic_count = i + 1;
         }
         eng->memory.next_memory_id = eng->memory.episodic_count + 1;
+    }
+    {
+        for (uint16_t i = 0; i < eng->memory.episodic_count; ++i){
+            MemoryNode *m = &eng->memory.episodic[i];
+            if (m->core_memory) m->memory_type = MEM_CORE;
+            else if (m->memory_type == 0) m->memory_type = MEM_EPISODIC;
+            if (m->memory_type == MEM_CORE) m->retrieval_prob = 255;
+            else if (m->retrieval_prob == 0) m->retrieval_prob = m->salience ? m->salience : 128;
+        }
     }
 
     pe_pick_today(eng);
@@ -355,10 +379,10 @@ int persona_open(Engine *eng, const char *character_dir){
     /* v2.1: plasticity — load <character_dir>/voice.lm if present.
      * The LM is part of the cartridge; the engine never references a
      * character-specific filename.  Missing LM is non-fatal (no rerank). */
-    {
-        char lm_path[512];
-        pe_path_join(lm_path, sizeof(lm_path), character_dir, "voice.lm");
-        eng->lm = ngram_lm_load(lm_path);
+    if (is_cart
+        && pe_cart_load_section_alloc(character_dir, "LM ",
+                                      &eng->lm_data, &eng->lm_size) == 0){
+        eng->lm = ngram_lm_load_mem(eng->lm_data, eng->lm_size);
     }
 
     /* v3.2: AETHER long-term storage — opens (or creates) a per-character
@@ -366,7 +390,7 @@ int persona_open(Engine *eng, const char *character_dir){
      * memory.c gracefully skips demotion / cold recall. */
     {
         char aether_dir[512];
-        pe_path_join(aether_dir, sizeof(aether_dir), character_dir, "aether");
+        pe_path_join(aether_dir, sizeof(aether_dir), eng->char_dir, "aether");
         eng->aether = aether_open(aether_dir);
     }
     eng->cold_scratch_count = 0;
@@ -376,7 +400,12 @@ int persona_open(Engine *eng, const char *character_dir){
      * fall back to the engine's built-in default Pretorian banks so a
      * partially-authored cartridge still produces valid output. */
     {
-        int loaded_banks = load_or_zero(character_dir, "banks.bin",
+        int loaded_banks;
+        if (is_cart)
+            loaded_banks = (pe_cart_load_section(character_dir, "banks.bin",
+                                                 &eng->banks, sizeof(BankRegistry)) == 0);
+        else
+            loaded_banks = load_or_zero(eng->char_dir, "banks.bin",
                                         &eng->banks, sizeof(BankRegistry));
         if (!loaded_banks
             || eng->banks.magic   != PE_BANK_REGISTRY_MAGIC
@@ -386,7 +415,10 @@ int persona_open(Engine *eng, const char *character_dir){
     }
 
     /* v3.1: autobiographical chapters — load persisted book (soft-fail). */
-    load_or_zero(character_dir, "chapters.bin", &eng->chapters, sizeof(ChapterBook));
+    load_or_zero(eng->char_dir, "chapters.bin", &eng->chapters, sizeof(ChapterBook));
+    eng->baseline_valence = 0;
+    eng->baseline_arousal = 30;
+    environment_session_start(eng);
 
     /* v3.1: dream detection — if this session starts after a long absence,
      * crystallise memories into chapters and flag a dream for first turn. */
@@ -423,6 +455,11 @@ void persona_close(Engine *eng){
         ngram_lm_free(eng->lm);
         eng->lm = NULL;
     }
+    if (eng->lm_data){
+        free(eng->lm_data);
+        eng->lm_data = NULL;
+        eng->lm_size = 0;
+    }
     if (eng->aether){
         /* Drain any pending writes before close.  Cheap if WAL is empty. */
         if (aether_should_consolidate(eng->aether))
@@ -441,6 +478,7 @@ int persona_process_input(Engine *eng,
 
     /* 1. relation */
     pe_load_relation(eng, user_id);
+    environment_update_turn(eng, input_text);
 
     /* 2. time delta + decay */
     uint32_t now = persona_now_ms();
@@ -596,6 +634,7 @@ int persona_process_input(Engine *eng,
     }
 
     eng->state.last_update_time = now;
+    identity_update_rolling(eng, ev.valence, ev.arousal);
     persona_save(eng);
     return (int)strlen(out);
 }

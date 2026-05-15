@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "mutator.h"   /* BankRegistry (cartridge-borne synonym banks) */
+#include "environment.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,6 +57,12 @@ extern "C" {
 
 /* ---------- pattern flags (Pattern.flags bitmask) ---------- */
 #define PE_PATTERN_FLAG_INTOXICANT (1u<<0)  /* matching this pattern raises intoxication */
+
+enum {
+    MEM_CORE = 0,
+    MEM_EPISODIC = 1,
+    MEM_CACHE = 2
+};
 
 /* ---------- drives (id matches array slot) ---------- */
 enum {
@@ -152,7 +159,9 @@ typedef struct {
     uint8_t  decay_counter;
     uint16_t topic_id;
     uint8_t  private_threshold;  /* v3.1: disclosure gate (0=public; higher=more private) */
-    uint8_t  _pad;
+    uint8_t  retrieval_prob;     /* v3.3: probabilistic recall strength, 0..255 */
+    uint8_t  memory_type;        /* MEM_CORE / MEM_EPISODIC / MEM_CACHE */
+    uint8_t  _pad2;
     char     summary[PE_MEM_SUMMARY_LEN];
     /* v3.0: 64-bit SimHash of the summary, computed at commit time.
      * Lets pe_associative_recall do fuzzy semantic match via Hamming
@@ -527,6 +536,8 @@ struct Engine {
     /* v2.1: plasticity — n-gram LM for "Pretorianness" reranking.
      * NULL = subsystem disabled (LM file missing). */
     NGramLM       *lm;
+    void          *lm_data;      /* owned cartridge LM bytes; ngram_lm_load_mem borrows */
+    size_t         lm_size;
 
     /* v3.0: per-turn LSH signature of the input.  Computed once in
      * pe_prep_input, reused by pe_associative_recall for fuzzy match. */
@@ -551,6 +562,14 @@ struct Engine {
      * <character_dir>/banks.bin in persona_open; falls back to the
      * built-in Pretorian default registry if the file is missing. */
     BankRegistry  banks;
+
+    Environment   environment;
+    uint8_t       identity_boost_remaining;
+    int16_t       baseline_valence;
+    int16_t       baseline_arousal;
+    int32_t       recent_valence_sum;
+    int32_t       recent_arousal_sum;
+    uint8_t       recent_count;
 };
 
 /* ---------- public API ---------- */

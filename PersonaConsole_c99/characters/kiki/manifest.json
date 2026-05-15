@@ -1,0 +1,15 @@
+{
+  "output": "characters/kiki/kiki.cart",
+  "lm_file": "characters/kiki/voice.lm",
+  "sections": [
+    {"name": "identity.bin", "path": "characters/kiki/identity.bin"},
+    {"name": "drives.bin", "path": "characters/kiki/drives.bin"},
+    {"name": "today.bin", "path": "characters/kiki/today.bin"},
+    {"name": "banks.bin", "path": "characters/kiki/banks.bin"},
+    {"name": "dialogue/patterns.bin", "path": "characters/kiki/dialogue/patterns.bin"},
+    {"name": "dialogue/templates.bin", "path": "characters/kiki/dialogue/templates.bin"},
+    {"name": "dialogue/fallback.bin", "path": "characters/kiki/dialogue/fallback.bin"},
+    {"name": "dialogue/topics.bin", "path": "characters/kiki/dialogue/topics.bin"},
+    {"name": "dialogue/goals.bin", "path": "characters/kiki/dialogue/goals.bin"}
+  ]
+}

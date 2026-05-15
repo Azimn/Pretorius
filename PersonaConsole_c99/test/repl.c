@@ -26,8 +26,10 @@ int main(int argc, char **argv){
         fprintf(stderr, "usage: %s <character_dir> [user_id]\n", argv[0]);
         return 1;
     }
-    const char *char_dir = argv[1];
+    char char_dir_buf[256];
+    const char *char_dir = char_dir_buf;
     char user_id[64];
+    snprintf(char_dir_buf, sizeof(char_dir_buf), "%s", argv[1]);
     snprintf(user_id, sizeof(user_id), "%s", argc > 2 ? argv[2] : "anon");
 
     static Engine eng;  /* large struct — put on .bss */
@@ -72,12 +74,35 @@ int main(int argc, char **argv){
                         user_id, eng.relation.disposition, eng.relation.tags);
                 continue;
             }
+            if (!strncmp(line, ":load ", 6)){
+                static Engine next;
+                int lrc;
+                persona_save(&eng);
+                persona_close(&eng);
+                lrc = persona_open(&next, line + 6);
+                if (lrc != 0){
+                    fprintf(stderr, "[load failed: %d]\n", lrc);
+                    lrc = persona_open(&eng, char_dir);
+                    if (lrc != 0) return 1;
+                } else {
+                    eng = next;
+                    snprintf(char_dir_buf, sizeof(char_dir_buf), "%s", line + 6);
+                }
+                persona_set_user(&eng, user_id);
+                fprintf(stderr, "[loaded %s; today=%s; lm=%lu bytes; speaking with %s]\n",
+                        eng.identity.character_name,
+                        eng.todays.entries[eng.state.today_index].label,
+                        (unsigned long)eng.lm_size,
+                        user_id);
+                continue;
+            }
             if (!strcmp(line, ":help")){
                 fprintf(stderr, "  :dump   full state dump\n"
                                 "  :trace  sparkline of last 64 turns\n"
                                 "  :plan   most recent UtterancePlan\n"
                                 "  :save   flush state\n"
                                 "  :user X switch interlocutor\n"
+                                "  :load X switch cartridge/directory\n"
                                 "  :delay  toggle response delay\n"
                                 "  :quit\n");
                 continue;

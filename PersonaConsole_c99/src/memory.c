@@ -45,6 +45,8 @@ static void pe_aether_to_node(const aether_event_t *ev, MemoryNode *n){
     n->emotion.arousal   = (int8_t)((int32_t)ev->emotion_arousal   / 655);
     n->timestamp = ev->timestamp * 1000u;
     n->core_memory = 0;
+    n->memory_type = MEM_EPISODIC;
+    n->retrieval_prob = 255;
     n->decay_counter = 0;
     n->topic_id = ev->keys[0];
     size_t L = strnlen(ev->inline_text, AETHER_INLINE_TEXT);
@@ -82,7 +84,7 @@ static uint16_t evict_lowest_non_core(MemoryStore *m){
     uint16_t worst = 0;
     int32_t worst_score = 0x7fffffff;
     for (uint16_t i = 0; i < m->episodic_count; ++i){
-        if (m->episodic[i].core_memory) continue;
+        if (m->episodic[i].core_memory || m->episodic[i].memory_type == MEM_CORE) continue;
         int32_t score = (int32_t)m->episodic[i].salience - (int32_t)m->episodic[i].decay_counter;
         if (score < worst_score) { worst_score = score; worst = i; }
     }
@@ -99,7 +101,7 @@ void pe_commit_memory(Engine *eng, const char *summary,
         slot = m->episodic_count++;
     } else {
         slot = evict_lowest_non_core(m);
-        if (m->episodic[slot].core_memory) return; /* nothing to evict — drop */
+        if (m->episodic[slot].core_memory || m->episodic[slot].memory_type == MEM_CORE) return; /* nothing to evict */
         /* v3.2: demote the evicted memory into AETHER long-term storage
          * before overwriting.  Working memory becomes hot tier; AETHER
          * is the cold ledger.  Soft-fails if AETHER isn't available. */
@@ -117,7 +119,9 @@ void pe_commit_memory(Engine *eng, const char *summary,
     n->emotion = *ev;
     n->timestamp = persona_now_ms();
     n->topic_id = topic_id;
-    n->core_memory = (salience > 200) ? 1 : 0;  /* promotion threshold */
+    n->core_memory = 0;
+    n->memory_type = MEM_EPISODIC;
+    n->retrieval_prob = 255;
     n->decay_counter = 0;
     if (summary) {
         size_t L = strlen(summary);
@@ -150,7 +154,16 @@ void pe_decay_episodic(Engine *eng){
     MemoryStore *m = &eng->memory;
     for (uint16_t i = 0; i < m->episodic_count; ++i){
         MemoryNode *n = &m->episodic[i];
-        if (n->core_memory) continue;
+        if (n->core_memory || n->memory_type == MEM_CORE) {
+            n->retrieval_prob = 255;
+            continue;
+        }
+        if (n->retrieval_prob > 0){
+            uint8_t drop = (uint8_t)(255u / (uint8_t)(n->emotion.arousal + 1u));
+            if (drop == 0) drop = 1;
+            n->retrieval_prob = (n->retrieval_prob > drop)
+                              ? (uint8_t)(n->retrieval_prob - drop) : 0;
+        }
         if (n->decay_counter < 255) {
             n->decay_counter++;
         } else {
@@ -171,7 +184,7 @@ void pe_decay_episodic(Engine *eng){
     /* compact: drop salience-0 non-core */
     uint16_t w = 0;
     for (uint16_t i = 0; i < m->episodic_count; ++i){
-        if (m->episodic[i].core_memory || m->episodic[i].salience > 0)
+        if (m->episodic[i].core_memory || m->episodic[i].memory_type == MEM_CORE || m->episodic[i].salience > 0)
             m->episodic[w++] = m->episodic[i];
     }
     m->episodic_count = w;
@@ -185,7 +198,10 @@ void pe_associative_recall(Engine *eng, const EmotionVector *ev){
     int have_qsig = (qsig != 0);
 
     for (uint16_t i = 0; i < eng->memory.episodic_count && eng->active_count < PE_ACTIVE_MAX; ++i){
-        const MemoryNode *m = &eng->memory.episodic[i];
+        MemoryNode *m = &eng->memory.episodic[i];
+        if (m->memory_type != MEM_CORE
+            && (persona_rng_u32(&eng->state) & 255u) >= m->retrieval_prob)
+            continue;
         int32_t dv = ev->valence   - m->emotion.valence;   if (dv < 0) dv = -dv;
         int32_t da = ev->arousal   - m->emotion.arousal;   if (da < 0) da = -da;
         int32_t dd = ev->dominance - m->emotion.dominance; if (dd < 0) dd = -dd;
@@ -230,6 +246,8 @@ void pe_associative_recall(Engine *eng, const EmotionVector *ev){
             eng->active_count++;
             /* re-access resets decay counter — keeps revisited memories alive */
             eng->memory.episodic[i].decay_counter = 0;
+            eng->memory.episodic[i].retrieval_prob =
+                (uint8_t)(m->retrieval_prob + ((255u - m->retrieval_prob) >> 4));
         }
     }
     /* v3.2: AETHER fallback.  If working memory had nothing strong (either

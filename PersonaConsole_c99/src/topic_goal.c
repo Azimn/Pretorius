@@ -1,6 +1,7 @@
 /* topic_goal.c — topic momentum, pattern classification, goal arbitration, intent. */
 #include "persona.h"
 #include "persona_internal.h"
+#include "intent.h"
 #include "lsh_memory.h"      /* v3.0: SimHash for fuzzy semantic recall */
 #include <string.h>
 #include <ctype.h>
@@ -195,7 +196,8 @@ uint16_t pe_select_goal(Engine *eng){
         score += topic_momentum_for(&eng->state, g->bias_topic) / 4;
         /* memory bonus: any active negative memory boosts vindication-like goals */
         for (uint16_t k = 0; k < eng->active_count && k < 6; ++k){
-            const MemoryNode *m = &eng->memory.episodic[eng->active_memories[k]];
+            const MemoryNode *m = pe_active_node(eng, eng->active_memories[k]);
+            if (!m) continue;
             if (m->emotion.valence < -20 && g->intent_id == PE_INTENT_ACCUSE) score += 50;
             if (m->emotion.valence >  20 && g->intent_id == PE_INTENT_REMINISCE) score += 40;
         }
@@ -210,6 +212,15 @@ uint16_t pe_select_goal(Engine *eng){
 }
 
 uint16_t pe_select_intent(Engine *eng, uint16_t goal_idx, const EmotionVector *ev){
+    Intent intents[MAX_INTENTS];
+    int intent_count = 0;
+    int best_idx = 0;
+    intent_recompute(eng, intents, &intent_count);
+    for (int i = 1; i < intent_count; ++i)
+        if (intents[i].weight > intents[best_idx].weight) best_idx = i;
+    if (intent_count > 0 && intents[best_idx].weight >= 160)
+        return intents[best_idx].id;
+
     uint16_t base = (goal_idx < eng->goals.count) ? eng->goals.entries[goal_idx].intent_id : PE_INTENT_MONOLOGUE;
     /* high arousal + negative valence → accuse or withdraw */
     if (ev->arousal > 60 && ev->valence < -30){
