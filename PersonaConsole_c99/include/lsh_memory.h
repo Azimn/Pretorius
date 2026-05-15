@@ -32,6 +32,11 @@ lsh_sig_t lsh_compute(const char *text);
 /* Compute over an explicit length (no NUL required). */
 lsh_sig_t lsh_compute_n(const char *text, size_t len);
 
+/* AETHER-compatible alias — fixed 4-byte n-gram, untyped data. */
+static inline lsh_sig_t lsh_simhash(const uint8_t *data, size_t len){
+    return lsh_compute_n((const char *)data, len);
+}
+
 /* Hamming distance, 0..64. */
 int lsh_hamming_distance(lsh_sig_t a, lsh_sig_t b);
 

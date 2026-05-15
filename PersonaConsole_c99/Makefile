@@ -36,13 +36,22 @@ PLAS_SRC := \
     src/ngram_lm.c      \
     src/mutator.c
 
+# AETHER episodic storage subsystem.  Links against liblsh.a.
+# Self-contained: no dependency on persona.h / persona_internal.h.
+AETHER_SRC := \
+    src/aether.c            \
+    src/aether_wal.c        \
+    src/aether_bucket.c     \
+    src/aether_consolidate.c
+
 ENGINE_OBJ := $(ENGINE_SRC:src/%.c=build/%.o)
 LSH_OBJ    := $(LSH_SRC:src/%.c=build/%.o)
 PLAS_OBJ   := $(PLAS_SRC:src/%.c=build/%.o)
+AETHER_OBJ := $(AETHER_SRC:src/%.c=build/%.o)
 
-.PHONY: all clean character test lsh_test plasticity_test plasticity_run lm_build
+.PHONY: all clean character test lsh_test plasticity_test plasticity_run lm_build aether_test aether_run
 
-all: build/libpersona.a build/liblsh.a build/libplasticity.a \
+all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
      build/compile_pretorius build/compile_kiki build/repl build/build_lm \
      characters/pretorius/voice.lm characters/kiki/voice.lm
 
@@ -61,6 +70,10 @@ $(LSH_OBJ): build/%.o: src/%.c include/lsh_memory.h include/consolidate.h | buil
 $(PLAS_OBJ): build/%.o: src/%.c include/ngram_lm.h include/mutator.h | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# AETHER subsystem objects depend on aether headers + lsh_memory.h.
+$(AETHER_OBJ): build/%.o: src/%.c include/aether.h include/aether_internal.h include/lsh_memory.h | build
+	$(CC) $(CFLAGS) -c $< -o $@
+
 build/libpersona.a: $(ENGINE_OBJ)
 	ar rcs $@ $^
 
@@ -68,6 +81,9 @@ build/liblsh.a: $(LSH_OBJ)
 	ar rcs $@ $^
 
 build/libplasticity.a: $(PLAS_OBJ)
+	ar rcs $@ $^
+
+build/libaether.a: $(AETHER_OBJ)
 	ar rcs $@ $^
 
 build/compile_pretorius: tools/compile_pretorius.c build/libpersona.a build/libplasticity.a build/liblsh.a
@@ -106,6 +122,14 @@ plasticity_test: build/plasticity_test characters/pretorius/voice.lm
 
 plasticity_run: plasticity_test
 	./build/plasticity_test characters/pretorius/voice.lm
+
+build/aether_test: test/aether_test.c build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) test/aether_test.c build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+aether_test: build/aether_test
+
+aether_run: aether_test
+	./build/aether_test
 
 character: build/compile_pretorius
 	./build/compile_pretorius characters/pretorius
