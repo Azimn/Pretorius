@@ -402,9 +402,13 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
         uint32_t mrng = eng->state.today_seed
                       ^ (eng->state.turn_count * 2654435761u);
         if (mrng == 0) mrng = 0xA5A5A5A5u;
-        size_t mw = mutator_expand(buf, mut_out, sizeof(mut_out),
-                                   eng->plan.theatricality,
-                                   eng->plan.aggression, &mrng);
+        /* v3.2: route through the cartridge-borne BankRegistry so each
+         * character's synonym set lives in its own banks.bin, not the
+         * engine binary. */
+        size_t mw = mutator_expand_banks(buf, mut_out, sizeof(mut_out),
+                                         eng->plan.theatricality,
+                                         eng->plan.aggression, &mrng,
+                                         &eng->banks);
         if (mw > 0){
             memcpy(buf, mut_out, mw + 1);
         }

@@ -2,6 +2,7 @@
 #include "persona.h"
 #include "persona_internal.h"
 #include "ngram_lm.h"            /* v2.1: optional plasticity */
+#include "mutator.h"             /* v3.2: cartridge banks */
 #include "aether.h"              /* v3.2: long-term episodic storage */
 #include <stdio.h>
 #include <string.h>
@@ -370,6 +371,20 @@ int persona_open(Engine *eng, const char *character_dir){
     }
     eng->cold_scratch_count = 0;
 
+    /* v3.2: cartridge-borne synonym banks.  Try <character_dir>/banks.bin
+     * first.  If the file is missing or its magic/version don't match,
+     * fall back to the engine's built-in default Pretorian banks so a
+     * partially-authored cartridge still produces valid output. */
+    {
+        int loaded_banks = load_or_zero(character_dir, "banks.bin",
+                                        &eng->banks, sizeof(BankRegistry));
+        if (!loaded_banks
+            || eng->banks.magic   != PE_BANK_REGISTRY_MAGIC
+            || eng->banks.version != PE_BANK_REGISTRY_VERSION){
+            mutator_load_default_banks(&eng->banks);
+        }
+    }
+
     /* v3.1: autobiographical chapters — load persisted book (soft-fail). */
     load_or_zero(character_dir, "chapters.bin", &eng->chapters, sizeof(ChapterBook));
 
@@ -566,6 +581,18 @@ int persona_process_input(Engine *eng,
         if (eng->relation.disposition < 200) {
             eng->relation.tags |= PE_TAG_BENEATH_CONTEMPT;
         }
+    }
+
+    /* v3.2: opportunistic AETHER consolidation.  Every 16 turns, if the
+     * WAL has crossed its soft threshold, run an incremental rebuild —
+     * folding pending demoted events into their bucket files so subsequent
+     * cold recalls see them via bucket scan (cheaper) rather than WAL
+     * linear scan.  Cheap when no consolidation is needed
+     * (aether_should_consolidate returns 0 quickly). */
+    if (eng->aether
+        && (eng->state.turn_count & 15u) == 0
+        && aether_should_consolidate(eng->aether)){
+        aether_consolidate(eng->aether, 0 /* incremental */);
     }
 
     eng->state.last_update_time = now;

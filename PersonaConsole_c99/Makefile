@@ -59,8 +59,9 @@ all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
 build:
 	@mkdir -p build
 
-# Engine objects depend on engine + aether headers (engine now wires AETHER).
-$(ENGINE_OBJ): build/%.o: src/%.c include/persona.h include/persona_internal.h include/aether.h | build
+# Engine objects depend on engine + aether + mutator headers (engine wires
+# AETHER and the cartridge-borne BankRegistry).
+$(ENGINE_OBJ): build/%.o: src/%.c include/persona.h include/persona_internal.h include/aether.h include/mutator.h | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # LSH subsystem objects depend only on the LSH headers.

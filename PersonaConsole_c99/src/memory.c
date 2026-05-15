@@ -155,8 +155,15 @@ void pe_decay_episodic(Engine *eng){
             n->decay_counter++;
         } else {
             n->decay_counter = 0;
-            /* every 4th saturation → ~1020 turns between salience drops */
-            if (((n->id ^ eng->state.turn_count) & 3u) == 0){
+            /* v3.2: arousal-modulated decay.  Spec §5.4 baseline is "drop
+             * salience every 4th saturation".  High-arousal memories (the
+             * shocks and ecstasies) saturate twice as slowly — every 8th
+             * cycle — so vivid events outlive routine ones for ~2× longer.
+             * Cheap integer branch; no FPU. */
+            uint8_t arousal_abs = (n->emotion.arousal > 0)
+                                ? (uint8_t)n->emotion.arousal : 0u;
+            uint32_t throttle_mask = (arousal_abs >= 60) ? 7u : 3u;
+            if (((n->id ^ eng->state.turn_count) & throttle_mask) == 0){
                 if (n->salience > 0) n->salience--;
             }
         }

@@ -1,110 +1,182 @@
-# Persona Console — CLAUDE.md
+# Persona Console — CLAUDE.md (v3.2 FIN)
 
 Deterministic synthetic-personality runtime per PE-SPEC-001.
 Single-threaded C99, no heap allocation in `process_input`, all math
-saturating fixed-point. Target: < 10 ms / turn, < 300 KB / character on
-P3-class hardware.
+saturating fixed-point. Target: < 10 ms / turn, < 300 KB / character
+on P3-class hardware.
 
 **This folder is the character-agnostic engine** ("the console"). Pretorius
-is one cartridge — the data lives in `characters/pretorius/*.bin`. The
-engine code in `src/` and `include/` no longer contains any
-character-specific keywords, drive weights, or hardcoded triggers.
+and Kiki are two cartridges that prove the console runs any character
+whose data conforms to the cartridge layout. The engine code in `src/` and
+`include/` contains zero character-specific strings or behaviors.
 
-Lineage: forked from `Pretorius_c99-1` (v3.1). Character-coupled behaviour
-that had crept into the engine — `strstr("gin")` in embodiment, the static
-`drive_mood_w[]` mood array — has been lifted into per-character data
-fields (`Pattern.flags`, `DriveDef.mood_weight`). The same engine now
-hosts any character whose `compile_*` tool populates these fields.
-
-## Engine-agnostic refactor (this fork)
-
-| Old (character-coupled)                                | New (data-driven)                                |
-| ------------------------------------------------------ | ------------------------------------------------ |
-| `strstr(eng->lowered, "gin")` in `pe_update_embodiment`| `state.last_matched_flags & PE_PATTERN_FLAG_INTOXICANT` |
-| `static int8_t drive_mood_w[]` in `pe_compute_mood`    | `eng->drives.drives[i].mood_weight`              |
-| Fixed `r % PE_ADDRESS_COUNT` for pet-name picking      | Gated by `disposition >= 700 && age >= 30 d`     |
-| Self-interrupt prob from intox/exhaust only            | + 30 boost when interlocutor is `PE_TAG_CONFIDANT` |
-| Hedging/verbosity ignore long-term relationship        | Confidant: hedging −50, verbosity −20            |
-
-Pattern flags so far:
-- `PE_PATTERN_FLAG_INTOXICANT` (1<<0) — match raises intoxication.
-
-Adding a new flag means: define the macro in `persona.h`, set it in the
-character's `compile_*.c`, and consume it in the engine module that owns
-the side-effect (no per-character if-trees).
-
-## What changed vs Pretorius_C99 (the v1 fork sitting alongside this folder)
-
-| Critique target | v2 response |
-| --- | --- |
-| **Dialogue layer too template-centric** — needs a planning stage between intent and realization | New `plan.c` module + `UtterancePlan` struct. `pe_build_plan()` runs after intent selection and before template choice. The renderer now scores templates by `rhetorical_mask` × `stance_mask` × `(certainty/aggression/theatricality)` thresholds, *not* by intent alone. |
-| **Emotional model too singular** — everything compressed to mood + drives | Four new layered affect variables (`baseline_temperament`, `acute_spike`, `suppression_mask`, `obsession_pressure`) that coexist independently. `mood` is now a *display surface*; the truer state is the stack. |
-| **Lacks embodiment** | New embodiment block: `intoxication`, `exhaustion`, `irritation_carry`, `physical_fragility`, `fixation_topic/strength/remaining`, `recovery_curve`. Gin keywords push intoxication; obsession topic exceeding 800 momentum locks a fixation for 6 turns. Exhaustion + paranoia trigger theatrical-collapse ellipses. |
-| **Memory decay doesn't match spec (64 vs 1000 turns)** | `pe_decay_episodic` now uses saturating uint8 counter + 4-saturation throttle → ~1020-turn cadence per spec §5.4. Associative recall hits reset the counter. |
-| **Pattern path leaks modern CPU assumptions** | Input lowered + 256-bit char bitmap computed once per turn (`pe_prep_input`). Pattern sweep skips any pattern whose `first_char` isn't in the bitmap. `kw_len` precomputed at compile time. No `strlen` inside the sweep. |
-| **Semantic interpretation too shallow — "not angry" ≈ "angry"** | `pe_classify_input` now scans a 24-byte look-back window before each matched keyword for ~20 negation cues (`not`, `n't`, `never`, `cannot`, etc.) and flips valence/dominance, halves arousal, demotes class. Verified: "you are a monster" → mood -171, "you are not a monster" → mood +92. |
-| **Needs instrumentation** | `TraceEntry` ring buffer (64 turns) recording mood/affect/intox/exhaust/irritation/obsession/goal/intent/mode/topic/fixation/class/negation each turn. New API: `persona_trace_dump()` (ASCII sparklines + intent-transition timeline) and `persona_plan_dump()` (full last-built UtterancePlan). REPL: `:trace`, `:plan`. |
-
-## Layout (deltas from v1)
+## Architecture (cartridge / console split)
 
 ```
-Pretorius_c99-1/
-  include/persona.h                 + UtterancePlan, embodiment + affect
-                                      fields on NPCState, TraceEntry ring,
-                                      Template.rhetorical_mask/stance_mask
-                                      + thresholds, Pattern.kw_len/first_char
-  include/persona_internal.h        + pe_build_plan, pe_update_embodiment,
-                                      pe_update_layered_affect, pe_trace_push,
-                                      pe_prep_input, pe_bm_*
-  src/
-    plan.c                          NEW — rhetorical planner
-    engine.c                        + embodiment, affect, trace, init defaults,
-                                      richer debug_dump, trace_dump, plan_dump
-    dialogue.c                      candidate scoring + transforms now driven
-                                      by UtterancePlan (rhet/stance mask +
-                                      verbosity/hedging/aggression/theatricality
-                                      thresholds)
-    topic_goal.c                    pe_classify_input now uses cached lowered
-                                      input + char bitmap + negation-aware
-                                      lookback; pe_prep_input added
-    memory.c                        spec-correct decay (~1020 turns); recall
-                                      hit resets decay_counter
-  tools/compile_pretorius.c         pattern table fills kw_len/first_char;
-                                      new T_addv2 helper for rhet/stance-tagged
-                                      templates; 3 new today-states
-                                      (manic_fixation, drunk_brilliant,
-                                      fragile_theatrical)
-  test/repl.c                       + :trace, :plan
+┌────────────────────────────────────────────────────────────────┐
+│  PersonaConsole_c99/                                           │
+│  ───────────────────                                           │
+│                                                                │
+│  src/        engine — character-agnostic C99 code              │
+│  include/    persona.h + persona_internal.h + …                │
+│  tools/      compile_pretorius.c, compile_kiki.c (one per      │
+│              cartridge), build_lm.c                            │
+│                                                                │
+│  ┌──────────────────────────────────────┐                      │
+│  │ characters/pretorius/  ← cartridge   │                      │
+│  │ characters/kiki/       ← cartridge   │                      │
+│  │   identity.bin                       │                      │
+│  │   drives.bin                         │                      │
+│  │   today.bin                          │                      │
+│  │   banks.bin       (v3.2 NEW)         │                      │
+│  │   dialogue/{patterns,templates,      │                      │
+│  │            fallback,goals,topics}    │                      │
+│  │   voice.lm                           │                      │
+│  └──────────────────────────────────────┘                      │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-## Plan layer (most important new concept)
+The console knows: how to load arbitrary `*.bin` files in a character
+directory, how to run the cognitive pipeline, how to score templates
+against an utterance plan, how to query long-term episodic memory.
 
-The pipeline is now:
+The console does **not** know what gin is, who Henry is, what 90210 means,
+or how Kiki addresses people. All character flavor lives in the cartridge.
+
+## The cognitive pipeline
 
 ```
 input
-  -> pe_prep_input   (lower, bitmap, negation)
-  -> pe_classify_input + pe_associative_recall
-  -> pe_update_drives_from_input -> pe_compute_mood
-  -> pe_update_embodiment   (intox, exhaust, irrit, fixation)
-  -> pe_update_layered_affect (temperament, acute_spike, suppress, obsession_pressure)
-  -> pe_update_topic_momentum
-  -> pe_select_goal -> pe_select_intent
-  -> pe_build_plan          ******** v2 PLANNING STAGE ********
-  -> pe_generate_response  (now scores templates by plan, not intent only)
-  -> pe_trace_push
+  → pe_prep_input              lowercase + char bitmap + LSH input_sig
+  → pe_classify_input          pattern sweep w/ negation window; sets
+                                last_matched_flags (intoxicant etc.)
+  → pe_compute_surprise        compare actual vs. last turn's prediction
+  → pe_update_user_model       EMA of speaker affect; belief_about_me; …
+  → pe_associative_recall      working memory (VAD + LSH + salience +
+                                recency + disclosure gate)
+                              + AETHER cold fallback when working hits
+                                below threshold → cold_scratch[]
+  → pe_update_drives_from_input
+  → pe_compute_mood            data-driven (drives[i].mood_weight)
+  → pe_update_embodiment       intox triggered by PE_PATTERN_FLAG_INTOXICANT
+  → pe_update_layered_affect   baseline / acute_spike / suppression /
+                                obsession_pressure
+  → pe_update_topic_momentum
+  → pe_select_goal / pe_select_intent
+  → pe_build_plan              UtterancePlan: mode / stance / cert /
+                                verb / aggr / theat / hedge
+  → pe_generate_response       template score → pe_voice_rerank (v3.2
+                                counterfactual lookahead) → top-3
+                                weighted sample → style transforms
+                                (flourishes/expansions from cartridge) →
+                                mutator_expand_banks (cartridge banks)
+  → dream prefix               first turn after ≥8 h gap
+  → pe_trace_push
+  → pe_predict_next_input
+  → opportunistic AETHER consolidation (every 16 turns when WAL dirty)
+  → persona_save               state.bin / memory.bin / chapters.bin
+                                + relations + AETHER
 ```
 
-`UtterancePlan` carries:
-`rhetorical_mode`, `stance`, `target_topic`, `callback_memory`,
-`certainty`, `verbosity`, `aggression`, `theatricality`, `hedging`,
-`negation_in_play`. Templates declare `rhetorical_mask` (bitmask of
-compatible modes) and `stance_mask` plus min thresholds for the byte fields.
+## Subsystems (four static libraries)
+
+| Library | Purpose |
+| --- | --- |
+| `libpersona.a` | The cognitive runtime. Depends on the next three. |
+| `liblsh.a` | 64-bit SimHash signatures + k-means consolidation (vertical majority vote). Used by libpersona AND libaether. |
+| `libplasticity.a` | Character n-gram LM (stupid-backoff, integer-log) + template mutator. Banks are cartridge-borne; the lib only ships a default for back-compat. |
+| `libaether.a` | Long-term episodic storage. Multi-band LSH (4 bands × 256 buckets = 1024 files), Write-Ahead Log, atomic bucket rewrite via `.new` + `rename()`. Mmap one bucket file per band per query; RAM under 1 MB. |
+
+## Cartridge-borne data
+
+Every character file is loaded from disk; the engine binary contains no
+per-character strings.
+
+| File | Type | Size | Contents |
+| --- | --- | --- | --- |
+| `identity.bin` | `Identity` | 1786 B | Big Five, voice flags, obsessions, taboos, address slots, name, core memory seeds, **flourishes[4][48]** + **expansions[4][48]** (v3.2 style banks) |
+| `drives.bin` | `DriveTable` | 272 B | 8 drives × {baseline, decay, mood_weight, personality_weight[5], name} |
+| `today.bin` | `TodayTable` | 964 B | Up to 16 daily mood-modifier states |
+| `banks.bin` | `BankRegistry` | 6012 B | **v3.2 NEW** — Up to 12 synonym banks × {name, 10 entries × 48 B, thresholds} |
+| `dialogue/patterns.bin` | `PatternTable` | 4484 B | Keyword → topic, emotion delta, input_class, **flags** (intoxicant etc.) |
+| `dialogue/templates.bin` | `TemplateTable` | 55812 B | Text + intent + rhetorical_mask + stance_mask + thresholds |
+| `dialogue/fallback.bin` | `FallbackTable` | 3460 B | 3-tier fallback lines |
+| `dialogue/goals.bin` | `GoalTable` | 748 B | Drive-weight vectors per goal |
+| `dialogue/topics.bin` | `TopicTable` | 2180 B | Topic graph w/ adjacency |
+| `voice.lm` | n-gram LM | ~150 KB | Stupid-backoff character LM for register reranking |
+
+## Per-turn runtime files (gitignored)
+
+| File | Purpose |
+| --- | --- |
+| `state.bin` | `NPCState` — drives, mood, embodiment, affect, plan mirror, trace ring, prediction/surprise, voice instrumentation |
+| `memory.bin` | `MemoryStore` — episodic ring (50 nodes), semantic blocks, short-term buffer, phrase usage |
+| `chapters.bin` | `ChapterBook` — autobiographical chapters + dream state |
+| `relations/<hash>.bin` | Per-interlocutor `Relation` w/ embedded UserModel |
+| `aether/` | AETHER long-term episodic store (zone files + bucket files per band + WAL + dirty bitmap) |
+
+## Determinism
+
+Same `today_seed` + same input sequence + same cartridge → byte-identical
+state, response, AETHER WAL contents, and instrumentation across replays.
+All RNG is xorshift32 seeded from `(today_seed XOR turn_count*2654435761u)`.
+The voice rerank, mutator expansion, plan building, and AETHER promotion
+are pure functions of state.
+
+## Engine agnosticism — what's NOT in the binary
+
+The engine code in `src/` and `include/` contains **zero** character-flavored
+strings or hardcoded keyword checks. Everything that used to be:
+
+| v1 → v2 (engine) | v3.2 (cartridge) |
+| --- | --- |
+| `strstr(eng->lowered, "gin")` | `state.last_matched_flags & PE_PATTERN_FLAG_INTOXICANT` |
+| `static drive_mood_w[]` | `eng->drives.drives[i].mood_weight` |
+| Hardcoded `"pretorius.lm"` filename | `<character_dir>/voice.lm` |
+| `"cathedrals of bone"` flourishes in apply_style | `eng->identity.flourishes[]` |
+| `"as I told the priests"` expansions | `eng->identity.expansions[]` |
+| `"Pretorius:"` REPL prefix | `eng->identity.character_name` |
+| Synonym banks in `mutator.c` | `eng->banks` from `<character_dir>/banks.bin` |
+
+`grep` the engine sources for the character names — they appear nowhere.
+
+## v3.2 cognitive layers (top to bottom)
+
+1. **The Voice** (`src/voice.c`) — 1-ply counterfactual rerank. For each
+   candidate template, predict the speaker's likely response if that
+   utterance were chosen, score how well the prediction advances the
+   current goal, add the alignment delta to `candidate_scores[]`. Hostile
+   speakers (UserModel `belief_about_me < -40`) damp expected praise.
+2. **AETHER long-term episodic** (`src/aether*.c`) — multi-band LSH
+   (4 bands × 256 buckets), LSM-tree WAL, atomic bucket rewrite. Working
+   memory demotes evicted nodes; cold recall promotes back into per-turn
+   scratch via sentinel indices.
+3. **Story** (`src/story.c`) — autobiographical chapters crystallized
+   from memory clusters at session start; dream-recall phrase prepended
+   to the first response after ≥8 h gap.
+4. **Theory of Mind** (`src/user_model.c`) — UserModel embedded in
+   `Relation`: speaker affect EMA, belief-about-me, knowledge level,
+   engagement.
+5. **Predictive coding** — end-of-turn prediction → start-of-next-turn
+   surprise; surprise > 600 flips planner toward HEDGE/CONFESS; running
+   `prediction_error_accum` adds to plan.hedging.
+6. **Layered affect** — baseline_temperament, acute_spike,
+   suppression_mask, obsession_pressure.
+7. **Embodiment** — intoxication (flag-driven), exhaustion,
+   irritation_carry, fixation lock.
+8. **Plan layer** — rhetorical_mode × stance × cert/aggr/theat/hedge
+   drives template selection AND style transforms.
+9. **Plasticity** — LM-based register reranker; cartridge-borne synonym
+   banks for procedural template expansion.
+10. **Arousal-modulated decay** — high-arousal episodic memories
+    saturate twice as slowly in `pe_decay_episodic`.
 
 ## REPL commands
 
 ```
-:dump   full state (drives, embodiment, layered affect, plan summary)
+:dump   full state — drives, embodiment, affect, plan summary,
+        user_model, prediction/surprise, voice delta + choice,
+        chapters, AETHER stats
 :trace  ASCII sparklines for last 64 turns + intent timeline
 :plan   the current UtterancePlan
 :save   flush
@@ -113,180 +185,57 @@ compatible modes) and `stance_mask` plus min thresholds for the byte fields.
 :quit
 ```
 
-## Determinism
+## Hardware budget (per character, on disk)
 
-Same `today_seed` + same input sequence → byte-identical state and output.
-The trace ring is part of `NPCState` and therefore part of `state.bin`, so
-`:trace` survives across sessions. The plan struct is per-turn scratch (not
-serialized), but the *last* plan's salient fields are mirrored into
-`NPCState` for inspection across saves.
+| Item | Bytes | % of 300 KB |
+| --- | --- | --- |
+| Cartridge bins (identity + drives + today + dialogue/* + **banks**) | ~115 KB | 38 % |
+| `voice.lm` | 144–211 KB | 48–70 % |
+| `chapters.bin` (when populated) | 1124 B | 0.4 % |
+| `state.bin` runtime | ~7 KB | 2 % |
+| `memory.bin` runtime | ~9 KB | 3 % |
+| **typical total** | **~265 KB** | **88 %** |
 
-## Semantic memory subsystem (`liblsh.a`)
+AETHER cold storage scales separately on disk (4 × 256 bucket files +
+zone files); RAM cost is one bucket-file mmap per band per query
+(~600 KB total) which is paged on demand.
 
-Self-contained, separate from `libpersona.a` (no `persona.h` dependency).
-A future memory-layer rewrite will route through it; for now it builds
-and tests standalone.
+## Tests
 
-- `include/lsh_memory.h` / `src/lsh_memory.c` — 64-bit **SimHash** signatures
-  over byte 4-grams. Hamming distance is locality-sensitive (verified
-  by paraphrase-vs-unrelated test). Integer-only, PIII-friendly.
-  `lsh_find_nearest` does brute-force linear scan — 20k sigs = 160 KB,
-  fits in L2. No `bsearch` (numerical sort destroys Hamming locality).
-- `include/consolidate.h` / `src/consolidate.c` — nightly digestion pass:
-  - `generate_rules`: co-occurrence rules from event persona-key pairs,
-    sorted by support, threshold `PE_COOC_THRESHOLD=5`.
-  - `build_gist_summaries`: k-means clustering over signatures with
-    **vertical bitwise majority vote** centroid update (XOR is parity,
-    NOT majority — that bug stays dead).
-- `test/lsh_test.c` — 12 assertions. Build & run with `make lsh_test`.
+| Test | Assertions | What it covers |
+| --- | --- | --- |
+| `make test` | qualitative | 8-turn Pretorius sanity w/ negation, gin, dump |
+| `make kiki_test` | qualitative | 8-turn Kiki sanity w/ identity-threat probe |
+| `make lsh_test` | 12 | SimHash signatures, hamming distance, consolidation, co-occurrence rules |
+| `make plasticity_run` | 14 | LM scoring monotonicity, paraphrase preservation, mutator banks/gating |
+| `make aether_run` | 19 | AETHER standalone: open, put, query, consolidate, multi-band paraphrase, 1k-scale, max_age |
+| `make aether_pe_run` | 12 | End-to-end: demote on eviction, cold scratch, sentinel index resolution |
+| `make voice_run` | 12 | Counterfactual rerank: goal alignment, hostile damping, determinism, instrumentation |
 
-## Plasticity subsystem (`libplasticity.a`)
-
-Self-contained, built but not yet wired into `dialogue.c`. Future integration:
-LM as reranker on top-K candidates, mutator applied to the chosen template.
-
-### Alt A — character n-gram LM reranker
-
-- `include/ngram_lm.h` / `src/ngram_lm.c` — character-level 5-gram LM with
-  **stupid backoff** (Brants et al. 2007 — the post-period simplification
-  we apply with hindsight; quality ~indistinguishable from Kneser-Ney for
-  reranking, ~10× simpler code). All-integer scoring via integer-log table.
-- `tools/build_lm.c` — offline LM builder. `make data/pretorius.lm` reads
-  `data/corpus.txt` and emits a sorted-hash binary LM.
-- Bootstrap corpus: ~6 KB Pretorian-register text (Shelley + Pretorius-style
-  originals) → ~144 KB compiled LM. Swap in a richer corpus when authored.
-- Score curve verified: Pretorian text −552, paraphrase −1719,
-  modern slang −3090, gibberish −7160 milli-nats/char.
-
-### Alt C — procedural template mutator
-
-- `include/mutator.h` / `src/mutator.c` — splice-marker expansion engine.
-- Templates may contain `[bank_name]` markers (e.g.
-  `[adj_morbid] [noun_obsession]`).
-- 10 hand-curated banks (~70 fragments total): adj_morbid, adj_grand,
-  adj_unwholesome, adj_scientific, noun_obsession, verb_create,
-  verb_destroy, exclamation, simile_anatomical, intensifier.
-- Each bank has `min_theatricality` / `min_aggression` gates — below the
-  gate, the bank pins to entry 0 (most neutral variant).
-- Deterministic: caller supplies xorshift32 state seeded from
-  `(today_seed, turn_count)`.
-
-### Wiring (v2.1 — live in the pipeline)
-
-The plasticity subsystem is wired into the engine:
-
-- `persona_open` loads `pretorius.lm` (per-character override, then shared
-  `data/pretorius.lm`). Missing LM is non-fatal — engine just skips rerank.
-- `score_template` adds an LM "Pretorianness" bonus: per-char normalized
-  log-prob centered at -1500, scaled /10. A Pretorian template (~-500/char)
-  gains ~+100 score; an off-register one (~-3000) loses ~-150.
-- `pe_generate_response` runs `mutator_expand` after style transforms, with
-  RNG seeded from `(today_seed XOR turn_count*2654435761u)` so expansions
-  are deterministic per replay. Templates without `[bank_name]` markers
-  pass through unchanged.
-- `persona_close` releases the LM buffer at session end.
-
-### Hardware footprint (v2.1)
-
-| Item                | Size    | % of 300 KB spec |
-|---------------------|---------|------------------|
-| character files     | 110 KB  | 37%              |
-| pretorius.lm        | 144 KB  | 48%              |
-| **total**           | **254 KB** | **85%**       |
-
-Headroom: ~46 KB for v3 additions (Theory of Mind, surprise, etc.).
-The `build_lm` tool accepts a `min_count` knob for future corpus expansion
-— at min_count=2 the LM shrinks ~3×, trading rerank resolution for size.
-
-### Tests
-
-`test/plasticity_test.c` — 14 assertions covering LM scoring monotonicity,
-paraphrase preservation, mutator determinism, gating, and unknown-marker
-passthrough. Build & run with `make plasticity_run`.
-
-## v3.0 — The Mind layer
-
-Adds three cognitive primitives on top of v2.1's affect/embodiment model:
-
-### Theory of Mind (UserModel)
-
-Embedded in `Relation` (~14 bytes per interlocutor).  Pretorius now keeps
-a running model of *each* speaker:
-
-- `um_valence/arousal/dominance` — EMA of inferred speaker affect.
-- `um_belief_about_me` — does this person think me a genius (+) or a fraud (-)?
-  Updated by input class (praise +8, insult -12, threat -16, relent +4)
-  with negation polarity-flip.
-- `um_knowledge_level` — 0..255, lifted by long inputs with `;`/`:`/`shall`/
-  `however`/`therefore`/`indeed`.
-- `um_engagement` — rolling attentiveness proxy via input length.
-- `um_last_intent`, `um_last_stance`, `um_interest_topic`, `um_update_count`.
-
-Updated by `pe_update_user_model` after `pe_classify_input`.
-
-### Predictive coding / Surprise
-
-End-of-turn: `pe_predict_next_input` writes `predicted_input_class` and
-`predicted_input_valence` to `NPCState`, based on Pretorius's just-emitted
-`last_rhetorical_mode` and the UserModel (e.g. INDICT → expect class 2,
-val -60; hostile interlocutor overrides toward class 2 regardless).
-
-Start of next turn: `pe_compute_surprise` compares prediction to reality.
-A class mismatch yields +500 surprise; valence delta adds `|Δval|*2`.
-`surprise_last` and `prediction_error_accum` (slow EMA) are written.
-Large surprise (>500) jolts `acute_spike` in the direction of the actual
-input valence — Pretorius visibly recalibrates.
-
-The planner reads both:
-- `prediction_error_accum / 8` adds to `plan.hedging`.
-- `surprise_last > 600` flips rhetorical_mode to HEDGE or CONFESS by valence.
-
-### LSH wiring (semantic memory recall)
-
-- `pe_prep_input` now computes `eng->input_sig` (SimHash of lowered input).
-- `pe_commit_memory` writes `lsh_sig` on each new MemoryNode.
-- `pe_associative_recall` fuses Hamming distance into the score:
-  `match += (64 - hamming(input_sig, mem.sig)) * 4` (max +256, capped at 1000).
-  Memories whose *text content* is semantically near the current input
-  get recall preference, even across topic tags.
-
-### Plan integration
-
-`pe_build_plan` reads UserModel:
-- `belief_about_me < -40` → stance = DEFENSIVE (unless fixation-locked).
-- `knowledge_level > 180` → certainty +30 (Pretorius doesn't dumb down for peers).
-- `engagement < 60 && update_count > 2` → LAMENT if mood low, else INTIMATE
-  (re-engagement bid).
-
-### Footprint
-
-| Item              | Size      | % of 300 KB |
-|-------------------|-----------|-------------|
-| character files   | ~110 KB   | 37%         |
-| LM                | 144 KB    | 48%         |
-| **total**         | **~255 KB** | **85%**   |
-
-v3.0 struct growth: +14 bytes Relation, +6 bytes NPCState, +8 bytes per
-MemoryNode (×50 = 400 bytes).  Net character-file growth ≈ +500 bytes.
-
-## Known intentional deviations from spec
-
-- Pattern matcher is still a sorted keyword table — but now with first-char
-  bitmap pre-filter and cached lengths, so it behaves close to a constant-
-  factor-better trie for sub-100 patterns. Trie compilation is a future
-  optimization; the file layout has room.
-- Style transforms are still direct function chains, not bytecode. The
-  *gating* is now plan-driven, which is the spec's behavioral intent.
-- Crash-safety writes the (larger) state every turn — still <2 KB.
+All seven green at FIN.
 
 ## Build & run
 
 ```
-cd Pretorius_c99-1
-make                              # builds libpersona.a, compile_pretorius, repl
-make character                    # generates characters/pretorius/*.bin
-./build/repl characters/pretorius # talk to Pretorius v2
+cd PersonaConsole_c99
+make                              # builds all libs, tools, both cartridges
+make test kiki_test               # 8-turn sanity for each character
+make aether_run aether_pe_run     # AETHER standalone + integration
+make voice_run                    # The Voice
+make lsh_test plasticity_run      # subsystem tests
+./build/repl characters/pretorius # talk to Pretorius
+./build/repl characters/kiki      # talk to Kiki
 ```
 
-`make test` runs an 8-turn deterministic sanity script that includes an
-explicit negation case and ends with `:dump :plan :trace`.
+## Adding a new character
+
+1. Copy `tools/compile_pretorius.c` → `tools/compile_<name>.c`.
+2. Replace identity/drives/topics/patterns/templates/fallbacks/goals/today and banks with the new character's data.
+3. Author `data/corpus_<name>.txt` in the character's register (~6 KB).
+4. Add Makefile targets:
+   - `build/compile_<name>` linking the same four libraries
+   - `<name>_character` target invoking it
+   - `characters/<name>/voice.lm` target driven by `build_lm`
+5. `make <name>_character && ./build/repl characters/<name> <user_id>`
+
+No engine code changes required.

@@ -7,6 +7,7 @@
  */
 #include "persona.h"
 #include "persona_internal.h"
+#include "mutator.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -619,6 +620,108 @@ static void make_goals(GoalTable *gt){
 }
 
 /* ===========================================================================
+ * v3.2: Synonym banks in Kiki's register.
+ *
+ * Bank names are intentionally identical to Pretorius's so existing
+ * templates that use [adj_morbid] still work; the contents simply re-skin
+ * the same slots into valley-girl/80s-90s vocabulary.  A few new banks
+ * specific to Kiki (adj_bright, simile_pop) are also added.
+ * ========================================================================*/
+static void K_add_bank(BankRegistry *r, const char *name,
+                       uint8_t min_theat, uint8_t min_aggr,
+                       const char **entries, int n){
+    if (r->bank_count >= PE_BANK_COUNT_MAX) return;
+    BankDef *b = &r->banks[r->bank_count++];
+    memset(b, 0, sizeof(*b));
+    snprintf(b->name, PE_BANK_NAME_LEN, "%s", name);
+    if (n > PE_BANK_ENTRIES_MAX) n = PE_BANK_ENTRIES_MAX;
+    b->entry_count       = (uint8_t)n;
+    b->min_theatricality = min_theat;
+    b->min_aggression    = min_aggr;
+    for (int i = 0; i < n; ++i)
+        snprintf(b->entries[i], PE_BANK_ENTRY_LEN, "%s", entries[i]);
+}
+
+static void make_banks_kiki(BankRegistry *r){
+    memset(r, 0, sizeof(*r));
+    r->magic   = PE_BANK_REGISTRY_MAGIC;
+    r->version = PE_BANK_REGISTRY_VERSION;
+
+    /* "morbid" slot — for Kiki this is the low-energy / haunted register */
+    const char *adj_morbid_k[] = {
+        "weird", "haunted", "tragic", "bogus", "gross",
+        "lonely", "broken", "hollow", "shadowy"
+    };
+    K_add_bank(r, "adj_morbid", 100, 100, adj_morbid_k, 9);
+
+    /* "grand" slot — the rad/iconic/cosmic register */
+    const char *adj_grand_k[] = {
+        "amazing", "iconic", "epic", "cosmic", "magnificent",
+        "rad", "gnarly", "stellar", "luminous"
+    };
+    K_add_bank(r, "adj_grand", 100, 0, adj_grand_k, 9);
+
+    /* unwholesome → mildly weird in a 90s way */
+    const char *adj_unwholesome_k[] = {
+        "weird", "off", "sus", "uncanny", "kinda gross",
+        "vibey-but-bad", "haunted-doll energy"
+    };
+    K_add_bank(r, "adj_unwholesome", 50, 50, adj_unwholesome_k, 7);
+
+    /* scientific → physics / cosmos words */
+    const char *adj_scientific_k[] = {
+        "quantum", "entropic", "thermodynamic", "relativistic",
+        "holographic", "fundamental", "cosmic", "Hawking-bright"
+    };
+    K_add_bank(r, "adj_scientific", 0, 0, adj_scientific_k, 8);
+
+    /* obsession nouns — Kiki's autobiography */
+    const char *noun_obsession_k[] = {
+        "physics", "entropy", "the holographic principle",
+        "Punky", "Scully", "the scrunchie",
+        "the 90s", "Sagan", "the Breakfast Club"
+    };
+    K_add_bank(r, "noun_obsession", 0, 0, noun_obsession_k, 9);
+
+    /* creation verbs — Kiki builds vibes and connections */
+    const char *verb_create_k[] = {
+        "build", "vibe with", "summon", "channel", "rock",
+        "assemble", "pull off", "dial up"
+    };
+    K_add_bank(r, "verb_create", 50, 0, verb_create_k, 8);
+
+    /* destruction verbs — Kiki rarely uses these */
+    const char *verb_destroy_k[] = {
+        "ditch", "ghost", "trash", "scrap"
+    };
+    K_add_bank(r, "verb_destroy", 0, 100, verb_destroy_k, 4);
+
+    /* exclamations — Kiki's punctuation flavor */
+    const char *exclamation_k[] = {
+        ".", "!", "!!", "...", " obvi", " babe"
+    };
+    K_add_bank(r, "exclamation", 100, 0, exclamation_k, 6);
+
+    /* similes — pop-culture pop, not anatomical */
+    const char *simile_anatomical_k[] = {
+        "like a 90s sitcom finale",
+        "like a power ballad chord change",
+        "like Cher Horowitz at the mall",
+        "like a slip dress and combat boots",
+        "like Scully on a long case",
+        "like the static between channels"
+    };
+    K_add_bank(r, "simile_anatomical", 100, 0, simile_anatomical_k, 6);
+
+    /* intensifiers — valley-girl emphasis */
+    const char *intensifier_k[] = {
+        "totally", "literally", "completely", "honestly",
+        "absolutely", "low-key", "high-key"
+    };
+    K_add_bank(r, "intensifier", 50, 0, intensifier_k, 7);
+}
+
+/* ===========================================================================
  * Today states
  * ========================================================================*/
 static void Td_add(TodayTable *td, const char *label, int16_t mood_mod,
@@ -673,11 +776,13 @@ int main(int argc, char **argv){
     FallbackTable fb;  make_fallbacks(&fb);
     GoalTable gt;      make_goals(&gt);
     TodayTable td;     make_today(&td);
+    BankRegistry banks; make_banks_kiki(&banks);
 
     int rc = 0;
     rc |= write_section(out_dir, "identity.bin",  &id,  sizeof(id));
     rc |= write_section(out_dir, "drives.bin",    &dt,  sizeof(dt));
     rc |= write_section(out_dir, "today.bin",     &td,  sizeof(td));
+    rc |= write_section(out_dir, "banks.bin",     &banks, sizeof(banks));
     rc |= write_section(out_dir, "dialogue/patterns.bin",  &pt,  sizeof(pt));
     rc |= write_section(out_dir, "dialogue/templates.bin", &tmt, sizeof(tmt));
     rc |= write_section(out_dir, "dialogue/fallback.bin",  &fb,  sizeof(fb));

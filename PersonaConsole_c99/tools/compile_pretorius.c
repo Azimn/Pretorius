@@ -4,6 +4,7 @@
  */
 #include "persona.h"
 #include "persona_internal.h"
+#include "mutator.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -658,11 +659,16 @@ int main(int argc, char **argv){
     FallbackTable fb;  make_fallbacks(&fb);
     GoalTable gt;      make_goals(&gt);
     TodayTable td;     make_today(&td);
+    /* v3.2: Pretorius's banks are the engine's built-in default Pretorian
+     * set — they were authored for this character originally, so the
+     * cartridge just emits the default registry as its banks.bin. */
+    BankRegistry banks; mutator_load_default_banks(&banks);
 
     int rc = 0;
     rc |= write_section(out_dir, "identity.bin",  &id,  sizeof(id));
     rc |= write_section(out_dir, "drives.bin",    &dt,  sizeof(dt));
     rc |= write_section(out_dir, "today.bin",     &td,  sizeof(td));
+    rc |= write_section(out_dir, "banks.bin",     &banks, sizeof(banks));
     rc |= write_section(out_dir, "dialogue/patterns.bin",  &pt,  sizeof(pt));
     rc |= write_section(out_dir, "dialogue/templates.bin", &tmt, sizeof(tmt));
     rc |= write_section(out_dir, "dialogue/fallback.bin",  &fb,  sizeof(fb));

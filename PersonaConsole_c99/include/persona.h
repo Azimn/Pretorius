@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include "mutator.h"   /* BankRegistry (cartridge-borne synonym banks) */
 
 #ifdef __cplusplus
 extern "C" {
@@ -545,6 +546,11 @@ struct Engine {
      * (PE_EPISODIC_MAX + cold_idx).  Reset each turn. */
     MemoryNode    cold_scratch[PE_COLD_SCRATCH_MAX];
     uint16_t      cold_scratch_count;
+
+    /* v3.2: cartridge-borne synonym banks.  Loaded from
+     * <character_dir>/banks.bin in persona_open; falls back to the
+     * built-in Pretorian default registry if the file is missing. */
+    BankRegistry  banks;
 };
 
 /* ---------- public API ---------- */
