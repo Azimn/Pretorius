@@ -11,14 +11,43 @@
 
 /* ---------- file-layout constants ---------- */
 
-#define AETHER_BUCKET_COUNT      256u
-#define AETHER_BUCKET_BITS       8
-#define AETHER_WAL_SOFT_LIMIT    (1u << 20)   /* ~1 MB */
-#define AETHER_WAL_RECORD_MAGIC  0xAE57AE57u
-#define AETHER_BUCKET_MAGIC      0x4B424541u  /* 'AEBK' little-endian */
-#define AETHER_BUCKET_VERSION    1u
-#define AETHER_ZONE_MAX_BYTES    (256u * 1024u * 1024u)  /* 256 MB per zone */
-#define AETHER_DIRTY_BYTES       (AETHER_BUCKET_COUNT / 8)  /* 32 bytes = 256 bits */
+/* Multi-band LSH (v2 layout):
+ *
+ * Every event is indexed in AETHER_BAND_COUNT separate bucket files —
+ * one per band.  Each band partitions the 64-bit SimHash by an 8-bit
+ * slice taken from a different offset (bits 56-63, 40-47, 24-31, 8-15),
+ * giving 4 statistically-independent bucket assignments per event.
+ *
+ * Querying probes the query's bucket in each band and merges Hamming-
+ * ranked results.  An event is reachable as long as *any* of its 4
+ * bucket slices matches the query's — so paraphrases that differ in
+ * the top-8-bit slice no longer disappear (the v1 single-band miss
+ * documented in the standalone aether_test).
+ *
+ * Cost vs v1: 4× index size on disk (480 MB at 10M events), same
+ * RAM (mmap one bucket file per band per query), ~4× query CPU
+ * (still trivial at ~150 KB per bucket × 4 mmaps). */
+#define AETHER_BAND_COUNT          4u
+#define AETHER_BAND_BITS           8
+#define AETHER_BUCKETS_PER_BAND    (1u << AETHER_BAND_BITS)   /* 256 */
+#define AETHER_DIRTY_BYTES_PER_BAND (AETHER_BUCKETS_PER_BAND / 8u)  /* 32 */
+/* Legacy alias for code that doesn't care about band partitioning. */
+#define AETHER_BUCKET_COUNT        AETHER_BUCKETS_PER_BAND
+#define AETHER_BUCKET_BITS         AETHER_BAND_BITS
+#define AETHER_WAL_SOFT_LIMIT      (1u << 20)   /* ~1 MB */
+#define AETHER_WAL_RECORD_MAGIC    0xAE57AE57u
+#define AETHER_BUCKET_MAGIC        0x4B424541u  /* 'AEBK' little-endian */
+#define AETHER_BUCKET_VERSION      2u           /* v2 = multi-band layout */
+#define AETHER_ZONE_MAX_BYTES      (256u * 1024u * 1024u)  /* 256 MB per zone */
+
+/* Total dirty bitmap bytes (4 bands × 32 each). */
+#define AETHER_DIRTY_BYTES         (AETHER_BAND_COUNT * AETHER_DIRTY_BYTES_PER_BAND)
+
+/* Extract the 8-bit bucket ID for a given band from a 64-bit signature.
+ * Bands sample non-adjacent 8-bit slices: 56-63, 40-47, 24-31, 8-15. */
+static inline uint8_t ae_band_bucket(uint64_t sig, int band){
+    return (uint8_t)(sig >> (56 - band * 16));
+}
 
 /* Cap the number of events drained from the WAL in a single consolidation
  * pass — keeps the in-memory scratch buffer bounded.  At 64 B per event,
@@ -68,9 +97,10 @@ struct aether_handle {
     uint16_t zone_id;
     uint32_t zone_size_bytes;
 
-    /* Dirty bucket bitmap — 256 bits, persisted between sessions. */
-    uint8_t  dirty[AETHER_DIRTY_BYTES];
-    uint32_t dirty_count;       /* cached popcount of dirty[] */
+    /* Per-band dirty bitmap — one 256-bit map per band, persisted
+     * between sessions as a single 128-byte dirty.dat file. */
+    uint8_t  dirty[AETHER_BAND_COUNT][AETHER_DIRTY_BYTES_PER_BAND];
+    uint32_t dirty_count;       /* cached total popcount across all bands */
 };
 
 /* ---------- internal helpers (implemented in aether.c) ---------- */
@@ -80,14 +110,15 @@ int  ae_mkdir_p(const char *path);
 int  ae_open_create_rw(const char *path);       /* O_CREAT|O_RDWR, 0644 */
 int  ae_write_file_atomic(const char *path, const void *buf, size_t n);
 
-/* dirty bitmap ops */
+/* dirty bitmap ops — operate on a single band's 32-byte map */
 static inline void ae_dirty_set(uint8_t *bm, uint8_t bucket){
     bm[bucket >> 3] |= (uint8_t)(1u << (bucket & 7));
 }
 static inline int  ae_dirty_get(const uint8_t *bm, uint8_t bucket){
     return (bm[bucket >> 3] >> (bucket & 7)) & 1;
 }
-uint32_t ae_dirty_popcount(const uint8_t *bm);
+/* Total popcount across all bands' bitmaps. */
+uint32_t ae_dirty_popcount_all(const aether_handle_t *h);
 
 /* WAL helpers (aether_wal.c) */
 int  ae_wal_open(aether_handle_t *h);
@@ -101,16 +132,18 @@ int  ae_wal_drain(aether_handle_t *h,
                   aether_event_t *out, uint32_t cap, uint32_t *out_count);
 int  ae_wal_truncate(aether_handle_t *h);
 
-/* Bucket file helpers (aether_bucket.c) */
-int  ae_bucket_scan(aether_handle_t *h, uint8_t bucket_id,
+/* Bucket file helpers (aether_bucket.c) — all take a band index 0..3 */
+int  ae_bucket_scan(aether_handle_t *h, int band, uint8_t bucket_id,
                     uint64_t qsig, uint32_t now, uint32_t max_age,
                     int max_k,
                     int       *dists_inout,
                     index_entry_t *entries_inout);
-int  ae_bucket_write_atomic(aether_handle_t *h, uint8_t bucket_id,
+int  ae_bucket_write_atomic(aether_handle_t *h, int band, uint8_t bucket_id,
                             const index_entry_t *entries, uint32_t count);
-int  ae_bucket_read_all(aether_handle_t *h, uint8_t bucket_id,
+int  ae_bucket_read_all(aether_handle_t *h, int band, uint8_t bucket_id,
                         index_entry_t *out, uint32_t cap, uint32_t *out_count);
+/* Ensure the per-band subdirectories exist (called from aether_open). */
+int  ae_ensure_band_dirs(const aether_handle_t *h);
 
 /* Zone file helpers (aether_bucket.c) */
 int  ae_zone_append(aether_handle_t *h, const aether_event_t *ev,

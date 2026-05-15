@@ -51,6 +51,13 @@ static int bs_push(bucket_scratch_t *bs, const index_entry_t *e){
     return 0;
 }
 
+/* Free all per-band scratch lists. */
+static void free_scratch(bucket_scratch_t scratch[AETHER_BAND_COUNT][AETHER_BUCKETS_PER_BAND]){
+    for (unsigned band = 0; band < AETHER_BAND_COUNT; ++band)
+        for (unsigned b = 0; b < AETHER_BUCKETS_PER_BAND; ++b)
+            free(scratch[band][b].entries);
+}
+
 int aether_consolidate(aether_handle_t *h, int full){
     if (!h) return -1;
 
@@ -61,9 +68,13 @@ int aether_consolidate(aether_handle_t *h, int full){
     uint32_t drained_n = 0;
     ae_wal_drain(h, drained, AETHER_WAL_MAX_EVENTS, &drained_n);
 
-    /* 2. For each drained event: append to zone, compute sig, bucket-tag. */
-    bucket_scratch_t per_bucket[AETHER_BUCKET_COUNT];
-    memset(per_bucket, 0, sizeof(per_bucket));
+    /* 2. For each drained event: append once to zone, compute sig,
+     * push the same (sig, offset, zone) tuple into AETHER_BAND_COUNT
+     * different bucket scratches — one per band's bucket assignment.
+     * Each event will be indexed in 4 bucket files at consolidation
+     * finish, enabling multi-band recall. */
+    bucket_scratch_t scratch[AETHER_BAND_COUNT][AETHER_BUCKETS_PER_BAND];
+    memset(scratch, 0, sizeof(scratch));
 
     for (uint32_t i = 0; i < drained_n; ++i){
         const aether_event_t *ev = &drained[i];
@@ -72,13 +83,12 @@ int aether_consolidate(aether_handle_t *h, int full){
         uint32_t z_off;
         if (ae_zone_append(h, ev, &z_id, &z_off) != 0){
             free(drained);
-            for (uint32_t b = 0; b < AETHER_BUCKET_COUNT; ++b) free(per_bucket[b].entries);
+            free_scratch(scratch);
             return -1;
         }
 
         uint64_t sig = lsh_simhash((const uint8_t *)ev->inline_text,
                                    strnlen(ev->inline_text, AETHER_INLINE_TEXT));
-        uint8_t bucket = (uint8_t)(sig >> 56);
 
         index_entry_t e;
         e.signature    = sig;
@@ -86,79 +96,76 @@ int aether_consolidate(aether_handle_t *h, int full){
         e.zone_id      = z_id;
         e._pad         = 0;
 
-        if (bs_push(&per_bucket[bucket], &e) != 0){
-            free(drained);
-            for (uint32_t b = 0; b < AETHER_BUCKET_COUNT; ++b) free(per_bucket[b].entries);
-            return -1;
-        }
-        /* Defensive: ensure dirty bitmap reflects this even after a full
-         * rebuild request — otherwise the per-bucket counters mismatch. */
-        if (!ae_dirty_get(h->dirty, bucket)){
-            ae_dirty_set(h->dirty, bucket);
-            h->dirty_count++;
+        for (unsigned band = 0; band < AETHER_BAND_COUNT; ++band){
+            uint8_t bucket = ae_band_bucket(sig, (int)band);
+            if (bs_push(&scratch[band][bucket], &e) != 0){
+                free(drained);
+                free_scratch(scratch);
+                return -1;
+            }
+            /* Defensive: mark dirty even on a full rebuild so the bookkeeping
+             * stays consistent with the rebuild path's expectations. */
+            if (!ae_dirty_get(h->dirty[band], bucket)){
+                ae_dirty_set(h->dirty[band], bucket);
+                h->dirty_count++;
+            }
         }
     }
     free(drained);
 
-    /* 3. Rebuild each touched (or all, if full) bucket. */
-    for (uint32_t b = 0; b < AETHER_BUCKET_COUNT; ++b){
-        int touched = ae_dirty_get(h->dirty, (uint8_t)b);
-        if (!full && !touched) continue;
+    /* 3. Rebuild each touched (or all, if full) bucket — per band. */
+    const uint32_t READ_CAP = 1000000u;
+    index_entry_t *existing = (index_entry_t *)
+        malloc(READ_CAP * sizeof(index_entry_t));
+    if (!existing){ free_scratch(scratch); return -1; }
 
-        /* Read existing entries.  Cap at 1M — far above 39k expected. */
-        const uint32_t READ_CAP = 1000000u;
-        index_entry_t *existing = (index_entry_t *)
-            malloc(READ_CAP * sizeof(index_entry_t));
-        if (!existing){
-            for (uint32_t bb = 0; bb < AETHER_BUCKET_COUNT; ++bb)
-                free(per_bucket[bb].entries);
-            return -1;
-        }
-        uint32_t existing_n = 0;
-        ae_bucket_read_all(h, (uint8_t)b, existing, READ_CAP, &existing_n);
+    for (unsigned band = 0; band < AETHER_BAND_COUNT; ++band){
+        for (unsigned b = 0; b < AETHER_BUCKETS_PER_BAND; ++b){
+            int touched = ae_dirty_get(h->dirty[band], (uint8_t)b);
+            if (!full && !touched) continue;
 
-        /* Combine. */
-        uint32_t new_n   = per_bucket[b].count;
-        uint32_t total_n = existing_n + new_n;
-        if (total_n == 0){
-            free(existing);
-            free(per_bucket[b].entries);
-            per_bucket[b].entries = NULL;
-            continue;
-        }
+            uint32_t existing_n = 0;
+            ae_bucket_read_all(h, (int)band, (uint8_t)b,
+                               existing, READ_CAP, &existing_n);
 
-        index_entry_t *combined = (index_entry_t *)
-            malloc(total_n * sizeof(index_entry_t));
-        if (!combined){
-            free(existing);
-            for (uint32_t bb = 0; bb < AETHER_BUCKET_COUNT; ++bb)
-                free(per_bucket[bb].entries);
-            return -1;
-        }
-        if (existing_n) memcpy(combined, existing, existing_n * sizeof(index_entry_t));
-        if (new_n)
-            memcpy(combined + existing_n, per_bucket[b].entries,
-                   new_n * sizeof(index_entry_t));
-        free(existing);
+            uint32_t new_n   = scratch[band][b].count;
+            uint32_t total_n = existing_n + new_n;
+            if (total_n == 0) continue;
 
-        qsort(combined, total_n, sizeof(index_entry_t), cmp_index_entry_sig);
+            index_entry_t *combined = (index_entry_t *)
+                malloc(total_n * sizeof(index_entry_t));
+            if (!combined){
+                free(existing);
+                free_scratch(scratch);
+                return -1;
+            }
+            if (existing_n)
+                memcpy(combined, existing,
+                       existing_n * sizeof(index_entry_t));
+            if (new_n)
+                memcpy(combined + existing_n, scratch[band][b].entries,
+                       new_n * sizeof(index_entry_t));
 
-        if (ae_bucket_write_atomic(h, (uint8_t)b, combined, total_n) != 0){
+            qsort(combined, total_n, sizeof(index_entry_t),
+                  cmp_index_entry_sig);
+
+            if (ae_bucket_write_atomic(h, (int)band, (uint8_t)b,
+                                       combined, total_n) != 0){
+                free(combined);
+                free(existing);
+                free_scratch(scratch);
+                return -1;
+            }
             free(combined);
-            for (uint32_t bb = 0; bb < AETHER_BUCKET_COUNT; ++bb)
-                free(per_bucket[bb].entries);
-            return -1;
         }
-        free(combined);
     }
 
-    /* 4. Free per-bucket scratch. */
-    for (uint32_t b = 0; b < AETHER_BUCKET_COUNT; ++b)
-        free(per_bucket[b].entries);
+    free(existing);
+    free_scratch(scratch);
 
-    /* 5. Truncate WAL, clear dirty bitmap, persist. */
+    /* 4. Truncate WAL, clear all per-band dirty bitmaps, persist. */
     ae_wal_truncate(h);
-    memset(h->dirty, 0, AETHER_DIRTY_BYTES);
+    memset(h->dirty, 0, sizeof(h->dirty));
     h->dirty_count = 0;
     return 0;
 }

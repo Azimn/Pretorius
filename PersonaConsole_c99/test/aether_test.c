@@ -107,16 +107,25 @@ int main(void){
             if (strstr(results[i].inline_text, "entropy")) hit = 1;
         CHECK(hit, "bucket scan: exact-text match top result contains 'entropy'");
     }
-    /* Then a near-text query (multi-probe should still hit). */
-    n = aether_query_by_text(h, "OMG entropy messy bedroom", results, 5, 0);
+    /* Typical paraphrase: one-word substitution.  Multi-band LSH should
+     * land in one of the 4 bands' buckets since the SimHashes differ by
+     * only a handful of bits. */
+    n = aether_query_by_text(h, "OMG entropy is the universe's tidy bedroom",
+                             results, 5, 0);
+    CHECK(n >= 1, "multi-band: one-word paraphrase finds the event");
     if (n >= 1){
         int hit = 0;
         for (int i = 0; i < n; ++i)
             if (strstr(results[i].inline_text, "entropy")) hit = 1;
-        CHECK(hit, "bucket scan: near-text query (multi-probe) finds 'entropy'");
-    } else {
-        printf("note: near-text query returned 0 results — LSH multi-probe miss\n");
+        CHECK(hit, "multi-band: paraphrase top result contains 'entropy'");
     }
+
+    /* Drastic paraphrase (drop ~15 chars from middle): SimHashes diverge
+     * substantially.  Multi-band catches more of these than single-band
+     * + multi-probe did, but can still miss for very different texts.
+     * Informational only — not a hard assertion. */
+    n = aether_query_by_text(h, "OMG entropy messy bedroom", results, 5, 0);
+    printf("note: drastic-paraphrase query returns %d result(s) (informational)\n", n);
 
     /* ---------- test 5: 1k-scale write, consolidate, query ---------- */
     const int N = 1000;

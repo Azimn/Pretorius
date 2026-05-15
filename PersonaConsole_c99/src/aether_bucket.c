@@ -24,11 +24,26 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-/* ---------- bucket path helper ---------- */
-static int bucket_path(const aether_handle_t *h, uint8_t bid, char *out, size_t n){
-    char name[32];
-    snprintf(name, sizeof(name), "bucket_%03u.dat", (unsigned)bid);
+/* ---------- bucket path helper ----------
+ * Multi-band layout: bucket files live in band-specific subdirectories
+ * (band0/, band1/, ...) so each band has its own 256-file namespace. */
+static int bucket_path(const aether_handle_t *h, int band, uint8_t bid,
+                       char *out, size_t n){
+    char name[40];
+    snprintf(name, sizeof(name), "band%d/bucket_%03u.dat",
+             band, (unsigned)bid);
     return ae_path_join(out, n, h->storage_dir, name);
+}
+
+int ae_ensure_band_dirs(const aether_handle_t *h){
+    char path[512];
+    for (unsigned b = 0; b < AETHER_BAND_COUNT; ++b){
+        char sub[32];
+        snprintf(sub, sizeof(sub), "band%u", b);
+        if (ae_path_join(path, sizeof(path), h->storage_dir, sub) != 0) return -1;
+        if (ae_mkdir_p(path) != 0) return -1;
+    }
+    return 0;
 }
 
 static int zone_path(const aether_handle_t *h, uint16_t zid, char *out, size_t n){
@@ -39,7 +54,7 @@ static int zone_path(const aether_handle_t *h, uint16_t zid, char *out, size_t n
 
 /* ---------- bucket scan (read-only, mmap'd) ---------- */
 
-int ae_bucket_scan(aether_handle_t *h, uint8_t bucket_id,
+int ae_bucket_scan(aether_handle_t *h, int band, uint8_t bucket_id,
                    uint64_t qsig, uint32_t now, uint32_t max_age,
                    int max_k,
                    int *dists_inout,
@@ -48,7 +63,7 @@ int ae_bucket_scan(aether_handle_t *h, uint8_t bucket_id,
     (void)now; (void)max_age;  /* age filter happens at zone read time */
 
     char path[512];
-    if (bucket_path(h, bucket_id, path, sizeof(path)) != 0) return 0;
+    if (bucket_path(h, band, bucket_id, path, sizeof(path)) != 0) return 0;
 
     int fd = open(path, O_RDONLY);
     if (fd < 0) return 0;  /* bucket doesn't exist yet */
@@ -83,6 +98,15 @@ int ae_bucket_scan(aether_handle_t *h, uint8_t bucket_id,
     for (uint32_t i = 0; i < hdr->entry_count; ++i){
         int d = lsh_hamming_distance(entries[i].signature, qsig);
         if (d >= dists_inout[max_k - 1]) continue;
+        /* Multi-band dedup: the same event is indexed in AETHER_BAND_COUNT
+         * buckets and could surface multiple times in successive ae_bucket_scan
+         * calls.  Skip if its signature is already in the top-K. */
+        int dup = 0;
+        for (int k = 0; k < max_k; ++k){
+            if (dists_inout[k] >= 65) break;
+            if (entries_inout[k].signature == entries[i].signature){ dup = 1; break; }
+        }
+        if (dup) continue;
         /* Insertion sort into top-K parallel arrays. */
         int pos = max_k - 1;
         while (pos > 0 && dists_inout[pos - 1] > d) pos--;
@@ -100,12 +124,12 @@ int ae_bucket_scan(aether_handle_t *h, uint8_t bucket_id,
 
 /* ---------- bucket read-all (for consolidation merge) ---------- */
 
-int ae_bucket_read_all(aether_handle_t *h, uint8_t bucket_id,
+int ae_bucket_read_all(aether_handle_t *h, int band, uint8_t bucket_id,
                        index_entry_t *out, uint32_t cap, uint32_t *out_count)
 {
     *out_count = 0;
     char path[512];
-    if (bucket_path(h, bucket_id, path, sizeof(path)) != 0) return -1;
+    if (bucket_path(h, band, bucket_id, path, sizeof(path)) != 0) return -1;
     int fd = open(path, O_RDONLY);
     if (fd < 0) return 0;  /* OK — fresh bucket */
 
@@ -135,11 +159,11 @@ int ae_bucket_read_all(aether_handle_t *h, uint8_t bucket_id,
 
 /* ---------- bucket write (atomic) ---------- */
 
-int ae_bucket_write_atomic(aether_handle_t *h, uint8_t bucket_id,
+int ae_bucket_write_atomic(aether_handle_t *h, int band, uint8_t bucket_id,
                            const index_entry_t *entries, uint32_t count)
 {
     char path[512];
-    if (bucket_path(h, bucket_id, path, sizeof(path)) != 0) return -1;
+    if (bucket_path(h, band, bucket_id, path, sizeof(path)) != 0) return -1;
 
     /* Build a single buffer: header + entries.  Cap at 1M entries per
      * bucket (16 MB) — well above our 10M / 256 ≈ 39k target. */

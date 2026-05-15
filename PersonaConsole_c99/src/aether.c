@@ -63,10 +63,11 @@ int ae_write_file_atomic(const char *path, const void *buf, size_t n){
     return 0;
 }
 
-uint32_t ae_dirty_popcount(const uint8_t *bm){
+uint32_t ae_dirty_popcount_all(const aether_handle_t *h){
     uint32_t n = 0;
-    for (unsigned i = 0; i < AETHER_DIRTY_BYTES; ++i)
-        n += (uint32_t)__builtin_popcount(bm[i]);
+    for (unsigned b = 0; b < AETHER_BAND_COUNT; ++b)
+        for (unsigned i = 0; i < AETHER_DIRTY_BYTES_PER_BAND; ++i)
+            n += (uint32_t)__builtin_popcount(h->dirty[b][i]);
     return n;
 }
 
@@ -96,23 +97,24 @@ static int load_dirty(aether_handle_t *h){
     if (ae_path_join(path, sizeof(path), h->storage_dir, "dirty.dat") != 0) return -1;
     int fd = open(path, O_RDONLY);
     if (fd < 0){
-        memset(h->dirty, 0, AETHER_DIRTY_BYTES);
+        memset(h->dirty, 0, sizeof(h->dirty));
         h->dirty_count = 0;
         return 0; /* fresh store */
     }
-    ssize_t r = read(fd, h->dirty, AETHER_DIRTY_BYTES);
+    /* Layout: AETHER_BAND_COUNT bands * AETHER_DIRTY_BYTES_PER_BAND bytes. */
+    ssize_t r = read(fd, h->dirty, sizeof(h->dirty));
     close(fd);
-    if (r != AETHER_DIRTY_BYTES){
-        memset(h->dirty, 0, AETHER_DIRTY_BYTES);
+    if (r != (ssize_t)sizeof(h->dirty)){
+        memset(h->dirty, 0, sizeof(h->dirty));
     }
-    h->dirty_count = ae_dirty_popcount(h->dirty);
+    h->dirty_count = ae_dirty_popcount_all(h);
     return 0;
 }
 
 static int save_dirty(aether_handle_t *h){
     char path[512];
     if (ae_path_join(path, sizeof(path), h->storage_dir, "dirty.dat") != 0) return -1;
-    return ae_write_file_atomic(path, h->dirty, AETHER_DIRTY_BYTES);
+    return ae_write_file_atomic(path, h->dirty, sizeof(h->dirty));
 }
 
 /* ---------- public API ---------- */
@@ -127,6 +129,12 @@ aether_handle_t *aether_open(const char *storage_dir){
 
     h->wal_fd  = -1;
     h->zone_fd = -1;
+
+    /* Create per-band subdirectories so bucket files have somewhere to live. */
+    if (ae_ensure_band_dirs(h) != 0){
+        free(h);
+        return NULL;
+    }
 
     /* Open and validate WAL — truncates trailing partial records. */
     if (ae_wal_open(h) != 0){
@@ -157,13 +165,16 @@ int aether_put(aether_handle_t *h, const aether_event_t *ev){
     if (!h || !ev) return -1;
     if (ae_wal_append(h, ev) != 0) return -1;
 
-    /* Mark the bucket dirty for incremental consolidation. */
+    /* Multi-band: mark the event's bucket dirty in each band so the
+     * incremental consolidator rebuilds all 4 affected bucket files. */
     uint64_t sig = lsh_simhash((const uint8_t *)ev->inline_text,
                                strnlen(ev->inline_text, AETHER_INLINE_TEXT));
-    uint8_t bucket = (uint8_t)(sig >> 56);
-    if (!ae_dirty_get(h->dirty, bucket)){
-        ae_dirty_set(h->dirty, bucket);
-        h->dirty_count++;
+    for (unsigned band = 0; band < AETHER_BAND_COUNT; ++band){
+        uint8_t bucket = ae_band_bucket(sig, (int)band);
+        if (!ae_dirty_get(h->dirty[band], bucket)){
+            ae_dirty_set(h->dirty[band], bucket);
+            h->dirty_count++;
+        }
     }
     return 0;
 }
@@ -214,21 +225,19 @@ int aether_query_by_hash(aether_handle_t *h,
         memset(&w_evs[i],  0, sizeof(w_evs[i]));
     }
 
-    uint8_t bucket = (uint8_t)(query_simhash >> 56);
-    uint32_t now   = ae_now_unix();
+    uint32_t now = ae_now_unix();
 
-    /* Multi-probe: scan the exact bucket plus all 8 single-bit-flip
-     * neighbors of the top-8-bit pattern.  This catches the case where the
-     * target's signature is Hamming-near the query's but happens to differ
-     * in the top 8 bits — a fundamental limitation of single-band LSH
-     * bucketing.  9 mmap/scan calls per query; each bucket is ~600 KB at
-     * 10M-event scale, so total cost stays within budget. */
-    ae_bucket_scan(h, bucket, query_simhash, now, max_age_seconds,
-                   max_results, b_dists, b_ents);
-    for (int bit = 0; bit < 8; ++bit){
-        uint8_t neighbor = (uint8_t)(bucket ^ (1u << bit));
-        ae_bucket_scan(h, neighbor, query_simhash, now, max_age_seconds,
-                       max_results, b_dists, b_ents);
+    /* Multi-band probe: each event is indexed in AETHER_BAND_COUNT
+     * separate buckets (one per band).  Scanning the query's bucket in
+     * every band recovers any event whose SimHash matches the query in
+     * *any* band — eliminating the v1 single-band miss case.  Same top-K
+     * array is updated across all band scans (insertion sort handles
+     * dedup naturally if the same event surfaces in multiple bands; the
+     * scan only keeps the lowest distance instance). */
+    for (unsigned band = 0; band < AETHER_BAND_COUNT; ++band){
+        uint8_t bucket = ae_band_bucket(query_simhash, (int)band);
+        ae_bucket_scan(h, (int)band, bucket, query_simhash, now,
+                       max_age_seconds, max_results, b_dists, b_ents);
     }
     ae_wal_scan_for_query(h, query_simhash, now, max_age_seconds,
                           max_results, w_dists, w_evs);
