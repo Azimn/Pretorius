@@ -22,7 +22,8 @@ ENGINE_SRC := \
     src/serialize.c     \
     src/rng.c           \
     src/user_model.c    \
-    src/story.c
+    src/story.c         \
+    src/voice.c
 
 # Semantic memory subsystem (LSH signatures + nightly consolidation).
 # Self-contained: no dependency on persona.h / persona_internal.h.
@@ -141,6 +142,15 @@ aether_pe_test: build/aether_pe_test
 
 aether_pe_run: aether_pe_test character
 	./build/aether_pe_test
+
+# v3.2 The Voice — counterfactual rerank tests.
+build/voice_test: test/voice_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) test/voice_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+voice_test: build/voice_test
+
+voice_run: voice_test character
+	./build/voice_test
 
 character: build/compile_pretorius
 	./build/compile_pretorius characters/pretorius

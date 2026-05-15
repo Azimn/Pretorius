@@ -278,6 +278,10 @@ typedef struct {
     uint16_t surprise_last;             /* 0..1000, |predicted - actual| metric */
     uint16_t prediction_error_accum;    /* 0..2000, slow-decaying running surprise */
     uint16_t _pad_v3;
+
+    /* ---- v3.2: The Voice — counterfactual rerank instrumentation ---- */
+    int16_t  last_voice_delta;          /* score bump applied to best-aligned candidate */
+    uint16_t last_voice_choice;         /* template id the Voice would have nudged toward */
 } NPCState;
 
 typedef struct {

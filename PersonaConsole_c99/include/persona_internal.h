@@ -98,6 +98,18 @@ void pe_update_user_model(Engine *eng, const EmotionVector *ev);
 void pe_predict_next_input(Engine *eng);
 void pe_compute_surprise(Engine *eng, const EmotionVector *ev);
 
+/* ---- v3.2: The Voice ----
+ *
+ * pe_voice_rerank: counterfactual 1-ply lookahead applied to the freshly
+ *   built candidate list.  For each candidate template, predicts the
+ *   speaker's likely response if that utterance were chosen, scores
+ *   how well the prediction advances the current goal, and adds the
+ *   alignment delta to candidate_scores[i].  Pure read of state +
+ *   relation + goals + templates; mutates only candidate_scores[] and
+ *   two instrumentation fields on NPCState.
+ */
+void pe_voice_rerank(Engine *eng);
+
 /* small bitmap ops over a 256-bit field (32 bytes) */
 static inline void pe_bm_set(uint8_t *bm, unsigned char c){ bm[c>>3] |= (uint8_t)(1u<<(c&7)); }
 static inline int  pe_bm_get(const uint8_t *bm, unsigned char c){ return (bm[c>>3] >> (c&7)) & 1; }

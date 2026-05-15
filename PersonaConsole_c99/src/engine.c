@@ -672,6 +672,9 @@ void persona_debug_dump(const Engine *eng){
             eng->state.predicted_input_class, eng->state.predicted_input_valence,
             eng->state.surprise_last, eng->state.prediction_error_accum);
     fprintf(stderr, "input_sig=0x%016llx\n", (unsigned long long)eng->input_sig);
+    /* v3.2: The Voice — counterfactual rerank instrumentation */
+    fprintf(stderr, "voice: last_delta=%d last_choice_tid=%u\n",
+            eng->state.last_voice_delta, eng->state.last_voice_choice);
     /* v3.1: story layer */
     fprintf(stderr, "chapters=%u dream_pending=%u", eng->chapters.chapter_count,
             eng->chapters.dream_pending);

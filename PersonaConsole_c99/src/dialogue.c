@@ -355,6 +355,12 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
         return 0;
     }
 
+    /* v3.2: The Voice — counterfactual rerank before top-3 selection.
+     * Adjusts candidate_scores[] by predicted-goal-alignment, so the
+     * top-3 pick reflects "what's the smart thing to say" not just
+     * "what fits my current mood." */
+    pe_voice_rerank(eng);
+
     /* select top-3 by score, weighted random among them */
     uint16_t top_idx[3] = {0,0,0};
     int32_t  top_sc [3] = {INT32_MIN, INT32_MIN, INT32_MIN};
