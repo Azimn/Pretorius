@@ -2,6 +2,7 @@
 #include "persona.h"
 #include "persona_internal.h"
 #include "ngram_lm.h"            /* v2.1: optional plasticity */
+#include "aether.h"              /* v3.2: long-term episodic storage */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -359,6 +360,16 @@ int persona_open(Engine *eng, const char *character_dir){
         eng->lm = ngram_lm_load(lm_path);
     }
 
+    /* v3.2: AETHER long-term storage — opens (or creates) a per-character
+     * subdirectory.  Soft-fails: if open fails, eng->aether stays NULL and
+     * memory.c gracefully skips demotion / cold recall. */
+    {
+        char aether_dir[512];
+        pe_path_join(aether_dir, sizeof(aether_dir), character_dir, "aether");
+        eng->aether = aether_open(aether_dir);
+    }
+    eng->cold_scratch_count = 0;
+
     /* v3.1: autobiographical chapters — load persisted book (soft-fail). */
     load_or_zero(character_dir, "chapters.bin", &eng->chapters, sizeof(ChapterBook));
 
@@ -396,6 +407,13 @@ void persona_close(Engine *eng){
     if (eng->lm){
         ngram_lm_free(eng->lm);
         eng->lm = NULL;
+    }
+    if (eng->aether){
+        /* Drain any pending writes before close.  Cheap if WAL is empty. */
+        if (aether_should_consolidate(eng->aether))
+            aether_consolidate(eng->aether, 0 /*incremental*/);
+        aether_close(eng->aether);
+        eng->aether = NULL;
     }
 }
 

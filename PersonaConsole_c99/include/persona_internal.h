@@ -102,6 +102,20 @@ void pe_compute_surprise(Engine *eng, const EmotionVector *ev);
 static inline void pe_bm_set(uint8_t *bm, unsigned char c){ bm[c>>3] |= (uint8_t)(1u<<(c&7)); }
 static inline int  pe_bm_get(const uint8_t *bm, unsigned char c){ return (bm[c>>3] >> (c&7)) & 1; }
 
+/* v3.2: resolve a node index returned by pe_associative_recall.
+ *   - idx <  PE_EPISODIC_MAX  → real working-memory node
+ *   - idx >= PE_EPISODIC_MAX  → cold scratch (idx - PE_EPISODIC_MAX)
+ * Returns NULL if the index points to an unallocated slot. */
+static inline const MemoryNode *pe_active_node(const Engine *eng, uint16_t idx){
+    if (idx >= PE_EPISODIC_MAX){
+        uint16_t cidx = (uint16_t)(idx - PE_EPISODIC_MAX);
+        if (cidx < eng->cold_scratch_count) return &eng->cold_scratch[cidx];
+        return NULL;
+    }
+    if (idx < eng->memory.episodic_count) return &eng->memory.episodic[idx];
+    return NULL;
+}
+
 /* small string utils */
 void pe_strlower(char *s);
 int  pe_strieq(const char *a, const char *b);

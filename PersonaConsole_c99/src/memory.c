@@ -2,10 +2,57 @@
 #include "persona.h"
 #include "persona_internal.h"
 #include "lsh_memory.h"            /* v3.0: fuzzy semantic recall */
+#include "aether.h"                /* v3.2: long-term episodic storage */
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define ACTIVATION_THRESHOLD_PER_MIL 200  /* 0.2 in 0..1000 scale */
+
+/* v3.2: threshold above which working memory is "good enough" to skip the
+ * AETHER query.  Set to 900 — only a near-perfect hit (Hamming ≈ 0 + VAD
+ * ≈ 0 + high salience) suppresses the cold path.  Anything weaker still
+ * queries AETHER and merges results by score, so cold hits can outrank
+ * mediocre working-memory hits.  Augment, not replace. */
+#define PE_COLD_FALLBACK_MATCH 900
+
+/* v3.2: convert MemoryNode → aether_event_t.  Used when a working-memory
+ * node is about to be evicted by pe_commit_memory. */
+static void pe_node_to_aether(const MemoryNode *n, aether_event_t *ev){
+    memset(ev, 0, sizeof(*ev));
+    ev->timestamp     = (uint32_t)time(NULL);
+    ev->last_accessed = ev->timestamp;
+    /* PE valence/dominance: int8 -100..100  →  uint16 0..65400 */
+    ev->emotion_valence   = (uint16_t)(((int32_t)n->emotion.valence   + 100) * 327);
+    ev->emotion_dominance = (uint16_t)(((int32_t)n->emotion.dominance + 100) * 327);
+    /* PE arousal: int8 0..100  →  uint16 0..65500 */
+    ev->emotion_arousal   = (uint16_t)((int32_t)n->emotion.arousal * 655);
+    ev->retrievability_score = (uint16_t)((uint32_t)n->salience * 257u); /* 0..65535 */
+    ev->keys[0] = n->topic_id;
+    size_t L = strnlen(n->summary, sizeof(n->summary));
+    if (L >= AETHER_INLINE_TEXT) L = AETHER_INLINE_TEXT - 1;
+    memcpy(ev->inline_text, n->summary, L);
+    ev->inline_text[L] = 0;
+}
+
+/* v3.2: convert aether_event_t → MemoryNode (cold-promotion path). */
+static void pe_aether_to_node(const aether_event_t *ev, MemoryNode *n){
+    memset(n, 0, sizeof(*n));
+    n->id = 0xFFFFFFFFu;  /* sentinel: not a working-memory node */
+    n->salience = (uint8_t)(ev->retrievability_score / 257u);
+    n->emotion.valence   = (int8_t)((int32_t)ev->emotion_valence   / 327 - 100);
+    n->emotion.dominance = (int8_t)((int32_t)ev->emotion_dominance / 327 - 100);
+    n->emotion.arousal   = (int8_t)((int32_t)ev->emotion_arousal   / 655);
+    n->timestamp = ev->timestamp * 1000u;
+    n->core_memory = 0;
+    n->decay_counter = 0;
+    n->topic_id = ev->keys[0];
+    size_t L = strnlen(ev->inline_text, AETHER_INLINE_TEXT);
+    if (L >= sizeof(n->summary)) L = sizeof(n->summary) - 1;
+    memcpy(n->summary, ev->inline_text, L);
+    n->summary[L] = 0;
+    n->lsh_sig = lsh_compute_n(n->summary, L);
+}
 
 uint8_t pe_compute_salience(Engine *eng,
                             const EmotionVector *prev,
@@ -53,6 +100,14 @@ void pe_commit_memory(Engine *eng, const char *summary,
     } else {
         slot = evict_lowest_non_core(m);
         if (m->episodic[slot].core_memory) return; /* nothing to evict — drop */
+        /* v3.2: demote the evicted memory into AETHER long-term storage
+         * before overwriting.  Working memory becomes hot tier; AETHER
+         * is the cold ledger.  Soft-fails if AETHER isn't available. */
+        if (eng->aether){
+            aether_event_t ev_out;
+            pe_node_to_aether(&m->episodic[slot], &ev_out);
+            aether_put(eng->aether, &ev_out);
+        }
     }
     MemoryNode *n = &m->episodic[slot];
     memset(n, 0, sizeof(*n));
@@ -117,11 +172,12 @@ void pe_decay_episodic(Engine *eng){
 
 void pe_associative_recall(Engine *eng, const EmotionVector *ev){
     eng->active_count = 0;
+    eng->cold_scratch_count = 0;          /* v3.2: reset per-turn scratch */
     uint32_t now = persona_now_ms();
     uint64_t qsig = eng->input_sig;
     int have_qsig = (qsig != 0);
 
-    for (uint16_t i = 0; i < eng->memory.episodic_count && eng->active_count < PE_EPISODIC_MAX; ++i){
+    for (uint16_t i = 0; i < eng->memory.episodic_count && eng->active_count < PE_ACTIVE_MAX; ++i){
         const MemoryNode *m = &eng->memory.episodic[i];
         int32_t dv = ev->valence   - m->emotion.valence;   if (dv < 0) dv = -dv;
         int32_t da = ev->arousal   - m->emotion.arousal;   if (da < 0) da = -da;
@@ -169,6 +225,40 @@ void pe_associative_recall(Engine *eng, const EmotionVector *ev){
             eng->memory.episodic[i].decay_counter = 0;
         }
     }
+    /* v3.2: AETHER fallback.  If working memory had nothing strong (either
+     * empty or top match below PE_COLD_FALLBACK_MATCH), query the cold
+     * store with the current input.  Results are materialised into
+     * cold_scratch[] and surfaced via active_memories[] using sentinel
+     * indices (>= PE_EPISODIC_MAX).  Match scores are derived from
+     * Hamming distance to the input SimHash so the existing sort below
+     * orders cold hits relative to working-memory hits correctly. */
+    if (eng->aether && eng->lowered[0]
+        && (eng->active_count == 0
+            || eng->active_match[0] < PE_COLD_FALLBACK_MATCH)){
+        aether_event_t cold[PE_COLD_SCRATCH_MAX];
+        int n_cold = aether_query_by_text(eng->aether, eng->lowered,
+                                          cold, PE_COLD_SCRATCH_MAX, 0);
+        for (int i = 0; i < n_cold
+                       && eng->cold_scratch_count < PE_COLD_SCRATCH_MAX
+                       && eng->active_count < PE_ACTIVE_MAX; ++i){
+            MemoryNode *cn = &eng->cold_scratch[eng->cold_scratch_count];
+            pe_aether_to_node(&cold[i], cn);
+            /* Match score from Hamming similarity, gated by cold-source
+             * discount (cold hits cap at 900 so working-memory ties win). */
+            int32_t cold_match = 500;
+            if (have_qsig && cn->lsh_sig != 0){
+                int hd = lsh_hamming_distance(qsig, cn->lsh_sig);
+                cold_match = (64 - hd) * 14;     /* 0..896 */
+            }
+            if (cold_match < ACTIVATION_THRESHOLD_PER_MIL) continue;
+            eng->active_memories[eng->active_count] =
+                (uint16_t)(PE_EPISODIC_MAX + eng->cold_scratch_count);
+            eng->active_match[eng->active_count]    = (uint16_t)cold_match;
+            eng->active_count++;
+            eng->cold_scratch_count++;
+        }
+    }
+
     /* simple insertion sort: highest match first */
     for (uint16_t i = 1; i < eng->active_count; ++i){
         uint16_t mi = eng->active_memories[i], ms = eng->active_match[i];

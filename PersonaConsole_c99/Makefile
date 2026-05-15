@@ -58,8 +58,8 @@ all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
 build:
 	@mkdir -p build
 
-# Engine objects depend on the engine headers (static pattern rule).
-$(ENGINE_OBJ): build/%.o: src/%.c include/persona.h include/persona_internal.h | build
+# Engine objects depend on engine + aether headers (engine now wires AETHER).
+$(ENGINE_OBJ): build/%.o: src/%.c include/persona.h include/persona_internal.h include/aether.h | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # LSH subsystem objects depend only on the LSH headers.
@@ -86,11 +86,11 @@ build/libplasticity.a: $(PLAS_OBJ)
 build/libaether.a: $(AETHER_OBJ)
 	ar rcs $@ $^
 
-build/compile_pretorius: tools/compile_pretorius.c build/libpersona.a build/libplasticity.a build/liblsh.a
-	$(CC) $(CFLAGS) tools/compile_pretorius.c build/libpersona.a build/libplasticity.a build/liblsh.a -o $@ $(LDFLAGS)
+build/compile_pretorius: tools/compile_pretorius.c build/libpersona.a build/libplasticity.a build/liblsh.a build/libaether.a
+	$(CC) $(CFLAGS) tools/compile_pretorius.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
 
-build/compile_kiki: tools/compile_kiki.c build/libpersona.a build/libplasticity.a build/liblsh.a
-	$(CC) $(CFLAGS) tools/compile_kiki.c build/libpersona.a build/libplasticity.a build/liblsh.a -o $@ $(LDFLAGS)
+build/compile_kiki: tools/compile_kiki.c build/libpersona.a build/libplasticity.a build/liblsh.a build/libaether.a
+	$(CC) $(CFLAGS) tools/compile_kiki.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
 
 build/build_lm: tools/build_lm.c build/libplasticity.a
 	$(CC) $(CFLAGS) tools/build_lm.c build/libplasticity.a -o $@ $(LDFLAGS)
@@ -106,8 +106,8 @@ characters/kiki/voice.lm: data/corpus_kiki.txt build/build_lm
 
 lm_build: characters/pretorius/voice.lm characters/kiki/voice.lm
 
-build/repl: test/repl.c build/libpersona.a build/libplasticity.a build/liblsh.a
-	$(CC) $(CFLAGS) test/repl.c build/libpersona.a build/libplasticity.a build/liblsh.a -o $@ $(LDFLAGS)
+build/repl: test/repl.c build/libpersona.a build/libplasticity.a build/liblsh.a build/libaether.a
+	$(CC) $(CFLAGS) test/repl.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
 
 build/lsh_test: test/lsh_test.c build/liblsh.a
 	$(CC) $(CFLAGS) test/lsh_test.c build/liblsh.a -o $@ $(LDFLAGS)
@@ -131,6 +131,17 @@ aether_test: build/aether_test
 aether_run: aether_test
 	./build/aether_test
 
+# End-to-end PE+AETHER integration test (Step 3): drives pe_commit_memory +
+# pe_associative_recall directly, verifies demotion-on-eviction and
+# cold-promotion-on-recall.
+build/aether_pe_test: test/aether_pe_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) test/aether_pe_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+aether_pe_test: build/aether_pe_test
+
+aether_pe_run: aether_pe_test character
+	./build/aether_pe_test
+
 character: build/compile_pretorius
 	./build/compile_pretorius characters/pretorius
 
@@ -140,14 +151,14 @@ kiki_character: build/compile_kiki
 test: all character
 	@echo "--- Pretorius sanity test: 8 turns + dumps ---"
 	@rm -f characters/pretorius/state.bin characters/pretorius/memory.bin
-	@rm -rf characters/pretorius/relations
+	@rm -rf characters/pretorius/relations characters/pretorius/aether
 	@printf "Good evening, doctor.\nWho are you?\nTell me about your work.\nYou are a madman.\nI am not insulting you.\nWhat about gin?\nLet us drink to homunculi.\n:dump\n:plan\n:trace\n:quit\n" | ./build/repl characters/pretorius victor
 
 kiki_test: all kiki_character
 	@echo "--- Kiki sanity test: 8 turns + dumps ---"
 	@rm -f characters/kiki/state.bin characters/kiki/memory.bin
 	@rm -f characters/kiki/chapters.bin
-	@rm -rf characters/kiki/relations
+	@rm -rf characters/kiki/relations characters/kiki/aether
 	@printf "Hi Kiki!\nWho are you?\nExplain entropy.\nAre you real?\nYou are amazing.\nYou are just a chatbot.\nWhat about Punky Brewster?\nDo you ever get lonely?\n:dump\n:plan\n:trace\n:quit\n" | ./build/repl characters/kiki user
 
 clean:
@@ -155,6 +166,8 @@ clean:
 	rm -f characters/pretorius/state.bin characters/pretorius/memory.bin
 	rm -f characters/pretorius/chapters.bin
 	rm -rf characters/pretorius/relations
+	rm -rf characters/pretorius/aether
 	rm -f characters/kiki/state.bin characters/kiki/memory.bin
 	rm -f characters/kiki/chapters.bin
 	rm -rf characters/kiki/relations
+	rm -rf characters/kiki/aether

@@ -82,13 +82,19 @@ static void fill_slots(Engine *eng, const Template *t, char *out, size_t n){
     const char *address = eng->identity.address_user_as[r];
     if (!address[0]) address = "my dear";
 
-    /* v2: prefer plan.callback_memory; fall back to top-recall */
+    /* v2: prefer plan.callback_memory; fall back to top-recall.
+     * v3.2: indices may resolve into working memory OR cold_scratch[]
+     * (sentinel range >= PE_EPISODIC_MAX) — use pe_active_node helper. */
     const char *mem_summary = "";
-    if (eng->plan.callback_memory != 0xFFFF
-        && eng->plan.callback_memory < eng->memory.episodic_count)
-        mem_summary = eng->memory.episodic[eng->plan.callback_memory].summary;
-    else if (eng->active_count > 0)
-        mem_summary = eng->memory.episodic[eng->active_memories[0]].summary;
+    const MemoryNode *cb = NULL;
+    if (eng->plan.callback_memory != 0xFFFF)
+        cb = pe_active_node(eng, eng->plan.callback_memory);
+    if (cb) {
+        mem_summary = cb->summary;
+    } else if (eng->active_count > 0) {
+        const MemoryNode *a = pe_active_node(eng, eng->active_memories[0]);
+        if (a) mem_summary = a->summary;
+    }
 
     /* v2: prefer plan.target_topic (covers fixation / obsession-pressure) */
     const char *topic_name = "the matter";

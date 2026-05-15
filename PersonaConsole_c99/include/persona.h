@@ -48,6 +48,10 @@ extern "C" {
 #define PE_FLOURISH_LEN         48
 #define PE_EXPANSION_COUNT      4   /* per-character verbosity expansion bank */
 #define PE_EXPANSION_LEN        48
+#define PE_COLD_SCRATCH_MAX     5   /* v3.2: per-turn AETHER promotion buffer */
+#define PE_ACTIVE_MAX           (PE_EPISODIC_MAX + PE_COLD_SCRATCH_MAX)
+                                    /* v3.2: active_memories[] holds working +
+                                     * cold candidates in one ranked list */
 
 /* ---------- pattern flags (Pattern.flags bitmask) ---------- */
 #define PE_PATTERN_FLAG_INTOXICANT (1u<<0)  /* matching this pattern raises intoxication */
@@ -493,9 +497,9 @@ struct Engine {
     Relation       relation;                /* current interlocutor */
 
     /* per-turn scratch (no heap) */
-    uint16_t       active_memories[PE_EPISODIC_MAX];
+    uint16_t       active_memories[PE_ACTIVE_MAX];
     uint16_t       active_count;
-    uint16_t       active_match[PE_EPISODIC_MAX]; /* match score 0..1000 */
+    uint16_t       active_match[PE_ACTIVE_MAX];   /* match score 0..1000 */
 
     uint16_t       candidate_ids[64];
     int32_t        candidate_scores[64];
@@ -525,6 +529,18 @@ struct Engine {
 
     /* v3.1: autobiographical chapters + dream state. */
     ChapterBook   chapters;
+
+    /* v3.2: AETHER long-term episodic storage.  Opaque pointer — engine.c
+     * includes aether.h; cartridge compilers (compile_*.c) see only the
+     * forward-declared struct, no header dependency. */
+    struct aether_handle *aether;
+
+    /* v3.2: per-turn cold-memory scratch.  When pe_associative_recall
+     * queries AETHER, retrieved events are materialised into MemoryNode
+     * form here and surfaced via active_memories[] using sentinel indices
+     * (PE_EPISODIC_MAX + cold_idx).  Reset each turn. */
+    MemoryNode    cold_scratch[PE_COLD_SCRATCH_MAX];
+    uint16_t      cold_scratch_count;
 };
 
 /* ---------- public API ---------- */

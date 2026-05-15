@@ -303,6 +303,12 @@ int aether_query_by_text(aether_handle_t *h, const char *text,
                          uint32_t max_age_seconds)
 {
     if (!h || !text) return 0;
-    uint64_t sig = lsh_simhash((const uint8_t *)text, strlen(text));
+    /* Storage truncates events to AETHER_INLINE_TEXT-1 bytes before
+     * computing the SimHash that drives bucket assignment.  Queries must
+     * apply the same truncation, otherwise full-text input hashes to a
+     * different bucket than its already-stored truncation. */
+    size_t L = strlen(text);
+    if (L > AETHER_INLINE_TEXT - 1) L = AETHER_INLINE_TEXT - 1;
+    uint64_t sig = lsh_simhash((const uint8_t *)text, L);
     return aether_query_by_hash(h, sig, out_results, max_results, max_age_seconds);
 }
