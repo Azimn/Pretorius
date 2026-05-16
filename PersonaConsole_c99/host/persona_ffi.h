@@ -56,6 +56,11 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size);
 /* Inspect: write the character name into out_buf.  Returns bytes written. */
 int ps_name(PersonaSession *s, char *out_buf, int out_buf_size);
 
+/* Return the character's runtime directory (where state.bin / portrait /
+ * etc. live).  For .cart loads, this is the directory containing the
+ * cartridge file.  Used by the host's static-asset routes. */
+int ps_char_dir(PersonaSession *s, char *out_buf, int out_buf_size);
+
 #ifdef __cplusplus
 }
 #endif

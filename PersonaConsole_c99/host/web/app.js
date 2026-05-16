@@ -7,6 +7,8 @@ const els = {
     form:      $("input-form"),
     input:     $("input"),
     send:      $("send"),
+    portrait:  $("portrait"),
+    portraitImg: $("portrait-img"),
     name:      $("character-name"),
     initial:   $("portrait-initial"),
     today:     $("today-label"),
@@ -19,6 +21,24 @@ const els = {
     delta:     $("voice-delta"),
     disp:      $("disp"),
 };
+
+/* Try to fetch the character's portrait.  On success, fade in the image
+ * and hide the initial-letter placeholder.  On 404 (no portrait file in
+ * the cartridge directory), keep the placeholder visible. */
+function loadPortrait() {
+    const url = "/portrait?ts=" + Date.now();
+    const probe = new Image();
+    probe.onload = () => {
+        els.portraitImg.src = url;
+        els.portraitImg.classList.add("loaded");
+        els.initial.style.display = "none";
+    };
+    probe.onerror = () => {
+        els.portraitImg.classList.remove("loaded");
+        els.initial.style.display = "";
+    };
+    probe.src = url;
+}
 
 function addMessage(role, text, meta) {
     const div = document.createElement("div");
@@ -59,6 +79,7 @@ async function sendMessage(text) {
     addMessage("user", text);
     els.send.disabled = true;
     els.input.value = "";
+    els.portrait.classList.add("speaking");
     try {
         const r = await fetch("/chat", {
             method: "POST",
@@ -78,6 +99,7 @@ async function sendMessage(text) {
     } catch (e) {
         addMessage("char", `[network error] ${e.message}`);
     } finally {
+        els.portrait.classList.remove("speaking");
         els.send.disabled = false;
         els.input.focus();
     }
@@ -90,3 +112,4 @@ els.form.addEventListener("submit", (e) => {
 });
 
 fetchState();
+loadPortrait();

@@ -93,6 +93,11 @@ int ps_name(PersonaSession *s, char *out_buf, int out_buf_size){
                     s->eng.identity.character_name);
 }
 
+int ps_char_dir(PersonaSession *s, char *out_buf, int out_buf_size){
+    if (!s || !out_buf || out_buf_size <= 0) return -1;
+    return snprintf(out_buf, (size_t)out_buf_size, "%s", s->eng.char_dir);
+}
+
 int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
     if (!s || !out_buf || out_buf_size <= 0) return -1;
     const Engine *eng = &s->eng;

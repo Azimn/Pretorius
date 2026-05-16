@@ -51,9 +51,22 @@ static const char *mime_for(const char *path){
 }
 
 /* Static-files use a per-process buffer.  Single-threaded server, single
- * connection in flight at a time, so this is safe. */
-static char  g_static_buf[262144];
+ * connection in flight at a time, so this is safe.  Sized for typical
+ * portrait images (PNG/JPG up to ~2 MB). */
+static char  g_static_buf[2 * 1024 * 1024];
 static int   g_static_len = 0;
+
+static int serve_file(const char *path, HttpResponse *out){
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+    g_static_len = (int)fread(g_static_buf, 1, sizeof(g_static_buf), f);
+    fclose(f);
+    out->status        = 200;
+    out->content_type  = mime_for(path);
+    out->body          = g_static_buf;
+    out->body_len      = g_static_len;
+    return 0;
+}
 
 static int serve_static(const char *web_root, const char *rel_path,
                         HttpResponse *out){
@@ -63,16 +76,34 @@ static int serve_static(const char *web_root, const char *rel_path,
     /* refuse paths containing ".." to prevent traversal */
     if (strstr(rel_path, "..")) { out->status = 400; return -1; }
     snprintf(path, sizeof(path), "%s/%s", web_root, rel_path);
-    FILE *f = fopen(path, "rb");
-    if (!f){ out->status = 404; out->content_type = "text/plain";
-             out->body = "not found"; out->body_len = 9; return 0; }
-    g_static_len = (int)fread(g_static_buf, 1, sizeof(g_static_buf), f);
-    fclose(f);
-    out->status        = 200;
-    out->content_type  = mime_for(path);
-    out->body          = g_static_buf;
-    out->body_len      = g_static_len;
+    if (serve_file(path, out) != 0){
+        out->status = 404; out->content_type = "text/plain";
+        out->body = "not found"; out->body_len = 9; return 0;
+    }
     return 0;
+}
+
+/* Serve the active character's portrait, probing common extensions in
+ * the cartridge's runtime directory.  The first one that opens wins.
+ * If none exist, returns a 404 — the web UI will fall back to its
+ * initial-letter placeholder. */
+static int serve_portrait(PersonaSession *s, HttpResponse *out){
+    char char_dir[256];
+    if (ps_char_dir(s, char_dir, sizeof(char_dir)) <= 0){
+        out->status = 500; out->content_type = "text/plain";
+        out->body = "no char dir"; out->body_len = 11; return 0;
+    }
+    static const char *EXTS[] = {
+        "portrait.png", "portrait.jpg", "portrait.jpeg",
+        "portrait.webp", "portrait.svg", "portrait.gif", NULL
+    };
+    char path[512];
+    for (int i = 0; EXTS[i]; ++i){
+        snprintf(path, sizeof(path), "%s/%s", char_dir, EXTS[i]);
+        if (serve_file(path, out) == 0) return 0;
+    }
+    out->status = 404; out->content_type = "text/plain";
+    out->body = "no portrait"; out->body_len = 11; return 0;
 }
 
 /* ---------- request dispatch (shared by HTTP and stdio) ---------- */
@@ -187,6 +218,10 @@ static HttpResponse route(const HttpRequest *req, void *vctx){
             r.content_type = "application/json";
             r.body = g_http_response;
             r.body_len = (n > 0) ? n : 0;
+            return r;
+        }
+        if (!strcmp(path, "/portrait")){
+            serve_portrait(ctx->sess, &r);
             return r;
         }
         /* Default GET → index.html */
