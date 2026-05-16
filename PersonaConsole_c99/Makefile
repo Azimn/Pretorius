@@ -229,6 +229,13 @@ voice_test: build/voice_test
 voice_run: voice_test character
 	./build/voice_test
 
+# Forge end-to-end: extract JS from CartridgeForge/forge.html, build a
+# .cart in node, load it through persona_host, assert it replies.
+# Requires `node` on PATH.  Run after `make host`.
+forge_cart_test: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH — skipping forge_cart_test"; exit 0; }
+	node test/forge_cart_test.js
+
 character: characters/pretorius/pretorius.cart
 
 kiki_character: characters/kiki/kiki.cart

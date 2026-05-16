@@ -568,8 +568,15 @@ h3 { font-size: 16px; color: var(--muted); }
             <dl id="export-dl"></dl>
           </div>
 
-          <button class="primary" id="btn-export-json">Download character.json</button>
-          <button class="ghost"   id="btn-copy-json" style="margin-left: 8px;">Copy JSON to clipboard</button>
+          <button class="primary" id="btn-export-cart">Download .cart (runnable)</button>
+          <button class="ghost"   id="btn-export-json" style="margin-left: 8px;">Download character.json (source)</button>
+          <button class="ghost"   id="btn-copy-json" style="margin-left: 8px;">Copy JSON</button>
+          <p class="muted" style="font-size: 13px; margin-top: 12px;">
+            The <code>.cart</code> is ready to drop into your PersonaConsole engine
+            and run via <code>./build/persona_host my_character.cart</code>.
+            The <code>character.json</code> is the editable source — re-import it
+            into the Forge later to keep authoring.
+          </p>
 
           <details style="margin-top: 24px;">
             <summary class="muted" style="cursor:pointer;">What gets exported?</summary>
@@ -1149,6 +1156,623 @@ document.querySelectorAll('.tab').forEach(t => {
   });
 });
 
+/* ============================================================== *
+ * BINARY CARTRIDGE BUILDER
+ * --------------------------------------------------------------- *
+ * Produces a .cart file ready to drop into a PersonaConsole engine.
+ * Matches the byte-exact struct layouts declared in persona.h and
+ * the container format in cartridge.h (CART magic, version 1).
+ *
+ * The Forge UI authors identity + drives + banks + a small today
+ * table.  Topics / patterns / templates / fallbacks / goals come
+ * from an embedded generic dialogue pack — enough for any character
+ * to converse out of the box.  A future Forge version can add UI
+ * for editing those tables too.
+ * ============================================================== */
+
+/* ---- size constants (match persona.h) ---- */
+const SZ_IDENTITY        = 1806;
+const SZ_DRIVE_TABLE     = 272;
+const SZ_TODAY_TABLE     = 964;
+const SZ_BANK_REGISTRY   = 6012;
+const SZ_PATTERN_TABLE   = 4484;
+const SZ_TEMPLATE_TABLE  = 55812;
+const SZ_FALLBACK_TABLE  = 3460;
+const SZ_TOPIC_TABLE     = 2180;
+const SZ_GOAL_TABLE      = 748;
+
+const PE_OBSESSION_COUNT = 8;
+const PE_TABOO_COUNT     = 8;
+const PE_ADDRESS_COUNT   = 4;
+const PE_ADDRESS_LEN     = 16;
+const PE_NAME_LEN        = 32;
+const PE_CORE_SEED_MAX   = 10;
+const PE_MEM_SUMMARY_LEN = 96;
+const PE_FLOURISH_COUNT  = 4;
+const PE_FLOURISH_LEN    = 48;
+const PE_EXPANSION_COUNT = 4;
+const PE_EXPANSION_LEN   = 48;
+
+const PE_BANK_COUNT_MAX     = 12;
+const PE_BANK_NAME_LEN      = 16;
+const PE_BANK_ENTRY_LEN     = 48;
+const PE_BANK_ENTRIES_MAX   = 10;
+const PE_BANK_REGISTRY_MAGIC = 0x424B4150;   /* 'PAKB' */
+const PE_BANK_REGISTRY_VERSION = 1;
+
+const PE_TOPIC_MAX          = 64;
+const PE_TOPIC_NAME         = 16;
+const PE_PATTERN_MAX        = 128;
+const PE_PATTERN_KW_LEN     = 24;
+const PE_TEMPLATE_MAX       = 256;
+const PE_TEMPLATE_TEXT      = 192;
+const PE_FALLBACK_PER_TIER  = 6;
+const PE_GOAL_MAX           = 24;
+const PE_TODAY_MAX          = 16;
+const PE_TODAY_LABEL        = 32;
+const PE_DRIVE_COUNT        = 8;
+
+const PE_CART_MAGIC         = 0x54524143;    /* 'CART' little-endian */
+const PE_CART_VERSION       = 1;
+const PE_CART_NAME_LEN      = 48;
+const PE_CART_MAX_SECTIONS  = 32;
+const SZ_CART_ENTRY         = 60;
+const SZ_CART_HEADER        = 32 + PE_CART_MAX_SECTIONS * SZ_CART_ENTRY;  /* 1952 */
+
+/* ---- voice flag mask (matches persona.h PE_VF_*) ---- */
+const VOICE_FLAG_BITS = {
+  NO_DIRECT_AFFIRM:  1 <<  0,
+  ABSTRACT:          1 <<  1,
+  SARDONIC:          1 <<  2,
+  METAPHOR:          1 <<  3,
+  SELF_INTERRUPT:    1 <<  4,
+  /* bits 5-7 are verbosity */
+  ALLOW_BLEED:       1 <<  8,
+  ALLOW_CALLBACK:    1 <<  9,
+  ALLOW_CONTRADICT:  1 << 10,
+  DELAY_TIMING:      1 << 11,
+};
+
+/* ---- intent enum (matches persona.h PE_INTENT_*) ---- */
+const INTENT = {
+  ANSWER:0, EVADE:1, ACCUSE:2, FLATTER:3, THREATEN:4, PROBE:5,
+  REDIRECT:6, MONOLOGUE:7, REMINISCE:8, WITHDRAW:9, JOKE:10, BOAST:11,
+};
+
+/* ---- rhetorical mode + stance enums ---- */
+const RHET = {
+  ASSERT:0, HEDGE:1, DEFLECT:2, ESCALATE:3, LAMENT:4, GLOAT:5,
+  INDICT:6, ROMANTICIZE:7, INTONE:8, CONFESS:9,
+};
+const STANCE = {
+  NEUTRAL:0, DOMINANT:1, INTIMATE:2, DEFENSIVE:3,
+  CONDESCENDING:4, CONSPIRATORIAL:5,
+};
+
+/* ---- BinaryWriter helper ---- */
+class BinaryWriter {
+  constructor(size){
+    this.buf  = new Uint8Array(size);
+    this.view = new DataView(this.buf.buffer);
+    this.pos  = 0;
+  }
+  u8 (v){ this.view.setUint8 (this.pos, v & 0xff);     this.pos += 1; }
+  i8 (v){ this.view.setInt8  (this.pos, v);             this.pos += 1; }
+  u16(v){ this.view.setUint16(this.pos, v & 0xffff, true); this.pos += 2; }
+  i16(v){ this.view.setInt16 (this.pos, v, true);       this.pos += 2; }
+  u32(v){ this.view.setUint32(this.pos, v >>> 0, true); this.pos += 4; }
+  i32(v){ this.view.setInt32 (this.pos, v, true);       this.pos += 4; }
+  u64(lo, hi){ this.u32(lo); this.u32(hi); }
+  /* Fixed-length NUL-padded string field. */
+  str(s, maxLen){
+    const enc = new TextEncoder();
+    const bytes = enc.encode(s || '');
+    const n = Math.min(bytes.length, maxLen - 1);
+    for (let i = 0; i < n; ++i) this.u8(bytes[i]);
+    for (let i = n; i < maxLen; ++i) this.u8(0);
+  }
+  pad(n){ for (let i = 0; i < n; ++i) this.u8(0); }
+  bytes(arr){ for (let i = 0; i < arr.length; ++i) this.u8(arr[i]); }
+  seek(p){ this.pos = p; }
+  done(){ return this.buf; }
+}
+
+/* ---- FNV-1a 32-bit checksum (matches src/cartridge.c) ---- */
+function fnv1a(bytes){
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < bytes.length; ++i){
+    h ^= bytes[i];
+    /* multiply mod 2^32 */
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return (h ? h : 1) >>> 0;
+}
+
+/* ---- helpers ---- */
+function biPct(p){ return Math.max(0, Math.min(65535, Math.round((p / 100) * 65535))); }
+function voiceFlagsMask(flagsArr, verbosity){
+  let m = 0;
+  for (const f of flagsArr){
+    if (VOICE_FLAG_BITS[f]) m |= VOICE_FLAG_BITS[f];
+  }
+  m |= ((verbosity & 7) << 5);
+  return m >>> 0;
+}
+
+/* topic id assignment: stable hash of name → 16-bit id ≠ 0 / 0xFFFF */
+function topicIdFor(name){
+  /* simple FNV-1a 16-bit-ish */
+  let h = 0x811c9dc5;
+  for (let i = 0; i < name.length; ++i){
+    h ^= name.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  let id = (h & 0xfffe) | 1;       /* never 0 */
+  if (id === 0xffff) id = 0xfffd;  /* never sentinel */
+  return id;
+}
+
+/* ============================================================== *
+ * GENERIC DIALOGUE PACK
+ * Embedded in the Forge.  Provides the topics/patterns/templates/
+ * fallbacks/goals tables that the UI doesn't (yet) author.  Works
+ * for any character; uses {address} {topic} {memory} {name}
+ * placeholders so it stays character-neutral.
+ * ============================================================== */
+
+/* Group ids used to wire patterns ↔ templates. */
+const G = {
+  PRAISE:1, INSULT:2, QUESTION:3, THREAT:4, INTIMACY:5,
+  GREETING:6, WHO:7, NEUTRAL:8,
+};
+
+/* Generic patterns — keyword → topic / input_class / template group. */
+const GENERIC_PATTERNS = [
+  /* praise (cls=1) */
+  { kw:'amazing',    cls:1, group:G.PRAISE,   v: 40, a: 40, d:  20 },
+  { kw:'wonderful',  cls:1, group:G.PRAISE,   v: 35, a: 30, d:  10 },
+  { kw:'brilliant',  cls:1, group:G.PRAISE,   v: 35, a: 30, d:  20 },
+  { kw:'love it',    cls:1, group:G.PRAISE,   v: 50, a: 45, d:  20 },
+  { kw:'thank you',  cls:1, group:G.PRAISE,   v: 20, a: 15, d:   0 },
+  /* insult (cls=2) */
+  { kw:'stupid',     cls:2, group:G.INSULT,   v:-40, a: 50, d: -20 },
+  { kw:'idiot',      cls:2, group:G.INSULT,   v:-40, a: 55, d: -20 },
+  { kw:'hate',       cls:2, group:G.INSULT,   v:-60, a: 60, d: -30 },
+  { kw:'shut up',    cls:2, group:G.INSULT,   v:-40, a: 55, d: -10 },
+  /* threat (cls=4) */
+  { kw:'kill you',   cls:4, group:G.THREAT,   v:-80, a: 90, d: -50 },
+  { kw:'destroy',    cls:4, group:G.THREAT,   v:-50, a: 70, d: -30 },
+  { kw:'stop you',   cls:4, group:G.THREAT,   v:-50, a: 65, d: -30 },
+  /* intimacy (cls=5) */
+  { kw:'love you',   cls:5, group:G.INTIMACY, v: 60, a: 50, d:  30 },
+  { kw:'trust you',  cls:5, group:G.INTIMACY, v: 50, a: 30, d:  20 },
+  { kw:'my friend',  cls:5, group:G.INTIMACY, v: 40, a: 25, d:  10 },
+  /* greeting */
+  { kw:'hello',      cls:0, group:G.GREETING, v: 10, a: 20, d:   5 },
+  { kw:'hi ',        cls:0, group:G.GREETING, v: 10, a: 20, d:   5 },
+  { kw:'good evening', cls:0, group:G.GREETING, v: 15, a: 20, d:  10 },
+  /* who-are-you */
+  { kw:'who are you',  cls:3, group:G.WHO,    v:  5, a: 30, d:  10 },
+  { kw:'what are you', cls:3, group:G.WHO,    v:  5, a: 35, d:   5 },
+  /* questions */
+  { kw:'why',        cls:3, group:G.QUESTION, v:  0, a: 30, d:   0 },
+  { kw:'how',        cls:3, group:G.QUESTION, v:  0, a: 30, d:   0 },
+  { kw:'what',       cls:3, group:G.QUESTION, v:  0, a: 30, d:   0 },
+  { kw:'where',      cls:3, group:G.QUESTION, v:  0, a: 30, d:   0 },
+];
+
+/* Generic templates — flat list with optional rhet/stance masks. */
+function R(...names){ let m = 0; for (const n of names) m |= (1 << RHET[n]); return m; }
+function S(...names){ let m = 0; for (const n of names) m |= (1 << STANCE[n]); return m; }
+
+const GENERIC_TEMPLATES = [
+  /* greeting */
+  { group:G.GREETING, intent:INTENT.ANSWER,    base:50, text:"{address}. A pleasure." },
+  { group:G.GREETING, intent:INTENT.MONOLOGUE, base:35, text:"{address}, I was just thinking about {topic}." },
+  { group:G.GREETING, intent:INTENT.PROBE,     base:30, text:"{address} — what brings you in?" },
+  /* who-are-you */
+  { group:G.WHO,      intent:INTENT.ANSWER,   base:55, text:"I am {name}." },
+  { group:G.WHO,      intent:INTENT.BOAST,    base:45, text:"I am {name}. The rest you'll have to earn." },
+  { group:G.WHO,      intent:INTENT.MONOLOGUE,base:40, text:"{name} — a long answer, but I'll try. {memory}" },
+  /* praise */
+  { group:G.PRAISE,   intent:INTENT.BOAST,    base:60, text:"At last, {address}, someone with eyes." },
+  { group:G.PRAISE,   intent:INTENT.FLATTER,  base:50, text:"How astute of you to notice." },
+  { group:G.PRAISE,   intent:INTENT.MONOLOGUE,base:45, text:"It is good to be seen." },
+  /* insult */
+  { group:G.INSULT,   intent:INTENT.WITHDRAW, base:55, text:"That was beneath us both, {address}." },
+  { group:G.INSULT,   intent:INTENT.ACCUSE,   base:50, text:"Careful, {address}." },
+  { group:G.INSULT,   intent:INTENT.JOKE,     base:35, text:"Oh, {address}. You flatter me." },
+  /* threat */
+  { group:G.THREAT,   intent:INTENT.THREATEN, base:70, text:"Try it, {address}, and learn." },
+  { group:G.THREAT,   intent:INTENT.WITHDRAW, base:50, text:"I shall not be here for that." },
+  /* intimacy */
+  { group:G.INTIMACY, intent:INTENT.FLATTER,  base:65, text:"{address}. Sit closer." },
+  { group:G.INTIMACY, intent:INTENT.REMINISCE,base:50, text:"That reminds me — {memory}." },
+  /* questions */
+  { group:G.QUESTION, intent:INTENT.ANSWER,   base:50, text:"An interesting question. The honest answer is: it depends." },
+  { group:G.QUESTION, intent:INTENT.PROBE,    base:40, text:"Why do you ask, {address}?" },
+  { group:G.QUESTION, intent:INTENT.EVADE,    base:35, text:"Define your terms, then I'll answer." },
+  /* fillers — wildcard group 0xFFFF, used when no group matched */
+  { group:0xFFFF, intent:INTENT.MONOLOGUE, base:30, text:"There is a manner of seeing the world which permits everything — and I have it." },
+  { group:0xFFFF, intent:INTENT.REMINISCE, base:28, text:"{memory}. That comes back to me now." },
+  { group:0xFFFF, intent:INTENT.PROBE,     base:30, text:"Tell me, {address}: what do you mean by {topic}?" },
+  { group:0xFFFF, intent:INTENT.EVADE,     base:25, text:"I would answer, but the answer is in another coat." },
+  { group:0xFFFF, intent:INTENT.WITHDRAW,  base:25, text:"I shall not be drawn further." },
+  { group:0xFFFF, intent:INTENT.JOKE,      base:27, text:"Hahaha. No. — Yes, but no." },
+  { group:0xFFFF, intent:INTENT.FLATTER,   base:30, text:"{address}, you have a face for confidences." },
+  { group:0xFFFF, intent:INTENT.BOAST,     base:35, text:"I built it. Of course I built it." },
+  { group:0xFFFF, intent:INTENT.ANSWER,    base:28, text:"Briefly: yes. At length: ask me later." },
+  { group:0xFFFF, intent:INTENT.REDIRECT,  base:25, text:"Yes — but {topic}. Let us not lose {topic}." },
+  { group:0xFFFF, intent:INTENT.ACCUSE,    base:30, text:"You are very like the ones who came before, {address}." },
+  { group:0xFFFF, intent:INTENT.THREATEN,  base:28, text:"Some doors prefer not to be closed politely." },
+  /* rhetorical/stance-aware (v2 plan-driven) */
+  { group:0xFFFF, intent:INTENT.ACCUSE,    base:55, text:"I have watched smaller ones make this same noise, {address}.",
+    rhet:R('INDICT'), stance:S('DOMINANT','CONDESCENDING'), min_cert:100, min_aggr:120 },
+  { group:0xFFFF, intent:INTENT.EVADE,     base:50, text:"Perhaps. One should not commit to verbs before nightfall.",
+    rhet:R('HEDGE'),  stance:S('DEFENSIVE','NEUTRAL') },
+  { group:0xFFFF, intent:INTENT.REMINISCE, base:55, text:"Ah. {memory}. The years are not kind, are they.",
+    rhet:R('LAMENT'), stance:S('INTIMATE','NEUTRAL') },
+  { group:0xFFFF, intent:INTENT.MONOLOGUE, base:75, text:"Hear me. {topic}. {topic}. This is the only word the moment has earned.",
+    rhet:R('INTONE'), min_theat:100 },
+  { group:0xFFFF, intent:INTENT.REMINISCE, base:50, text:"I was, for a little while, afraid of being right.",
+    rhet:R('CONFESS'), stance:S('INTIMATE','CONSPIRATORIAL') },
+  { group:0xFFFF, intent:INTENT.ANSWER,    base:50, text:"It is so. There is no third position.",
+    rhet:R('ASSERT'), min_cert:140 },
+];
+
+const GENERIC_GOALS = [
+  /*                            R    S   P    C   A  Co  V  Rp */
+  { id: 1, name:'small_talk',  prio:40, intent:INTENT.PROBE,     dw:[+10,+30,  0,+40,  0,  0,  0,  0] },
+  { id: 2, name:'monologue',   prio:35, intent:INTENT.MONOLOGUE, dw:[+30,+80,+10,+10,+20,  0,  0,-20] },
+  { id: 3, name:'boast',       prio:30, intent:INTENT.BOAST,     dw:[+80,+30,  0,  0,+10,  0,+10,  0] },
+  { id: 4, name:'reminisce',   prio:28, intent:INTENT.REMINISCE, dw:[+10,  0,  0,+20,  0,+50,  0,+10] },
+  { id: 5, name:'seek_company',prio:25, intent:INTENT.FLATTER,   dw:[  0,  0,  0,+90,  0,  0,  0,  0] },
+  { id: 6, name:'withdraw',    prio:15, intent:INTENT.WITHDRAW,  dw:[-20,-30,  0,-30,+30,  0,  0,+80] },
+  { id: 7, name:'defend',      prio:20, intent:INTENT.EVADE,     dw:[  0,  0,+20,  0,+50,+30,+30,  0] },
+  { id: 8, name:'vindicate',   prio:18, intent:INTENT.ACCUSE,    dw:[+10,  0,+30,-10,+20,  0,+90,  0] },
+  { id: 9, name:'joke',        prio:20, intent:INTENT.JOKE,      dw:[+10,+40,+10,+20,  0,  0,  0,  0] },
+  { id:10, name:'probe',       prio:24, intent:INTENT.PROBE,     dw:[+10,+50,+20,  0,+20,  0,  0,  0] },
+];
+
+const GENERIC_FALLBACKS = {
+  tier1: ["And what do you make of that?", "Tell me more.", "Yes — and then?", "Indeed.", "Quite. Go on."],
+  tier2: ["Hmm. Where was I.", "A pity. Let us speak of other things.", "I should pour another.", "Mm."],
+  tier3: ["I am tired tonight.", "Step over the silence.", "...", "Maybe later."],
+};
+
+const GENERIC_TODAY = [
+  { label:'composed',       mood:    0, vf_or: 0,                                goal: 0xFFFF },
+  { label:'expansive',      mood: +150, vf_or: VOICE_FLAG_BITS.METAPHOR,         goal: 0xFFFF },
+  { label:'minor_key',      mood: -200, vf_or: 0,                                goal: 0xFFFF },
+  { label:'restless',       mood:  +80, vf_or: VOICE_FLAG_BITS.SELF_INTERRUPT,   goal: 0xFFFF },
+  { label:'wistful',        mood:  -80, vf_or: VOICE_FLAG_BITS.ALLOW_CALLBACK,   goal: 0xFFFF },
+];
+
+/* ============================================================== *
+ * SECTION WRITERS
+ * ============================================================== */
+
+/* Topics derived from character's obsessions + a small fixed set. */
+function deriveTopicTable(ch){
+  const seen = new Map();   /* name → id */
+  const out  = [];
+  function add(name){
+    if (!name) return 0xFFFF;
+    if (seen.has(name)) return seen.get(name);
+    if (out.length >= PE_TOPIC_MAX) return 0xFFFF;
+    const id = topicIdFor(name);
+    seen.set(name, id);
+    out.push({ id, name, adj:[0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF] });
+    return id;
+  }
+  /* baseline topics */
+  for (const t of ['the matter','the work','the conversation','the question'])
+    add(t);
+  /* user obsessions */
+  for (const o of ch.identity.obsessions) add(o);
+  return out;
+}
+
+function writeIdentitySection(ch, topics){
+  const w  = new BinaryWriter(SZ_IDENTITY);
+  const id = ch.identity;
+  /* Big Five — 0..65535 fixed-point */
+  w.u16(biPct(id.O));
+  w.u16(biPct(id.C));
+  w.u16(biPct(id.E));
+  w.u16(biPct(id.A));
+  w.u16(biPct(id.N));
+  w.u16(0);                            /* _pad0 */
+  w.u32(voiceFlagsMask(id.voice_flags, id.verbosity));
+  /* obsessions[8] (uint16 each, topic ids; 0 = unused) */
+  const topicByName = {};
+  for (const t of topics) topicByName[t.name] = t.id;
+  for (let i = 0; i < PE_OBSESSION_COUNT; ++i){
+    const name = id.obsessions[i];
+    w.u16(name ? (topicByName[name] || 0) : 0);
+  }
+  /* taboos[8] */
+  for (let i = 0; i < PE_TABOO_COUNT; ++i){
+    const name = id.taboos[i];
+    w.u16(name ? (topicByName[name] || 0) : 0);
+  }
+  /* address_user_as[4][16] */
+  for (let i = 0; i < PE_ADDRESS_COUNT; ++i){
+    w.str(id.address_user_as[i] || '', PE_ADDRESS_LEN);
+  }
+  /* character_name */
+  w.str(ch.name || 'Unnamed', PE_NAME_LEN);
+  /* core_memory_count + 7-byte pad */
+  const memCount = Math.min(id.core_memories.length, PE_CORE_SEED_MAX);
+  w.u8(memCount);
+  w.pad(7);
+  /* core_memories_seed[10] — each MemoryNode is 127 bytes */
+  for (let i = 0; i < PE_CORE_SEED_MAX; ++i){
+    const m = id.core_memories[i] || {};
+    w.u32(i + 1);                       /* id */
+    w.u16(0);                           /* type */
+    w.u8(220);                          /* salience (high for core) */
+    /* EmotionVector — 4 bytes */
+    w.i8(m.v || 0);
+    w.i8(m.a || 0);
+    w.i8(m.d || 0);
+    w.i8(0);                            /* emotion _pad */
+    w.u32(0);                           /* timestamp */
+    w.u8(i < memCount ? 1 : 0);         /* core_memory */
+    w.u8(0);                            /* decay_counter */
+    w.u16(0);                           /* topic_id */
+    w.u8(0);                            /* private_threshold */
+    w.u8(255);                          /* retrieval_prob (MEM_CORE) */
+    w.u8(0);                            /* memory_type = MEM_CORE */
+    w.u8(0);                            /* _pad2 */
+    w.str(m.text || '', PE_MEM_SUMMARY_LEN);
+    w.u32(0); w.u32(0);                 /* lsh_sig (engine recomputes on use) */
+  }
+  /* flourishes[4][48] + expansions[4][48] */
+  for (let i = 0; i < PE_FLOURISH_COUNT; ++i)
+    w.str(id.flourishes[i] || '', PE_FLOURISH_LEN);
+  for (let i = 0; i < PE_EXPANSION_COUNT; ++i)
+    w.str(id.expansions[i] || '', PE_EXPANSION_LEN);
+
+  console.assert(w.pos === SZ_IDENTITY, 'identity size mismatch: ' + w.pos);
+  return w.done();
+}
+
+function writeDriveTable(ch){
+  const w = new BinaryWriter(SZ_DRIVE_TABLE);
+  for (let i = 0; i < PE_DRIVE_COUNT; ++i){
+    const d = ch.drives[i] || { name: DRIVE_NAMES[i], baseline: 500, decay: -6,
+                                 mood_weight: 0, personality_weight: [0,0,0,0,0] };
+    w.u8(i);                              /* id */
+    w.i8(d.mood_weight || 0);
+    w.str(d.name, 16);
+    w.i16(d.decay || -6);
+    for (let k = 0; k < 5; ++k) w.i16((d.personality_weight && d.personality_weight[k]) || 0);
+    w.i16(d.baseline || 500);
+    w.i16(0);                             /* _pad */
+  }
+  console.assert(w.pos === SZ_DRIVE_TABLE, 'drives size mismatch: ' + w.pos);
+  return w.done();
+}
+
+function writeTodayTable(){
+  const w = new BinaryWriter(SZ_TODAY_TABLE);
+  w.u32(GENERIC_TODAY.length);
+  for (let i = 0; i < PE_TODAY_MAX; ++i){
+    const t = GENERIC_TODAY[i] || { label:'', mood:0, vf_or:0, goal:0xFFFF };
+    w.str(t.label, PE_TODAY_LABEL);
+    w.i16(t.mood);
+    for (let k = 0; k < PE_DRIVE_COUNT; ++k) w.i16(0);  /* drive_modifiers */
+    w.u16(t.goal !== undefined ? t.goal : 0xFFFF);
+    w.u32(0);                             /* dialogue_mask */
+    w.u32(t.vf_or >>> 0);
+  }
+  console.assert(w.pos === SZ_TODAY_TABLE, 'today size mismatch: ' + w.pos);
+  return w.done();
+}
+
+function writeBankRegistry(ch){
+  const w = new BinaryWriter(SZ_BANK_REGISTRY);
+  w.u32(PE_BANK_REGISTRY_MAGIC);
+  w.u32(PE_BANK_REGISTRY_VERSION);
+  const n = Math.min(ch.banks.length, PE_BANK_COUNT_MAX);
+  w.u8(n);
+  w.pad(3);
+  for (let i = 0; i < PE_BANK_COUNT_MAX; ++i){
+    const b = ch.banks[i] || { name:'', entries:[], min_theatricality:0, min_aggression:0 };
+    w.str(b.name, PE_BANK_NAME_LEN);
+    for (let e = 0; e < PE_BANK_ENTRIES_MAX; ++e)
+      w.str((b.entries[e] || ''), PE_BANK_ENTRY_LEN);
+    w.u8(Math.min(b.entries.length, PE_BANK_ENTRIES_MAX));
+    w.u8(b.min_theatricality || 0);
+    w.u8(b.min_aggression || 0);
+    w.u8(0);
+  }
+  console.assert(w.pos === SZ_BANK_REGISTRY, 'banks size mismatch: ' + w.pos);
+  return w.done();
+}
+
+function writePatternTable(topics){
+  const w = new BinaryWriter(SZ_PATTERN_TABLE);
+  const topicByName = {};
+  for (const t of topics) topicByName[t.name] = t.id;
+
+  /* generic keyword patterns + topic-keyword patterns from obsessions */
+  const all = GENERIC_PATTERNS.slice();
+  for (const t of topics){
+    if (!t.name) continue;
+    const tname = t.name.toLowerCase();
+    /* only single-word obsessions become keyword patterns */
+    if (/^[a-z][a-z\- ]{1,22}$/.test(tname)){
+      all.push({ kw: tname, cls: 0, group: G.NEUTRAL, topic: t.id,
+                 v: 10, a: 30, d: 10 });
+    }
+  }
+  const n = Math.min(all.length, PE_PATTERN_MAX);
+  w.u32(n);
+  for (let i = 0; i < PE_PATTERN_MAX; ++i){
+    const p = all[i] || { kw:'', cls:0, group:0xFFFF, v:0, a:0, d:0 };
+    w.str(p.kw || '', PE_PATTERN_KW_LEN);
+    w.u16(p.topic !== undefined ? p.topic : 0xFFFF);
+    w.i8(p.v || 0);
+    w.i8(p.a || 0);
+    w.i8(p.d || 0);
+    w.i8(p.cls || 0);
+    w.u8(p.flags || 0);
+    w.u16(p.group !== undefined ? p.group : 0xFFFF);
+    const kl = p.kw ? Math.min(p.kw.length, 255) : 0;
+    w.u8(kl);
+    w.u8(p.kw ? p.kw.charCodeAt(0) & 0xff : 0);
+  }
+  console.assert(w.pos === SZ_PATTERN_TABLE, 'patterns size mismatch: ' + w.pos);
+  return w.done();
+}
+
+function writeTemplateTable(){
+  const w = new BinaryWriter(SZ_TEMPLATE_TABLE);
+  const n = Math.min(GENERIC_TEMPLATES.length, PE_TEMPLATE_MAX);
+  w.u32(n);
+  for (let i = 0; i < PE_TEMPLATE_MAX; ++i){
+    const t = GENERIC_TEMPLATES[i];
+    if (!t){
+      /* zero-fill an empty Template (218 bytes) */
+      w.pad(218);
+      continue;
+    }
+    w.u16(i + 1);                        /* id */
+    w.u16(t.group !== undefined ? t.group : 0xFFFF);
+    w.u8(t.intent !== undefined ? t.intent : INTENT.MONOLOGUE);
+    w.u8(t.required_voice_flags || 0);
+    w.i16(t.mood_min !== undefined ? t.mood_min : -1000);
+    w.i16(t.mood_max !== undefined ? t.mood_max :  1000);
+    w.i16(t.drive_bias !== undefined ? t.drive_bias : -1);
+    w.i16(t.base !== undefined ? t.base : 30);
+    w.u32(t.dialogue_mask_bit || 0);
+    w.u16(t.rhet || 0);
+    w.u16(t.stance || 0);
+    w.u8(t.min_cert  || 0);
+    w.u8(t.min_aggr  || 0);
+    w.u8(t.min_theat || 0);
+    w.u8(0);                             /* _pad_v2 */
+    w.str(t.text, PE_TEMPLATE_TEXT);
+  }
+  console.assert(w.pos === SZ_TEMPLATE_TABLE, 'templates size mismatch: ' + w.pos);
+  return w.done();
+}
+
+function writeFallbackTable(){
+  const w = new BinaryWriter(SZ_FALLBACK_TABLE);
+  for (let i = 0; i < PE_FALLBACK_PER_TIER; ++i)
+    w.str(GENERIC_FALLBACKS.tier1[i] || '', PE_TEMPLATE_TEXT);
+  for (let i = 0; i < PE_FALLBACK_PER_TIER; ++i)
+    w.str(GENERIC_FALLBACKS.tier2[i] || '', PE_TEMPLATE_TEXT);
+  for (let i = 0; i < PE_FALLBACK_PER_TIER; ++i)
+    w.str(GENERIC_FALLBACKS.tier3[i] || '', PE_TEMPLATE_TEXT);
+  w.u8(Math.min(GENERIC_FALLBACKS.tier1.length, PE_FALLBACK_PER_TIER));
+  w.u8(Math.min(GENERIC_FALLBACKS.tier2.length, PE_FALLBACK_PER_TIER));
+  w.u8(Math.min(GENERIC_FALLBACKS.tier3.length, PE_FALLBACK_PER_TIER));
+  w.u8(0);
+  console.assert(w.pos === SZ_FALLBACK_TABLE, 'fallbacks size mismatch: ' + w.pos);
+  return w.done();
+}
+
+function writeTopicTable(topics){
+  const w = new BinaryWriter(SZ_TOPIC_TABLE);
+  const n = Math.min(topics.length, PE_TOPIC_MAX);
+  w.u32(n);
+  for (let i = 0; i < PE_TOPIC_MAX; ++i){
+    const t = topics[i] || { id:0, name:'', adj:[0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF] };
+    w.u32(t.id || 0);
+    w.str(t.name || '', PE_TOPIC_NAME);
+    for (let k = 0; k < 6; ++k) w.u16(t.adj[k]);
+    w.u16(0);                             /* _pad */
+  }
+  console.assert(w.pos === SZ_TOPIC_TABLE, 'topics size mismatch: ' + w.pos);
+  return w.done();
+}
+
+function writeGoalTable(){
+  const w = new BinaryWriter(SZ_GOAL_TABLE);
+  const n = Math.min(GENERIC_GOALS.length, PE_GOAL_MAX);
+  w.u32(n);
+  for (let i = 0; i < PE_GOAL_MAX; ++i){
+    const g = GENERIC_GOALS[i] || { id:0, prio:0, intent:0, name:'', dw:[0,0,0,0,0,0,0,0] };
+    w.u16(g.id);
+    w.u8(g.prio);
+    for (let k = 0; k < PE_DRIVE_COUNT; ++k) w.i8(g.dw[k] || 0);
+    w.u16(g.intent);
+    w.u16(g.bias_topic !== undefined ? g.bias_topic : 0xFFFF);
+    w.str(g.name, 16);
+  }
+  console.assert(w.pos === SZ_GOAL_TABLE, 'goals size mismatch: ' + w.pos);
+  return w.done();
+}
+
+/* ============================================================== *
+ * CART CONTAINER — header + payload + checksums
+ * ============================================================== */
+
+function buildCart(ch){
+  const topics = deriveTopicTable(ch);
+  const sections = [
+    { name: 'identity.bin',           bytes: writeIdentitySection(ch, topics) },
+    { name: 'drives.bin',             bytes: writeDriveTable(ch) },
+    { name: 'today.bin',              bytes: writeTodayTable() },
+    { name: 'banks.bin',              bytes: writeBankRegistry(ch) },
+    { name: 'dialogue/patterns.bin',  bytes: writePatternTable(topics) },
+    { name: 'dialogue/templates.bin', bytes: writeTemplateTable() },
+    { name: 'dialogue/fallback.bin',  bytes: writeFallbackTable() },
+    { name: 'dialogue/topics.bin',    bytes: writeTopicTable(topics) },
+    { name: 'dialogue/goals.bin',     bytes: writeGoalTable() },
+  ];
+
+  /* compute payload */
+  let payloadSize = 0;
+  for (const s of sections) payloadSize += s.bytes.length;
+  const payload = new Uint8Array(payloadSize);
+  let cursor = 0;
+  const entries = [];
+  for (const s of sections){
+    payload.set(s.bytes, cursor);
+    entries.push({
+      name: s.name,
+      offset: cursor,
+      size: s.bytes.length,
+      checksum: fnv1a(s.bytes),
+    });
+    cursor += s.bytes.length;
+  }
+  const payloadChecksum = fnv1a(payload);
+
+  /* write header */
+  const hw = new BinaryWriter(SZ_CART_HEADER);
+  hw.u32(PE_CART_MAGIC);
+  hw.u16(PE_CART_VERSION);
+  hw.u16(sections.length);
+  hw.u32(SZ_CART_HEADER);
+  hw.u32(payloadSize);
+  hw.u32(payloadChecksum);
+  hw.pad(12);                             /* reserved */
+  for (let i = 0; i < PE_CART_MAX_SECTIONS; ++i){
+    const e = entries[i];
+    if (e){
+      hw.str(e.name, PE_CART_NAME_LEN);
+      hw.u32(e.offset);
+      hw.u32(e.size);
+      hw.u32(e.checksum);
+    } else {
+      hw.pad(SZ_CART_ENTRY);
+    }
+  }
+  console.assert(hw.pos === SZ_CART_HEADER, 'header size mismatch: ' + hw.pos);
+
+  /* concatenate header + payload */
+  const out = new Uint8Array(SZ_CART_HEADER + payloadSize);
+  out.set(hw.done(), 0);
+  out.set(payload, SZ_CART_HEADER);
+  return out;
+}
+
 /* ---------- export ---------- */
 
 function exportObject(){
@@ -1163,6 +1787,8 @@ function refreshExport(){
   const obj = exportObject();
   const json = JSON.stringify(obj, null, 2);
   $('export-preview').textContent = json;
+  let cartSize = 0;
+  try { cartSize = buildCart(obj).length; } catch (e){ cartSize = -1; }
   const dl = $('export-dl');
   dl.innerHTML = `
     <dt>name</dt>            <dd>${CH.name || '(unnamed)'}</dd>
@@ -1171,8 +1797,30 @@ function refreshExport(){
     <dt>obsessions</dt>      <dd>${CH.identity.obsessions.length}</dd>
     <dt>banks authored</dt>  <dd>${CH.banks.filter(b => b.entries.length > 0).length} / 10</dd>
     <dt>JSON size</dt>       <dd>${(json.length / 1024).toFixed(1)} KB</dd>
+    <dt>.cart size</dt>      <dd>${cartSize > 0 ? (cartSize / 1024).toFixed(1) + ' KB' : 'error'}</dd>
   `;
 }
+
+function safeFileName(){
+  return (CH.name || 'character').toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'character';
+}
+
+$('btn-export-cart').addEventListener('click', () => {
+  let bytes;
+  try {
+    bytes = buildCart(exportObject());
+  } catch (e){
+    alert('Failed to build cartridge: ' + e.message);
+    return;
+  }
+  const blob = new Blob([bytes], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = safeFileName() + '.cart';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
 
 $('btn-export-json').addEventListener('click', () => {
   const obj = exportObject();
@@ -1181,8 +1829,7 @@ $('btn-export-json').addEventListener('click', () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  const safeName = (CH.name || 'character').toLowerCase().replace(/[^a-z0-9]+/g, '_');
-  a.download = safeName + '.character.json';
+  a.download = safeFileName() + '.character.json';
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });

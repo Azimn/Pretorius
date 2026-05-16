@@ -316,11 +316,16 @@ slider moves — fast feedback while authoring.
 }
 ```
 
-This is the authoring source of truth. It's *not* yet runnable by the
-engine on its own — a small `json_to_cart` bridge tool is required to
-convert it into the engine's per-section `.bin` files (which
-`compile_cartridge` then packs into a `.cart`). That bridge is the
-biggest known gap in the FIN snapshot — see §5.
+This is the editable source of truth. The Forge **also** exports a
+runnable `.cart` directly — same Export tab, "Download .cart"
+button. The bridge is implemented entirely client-side in JavaScript:
+the Forge writes byte-exact PersonaConsole struct layouts, packs them
+into the cartridge container with FNV-1a checksums, and hands the user
+a file they can drop straight into the engine via
+`./build/persona_host my_character.cart`.
+
+The `character.json` round-trips into the Forge (re-import to keep
+authoring); the `.cart` is the runnable artifact.
 
 ---
 
@@ -363,27 +368,35 @@ shared `libpersona_host.so`. Then it generates both `.lm`s and both
 
 ## 5. Known gaps at FIN
 
-1. **`character.json` → `.cart` bridge** is not yet implemented. The Forge
-   produces a runnable-by-no-one JSON until a small `tools/json_to_cart`
-   utility lands in the engine repo. This is the highest-leverage next step
-   — without it the Forge is decoupled from the engine.
+1. ~~**`character.json` → `.cart` bridge**~~ — **closed.** The Forge now
+   exports a runnable `.cart` directly via in-browser binary
+   serialization.  Verified end-to-end: `node test/forge_cart_test.js`
+   builds a cart from an archetype, hands it to `persona_host`, and
+   asserts the engine loads it and produces an in-character reply.
 2. **Per-character compile tools** still exist as C source (one per
-   character). Adding a new character requires writing `tools/compile_<name>.c`
-   alongside a manifest. Closing this is the same work as gap #1: a
-   data-driven authoring step that consumes `character.json`.
-3. **Real portrait images** are placeholder SVGs. The `/portrait` route
+   character) for the *bundled* Pretorius and Kiki cartridges.  New
+   characters authored in the Forge skip this entirely — they go
+   straight from Forge → `.cart` → engine.
+3. **Generic dialogue pack vs. custom dialogue tables** — Forge-authored
+   characters currently get a built-in "generic" topics/patterns/
+   templates/fallbacks/goals set, customized only by their obsessions.
+   A future Forge UI for editing those tables would give authors full
+   dialogue control without leaving the browser.
+4. **Real portrait images** are placeholder SVGs.  The `/portrait` route
    probes PNG/JPG before SVG; drop a real image into the character
    directory and it just appears.
-4. **Game-engine FFI samples** (Unity / Unreal / Godot) are documented but
-   not yet shipped. `libpersona_host.so` is built and ready for them.
-5. **WASM preview** in the Forge. The current live preview is heuristic; a
-   real WASM build of the engine for in-Forge previews is on the roadmap.
-6. **Additional log-import parsers** for the Forge (Gemini Takeout, Claude
-   export, character.ai). Format research is done; implementation is
-   straightforward.
-7. **Portability layer** (`platform.h`) abstracting POSIX calls. Currently
-   POSIX-only by design; a Windows port would need an mmap/socket shim.
-   Documented in `PORTABILITY.md`.
+5. **Game-engine FFI samples** (Unity / Unreal / Godot) are documented
+   but not yet shipped.  `libpersona_host.so` is built and ready for
+   them.
+6. **WASM preview** in the Forge.  The current live preview is heuristic;
+   a real WASM build of the engine for in-Forge previews is on the
+   roadmap.
+7. **Additional log-import parsers** for the Forge (Gemini Takeout,
+   Claude export, character.ai).  Format research is done; implementation
+   is straightforward.
+8. **Portability layer** (`platform.h`) abstracting POSIX calls.
+   Currently POSIX-only by design; a Windows port would need an
+   mmap/socket shim.  Documented in `PORTABILITY.md`.
 
 ---
 

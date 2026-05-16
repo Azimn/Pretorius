@@ -86,15 +86,23 @@ self-contained JSON file describing the character:
 
 ## Wiring into the engine
 
-The output `character.json` is the **source of truth** for the
-character. To produce a runnable `.cart` cartridge:
+The Forge produces **two** files from the Export tab:
 
-```
-PersonaConsole_c99/tools/json_to_cart  my_character.character.json  characters/my_character/
-```
+1. `<name>.cart` — a runnable cartridge ready for the engine.
+   Drop it next to your PersonaConsole engine binary and run:
+   ```
+   ./build/persona_host my_character.cart
+   ```
+   Open `http://127.0.0.1:7777/` in a browser and start talking.
 
-*(That bridge tool ships in a follow-on commit — for now the JSON is
-hand-portable into the engine's per-character compile step.)*
+2. `<name>.character.json` — the editable source-of-truth.  Save it,
+   come back later, re-import to keep authoring.
+
+The `.cart` is assembled entirely in your browser via byte-exact
+serialization of the engine's struct layouts plus a generic dialogue
+pack (topics, patterns, templates, fallbacks, goals).  Your authored
+identity, drives, banks, flourishes, and core memories ride on top of
+the generic dialogue layer.
 
 ## What's intentionally **not** in v1
 
