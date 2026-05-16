@@ -49,12 +49,22 @@ AETHER_SRC := \
     src/aether_bucket.c     \
     src/aether_consolidate.c
 
+# PersonaHost — HTTP server + JSON-over-stdio + FFI wrapper around the
+# engine.  Exposes a stable C ABI (ps_open / ps_reply / ps_close / …)
+# that downstream consumers (web UI, Unity/Unreal/Godot plugins) link
+# against without ever seeing the internal Engine struct.
+HOST_SRC := \
+    host/persona_ffi.c      \
+    host/json.c             \
+    host/http.c
+
 ENGINE_OBJ := $(ENGINE_SRC:src/%.c=build/%.o)
 LSH_OBJ    := $(LSH_SRC:src/%.c=build/%.o)
 PLAS_OBJ   := $(PLAS_SRC:src/%.c=build/%.o)
 AETHER_OBJ := $(AETHER_SRC:src/%.c=build/%.o)
+HOST_OBJ   := $(HOST_SRC:host/%.c=build/host_%.o)
 
-.PHONY: all clean character kiki_character cartridges test lsh_test plasticity_test plasticity_run lm_build aether_test aether_run
+.PHONY: all clean character kiki_character cartridges test lsh_test plasticity_test plasticity_run lm_build aether_test aether_run host host_run host_test
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
      build/compile_cartridge build/compile_pretorius build/compile_kiki \
@@ -82,6 +92,12 @@ $(PLAS_OBJ): build/%.o: src/%.c include/ngram_lm.h include/mutator.h | build
 $(AETHER_OBJ): build/%.o: src/%.c include/aether.h include/aether_internal.h include/lsh_memory.h | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# PersonaHost objects — need access to persona.h for the FFI wrapper
+# plus the host's own three headers.  Output name prefixed so it
+# doesn't collide with engine objects (which build from src/%.c).
+$(HOST_OBJ): build/host_%.o: host/%.c host/persona_ffi.h host/http.h host/json.h include/persona.h | build
+	$(CC) $(CFLAGS) -Ihost -c $< -o $@
+
 build/libpersona.a: $(ENGINE_OBJ)
 	ar rcs $@ $^
 
@@ -93,6 +109,17 @@ build/libplasticity.a: $(PLAS_OBJ)
 
 build/libaether.a: $(AETHER_OBJ)
 	ar rcs $@ $^
+
+# libpersona_host.a — bundled FFI + HTTP + JSON for external linkers.
+# A separate shared-library target (libpersona_host.so) follows further down.
+build/libpersona_host.a: $(HOST_OBJ)
+	ar rcs $@ $^
+
+# libpersona_host.so — public FFI shared lib for Unity/Unreal/Godot.
+# Bundles the engine and host code in one PIC build with all symbols
+# the FFI surface needs to resolve.
+build/libpersona_host.so: $(HOST_SRC) $(ENGINE_SRC) $(PLAS_SRC) $(AETHER_SRC) $(LSH_SRC)
+	$(CC) $(CFLAGS) -Ihost -fPIC -shared $^ -o $@ $(LDFLAGS)
 
 build/compile_cartridge: tools/compile_cartridge.c src/cartridge.c include/cartridge.h
 	$(CC) $(CFLAGS) tools/compile_cartridge.c src/cartridge.c -o $@ $(LDFLAGS)
@@ -144,6 +171,21 @@ cartridges: characters/pretorius/pretorius.cart characters/kiki/kiki.cart
 
 build/repl: test/repl.c build/libpersona.a build/libplasticity.a build/liblsh.a build/libaether.a
 	$(CC) $(CFLAGS) test/repl.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+# PersonaHost binary — HTTP + JSON-over-stdio wrapper.
+build/persona_host: host/persona_host.c build/libpersona_host.a build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) -Ihost host/persona_host.c build/libpersona_host.a build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+host: build/persona_host build/libpersona_host.so
+	@echo "PersonaHost built: ./build/persona_host"
+
+build/host_test: test/host_test.c build/libpersona_host.a build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) -Ihost test/host_test.c build/libpersona_host.a build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+host_test: build/host_test characters/pretorius/pretorius.cart characters/kiki/kiki.cart
+
+host_run: host_test
+	./build/host_test
 
 build/lsh_test: test/lsh_test.c build/liblsh.a
 	$(CC) $(CFLAGS) test/lsh_test.c build/liblsh.a -o $@ $(LDFLAGS)
