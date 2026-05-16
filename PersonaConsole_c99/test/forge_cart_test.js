@@ -59,7 +59,8 @@ global.alert   = () => {};
 /* The forge script declares functions/consts at top-level; expose them. */
 const exposeNames = [
   'ARCHETYPES','defaultCharacter','applyArchetype','buildCart',
-  'exportObject','CH'
+  'exportObject','CH','LMBuilder','LMRuntime','PE_LM_DEFAULT_ORDER',
+  'LM_SAMPLE_PRETORIUS','LM_SAMPLE_KIKI'
 ];
 js += `
 \n;module.exports = { ${exposeNames.map(n => n + ': typeof ' + n + '!=="undefined"?' + n + ':null').join(',')} };
@@ -74,7 +75,9 @@ try {
   process.exit(2);
 }
 
-const { ARCHETYPES, defaultCharacter, applyArchetype, buildCart } = moduleObj.exports;
+const { ARCHETYPES, defaultCharacter, buildCart,
+        LMBuilder, LMRuntime, PE_LM_DEFAULT_ORDER,
+        LM_SAMPLE_PRETORIUS } = moduleObj.exports;
 if (!buildCart){ console.error('buildCart not exported'); process.exit(2); }
 
 /* Build a cart from the first archetype. */
@@ -99,8 +102,22 @@ ch.identity.flourishes = [...seed.flourishes].concat(['','','','']).slice(0,4);
 ch.identity.expansions = [...seed.expansions].concat(['','','','']).slice(0,4);
 ch.identity.core_memories = seed.memories.map(m => ({ ...m }));
 
+/* --- BUILD AN LM in the browser-equivalent path, embed in cart --- */
+console.log('--- building LM in JS from Pretorian sample corpus');
+const t0 = Date.now();
+const lmb = new LMBuilder(PE_LM_DEFAULT_ORDER);
+lmb.addCorpus(LM_SAMPLE_PRETORIUS);
+const lmBytes = lmb.serialize();
+console.log(`LM built in ${Date.now() - t0} ms · ${lmBytes.length} bytes · ${lmb.stats().totalEntries} entries`);
+ch.lmBytes = lmBytes;
+
+/* Live-preview scoring should produce something reasonable. */
+const rt = new LMRuntime(lmBytes);
+console.log('  in-register score:    ',  rt.scoreText('Mmm. I had begun to think.').perChar, 'milli-nats/char');
+console.log('  out-of-register score:',  rt.scoreText('OMG that is so totally rad.').perChar, 'milli-nats/char');
+
 const cart = buildCart(ch);
-console.log(`cart bytes: ${cart.length}`);
+console.log(`cart bytes: ${cart.length} (LM included)`);
 fs.writeFileSync(OUT, Buffer.from(cart));
 console.log('wrote', OUT);
 

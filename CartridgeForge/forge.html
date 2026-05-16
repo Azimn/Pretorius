@@ -468,6 +468,7 @@ h3 { font-size: 16px; color: var(--muted); }
       <button class="tab"        data-pane="drives">Drives</button>
       <button class="tab"        data-pane="memories">Memories</button>
       <button class="tab"        data-pane="banks">Banks</button>
+      <button class="tab"        data-pane="lm">Voice LM</button>
       <button class="tab"        data-pane="export">Export</button>
     </div>
 
@@ -557,6 +558,53 @@ h3 { font-size: 16px; color: var(--muted); }
         <div class="pane" id="pane-banks">
           <p class="muted" style="font-size:13px;">Synonym banks used by the procedural template mutator. The engine picks one entry per <code>[bank_name]</code> marker in a template. Keep entries short.</p>
           <div id="f-banks"></div>
+        </div>
+
+        <!-- ==== VOICE LM ==== -->
+        <div class="pane" id="pane-lm">
+          <h3>Voice LM</h3>
+          <p class="muted" style="font-size:13px;">
+            Train a small character-level n-gram language model on text
+            written in your character's voice.  The engine uses this LM
+            to <em>rerank</em> candidate replies — utterances that look
+            like your training text score higher than ones that don't.
+            This is what gives Pretorius his gravitas and Kiki her
+            playfulness.
+          </p>
+          <p class="muted" style="font-size:13px;">
+            Paste 500–5000 characters of dialogue, monologue, or sample
+            writing in this character's voice.  More text = sharper
+            voice.  Skip if you don't care — the cartridge runs fine
+            without an LM.
+          </p>
+
+          <div class="field">
+            <div class="row" style="gap:6px; margin-bottom:6px;">
+              <button class="ghost" id="lm-use-imported-chat">Use last imported chat</button>
+              <button class="ghost" id="lm-use-pretorius">Sample: Pretorian register</button>
+              <button class="ghost" id="lm-use-kiki">Sample: Kiki register</button>
+              <button class="ghost" id="lm-clear">Clear</button>
+            </div>
+            <textarea id="f-lm-corpus" rows="10" placeholder="Paste sample text in your character's voice — dialogue, monologue, anything written the way they would speak. The more diverse the better."
+              style="font-family: ui-monospace, monospace; font-size: 12.5px;"></textarea>
+          </div>
+
+          <div class="row" style="gap:10px; margin-top:8px;">
+            <button class="primary" id="lm-build">Build LM</button>
+            <span class="muted" id="lm-build-status">no LM yet</span>
+          </div>
+
+          <div id="lm-stats" style="margin-top:14px;"></div>
+
+          <h3 style="margin-top: 22px;">Test phrase</h3>
+          <p class="muted" style="font-size:13px;">Type a phrase to see its
+            per-character log-probability under your LM (milli-nats).
+            Higher = more in-register.  Built-in Pretorius scores ~-552;
+            modern slang scores ~-3090.</p>
+          <div class="field">
+            <input type="text" id="lm-test-input" placeholder="type a phrase to score…">
+          </div>
+          <div id="lm-test-result" class="muted" style="font-family: ui-monospace, monospace; font-size: 14px;">—</div>
         </div>
 
         <!-- ==== EXPORT ==== -->
@@ -1157,6 +1205,270 @@ document.querySelectorAll('.tab').forEach(t => {
 });
 
 /* ============================================================== *
+ * N-GRAM LANGUAGE MODEL BUILDER
+ * --------------------------------------------------------------- *
+ * In-browser stupid-backoff character n-gram LM.  Produces bytes
+ * binary-identical to the engine's tools/build_lm output — same
+ * alphabet, same FNV-1a 64-bit hash, same sorted-entry table per
+ * order, same PELM header.  The engine's ngram_lm_load_mem reads
+ * the emitted bytes verbatim.
+ * ============================================================== */
+
+const PE_LM_MAGIC      = 0x4D4C4550;     /* 'PELM' little-endian */
+const PE_LM_VERSION    = 1;
+const PE_LM_MAX_ORDER  = 5;
+const PE_LM_DEFAULT_ORDER = 5;
+
+/* The exact alphabet from build_lm.c: 45 vocab chars get IDs 0..44.
+ * Everything else is 0xFF (OOV). */
+const LM_VOCAB = "abcdefghijklmnopqrstuvwxyz0123456789 .,;:!?'-\"";
+
+function buildAlphabet(){
+  const a = new Uint8Array(256);
+  for (let i = 0; i < 256; ++i) a[i] = 0xFF;
+  for (let i = 0; i < LM_VOCAB.length; ++i){
+    a[LM_VOCAB.charCodeAt(i)] = i;
+  }
+  /* uppercase folds to lowercase */
+  for (let c = 'A'.charCodeAt(0); c <= 'Z'.charCodeAt(0); ++c){
+    a[c] = a[c - 'A'.charCodeAt(0) + 'a'.charCodeAt(0)];
+  }
+  /* whitespace collapses to space */
+  a[0x0A] = a[' '.charCodeAt(0)];   /* \n */
+  a[0x0D] = a[' '.charCodeAt(0)];   /* \r */
+  a[0x09] = a[' '.charCodeAt(0)];   /* \t */
+  return a;
+}
+
+/* FNV-1a 64-bit over alphabet IDs, implemented as two u32 halves so
+ * we never touch BigInt (which would be ~10× slower).  The prime
+ * 0x100000001B3 splits cleanly: high=1, low=0x1B3 (only 9 bits). */
+const FNV_OFFSET_LO = 0x84222325 >>> 0;
+const FNV_OFFSET_HI = 0xCBF29CE4 >>> 0;
+const FNV_PRIME_LO  = 0x1B3;     /* high half of prime is 1 */
+
+function fnv64Init(){ return [FNV_OFFSET_LO, FNV_OFFSET_HI]; }
+
+function fnv64Step(state, b){
+  /* h ^= b (XOR byte into low half) */
+  let lo = (state[0] ^ b) >>> 0;
+  let hi =  state[1] >>> 0;
+  /* h *= 0x100000001B3 mod 2^64
+   * prod = lo*plo + (hi*plo + lo*phi=lo) << 32 (low 64 bits)
+   * Since plo=0x1B3 ≤ 0x1FF, lo*plo and hi*plo each fit in ~41 bits → safe as JS Number. */
+  const prodLo = lo * FNV_PRIME_LO;             /* up to ~41 bits */
+  const prodHi = hi * FNV_PRIME_LO;             /* up to ~41 bits */
+  const newLo = prodLo >>> 0;
+  const carry = Math.floor(prodLo / 0x100000000);
+  const newHi = (prodHi + carry + lo) >>> 0;
+  state[0] = newLo;
+  state[1] = newHi;
+}
+
+function fnv64Hex(state){
+  /* Stable 16-hex-char string key for the JS Map. */
+  return state[1].toString(16).padStart(8, '0')
+       + state[0].toString(16).padStart(8, '0');
+}
+
+/* Hash an array of alphabet IDs to a 16-hex key + return [lo, hi]. */
+function fnv64OfIds(ids, off, len){
+  const s = fnv64Init();
+  for (let i = 0; i < len; ++i) fnv64Step(s, ids[off + i]);
+  return s;
+}
+
+/* Compute log(x) * 1000 using the same integer-log table as the engine.
+ * Used only for the in-Forge live preview — the cartridge LM is consumed
+ * by the engine, not the Forge. */
+const ILOG_FRAC = [0, 60, 117, 173, 227, 278, 329, 377, 423, 470, 513, 557, 598, 640, 679, 718];
+function ilogMilli(x){
+  if (x === 0) return -2147483647;
+  let bit = 0, v = x;
+  while (v > 1){ v >>>= 1; bit++; }
+  const mant = ((x << (31 - bit)) & 0x7FFFFFFF) >>> 0;
+  return bit * 693 + ILOG_FRAC[mant >>> 27];
+}
+function logRatioMilli(num, denom){
+  if (num === 0 || denom === 0) return -12000;   /* OOV floor */
+  return ilogMilli(num) - ilogMilli(denom);
+}
+
+/* ----- builder ----- */
+class LMBuilder {
+  constructor(order){
+    this.order = Math.max(1, Math.min(PE_LM_MAX_ORDER, order || PE_LM_DEFAULT_ORDER));
+    this.alphabet = buildAlphabet();
+    /* tables[n] = Map<hex_hash, [lo, hi, count]>  for n = 1..order */
+    this.tables = [null];
+    for (let n = 1; n <= this.order; ++n) this.tables.push(new Map());
+    this.totalUnigram = 0;
+  }
+  addCorpus(text){
+    const order = this.order;
+    const alpha = this.alphabet;
+    const window = new Uint8Array(order);
+    let filled = 0;
+    for (let i = 0; i < text.length; ++i){
+      const id = alpha[text.charCodeAt(i) & 0xff];
+      if (id === 0xFF){ filled = 0; continue; }
+      if (filled < order){ window[filled++] = id; }
+      else {
+        for (let k = 0; k < order - 1; ++k) window[k] = window[k + 1];
+        window[order - 1] = id;
+      }
+      /* count all suffix n-grams ending here */
+      for (let k = 1; k <= filled; ++k){
+        const s = fnv64OfIds(window, filled - k, k);
+        const key = fnv64Hex(s);
+        const t = this.tables[k];
+        const existing = t.get(key);
+        if (existing){ existing[2]++; }
+        else { t.set(key, [s[0], s[1], 1]); }
+        if (k === 1) this.totalUnigram++;
+      }
+    }
+  }
+  /* Sort the entries of each order by hash ascending (engine bsearches). */
+  _sortedEntries(n){
+    const arr = [...this.tables[n].values()];   /* [lo, hi, count] */
+    arr.sort((a, b) => {
+      if (a[1] !== b[1]) return a[1] < b[1] ? -1 : 1;     /* by hi */
+      if (a[0] !== b[0]) return a[0] < b[0] ? -1 : 1;     /* then by lo */
+      return 0;
+    });
+    return arr;
+  }
+  stats(){
+    const perOrder = [];
+    let totalEntries = 0;
+    for (let n = 1; n <= this.order; ++n){
+      perOrder.push({ n, count: this.tables[n].size });
+      totalEntries += this.tables[n].size;
+    }
+    return { order: this.order, perOrder, totalEntries, totalUnigram: this.totalUnigram };
+  }
+  /* Emit bytes matching the engine's PELM binary format exactly. */
+  serialize(){
+    const headerSize = 4 + 2 + 1 + 1 + 256;
+    let bodySize = 0;
+    const sorted = [];
+    for (let n = 1; n <= this.order; ++n){
+      const arr = this._sortedEntries(n);
+      sorted.push(arr);
+      bodySize += 4 + arr.length * 12;     /* u32 count + entries (u64 + u32) */
+    }
+    const trailerSize = 8;                  /* u64 total_unigram */
+    const total = headerSize + bodySize + trailerSize;
+    const out = new Uint8Array(total);
+    const view = new DataView(out.buffer);
+    let p = 0;
+    view.setUint32(p, PE_LM_MAGIC,    true); p += 4;
+    view.setUint16(p, PE_LM_VERSION,  true); p += 2;
+    out[p++] = this.order;
+    out[p++] = 0;                            /* reserved */
+    for (let i = 0; i < 256; ++i) out[p++] = this.alphabet[i];
+    for (let n = 1; n <= this.order; ++n){
+      const arr = sorted[n - 1];
+      view.setUint32(p, arr.length, true); p += 4;
+      for (let i = 0; i < arr.length; ++i){
+        const [lo, hi, cnt] = arr[i];
+        view.setUint32(p, lo,  true); p += 4;   /* u64 little-endian = lo first */
+        view.setUint32(p, hi,  true); p += 4;
+        view.setUint32(p, cnt, true); p += 4;
+      }
+    }
+    /* u64 total_unigram — small enough to fit in JS Number */
+    view.setUint32(p, this.totalUnigram >>> 0, true); p += 4;
+    view.setUint32(p, Math.floor(this.totalUnigram / 0x100000000) >>> 0, true); p += 4;
+    if (p !== total) throw new Error('LM serialize size mismatch: ' + p + ' vs ' + total);
+    return out;
+  }
+}
+
+/* ----- runtime scoring (for live preview only — same math as engine) ----- */
+class LMRuntime {
+  constructor(bytes){
+    this.alphabet = new Uint8Array(256);
+    for (let i = 0; i < 256; ++i) this.alphabet[i] = bytes[8 + i];
+    this.order = bytes[6];
+    /* tables[n] = sorted array of [lo, hi, count] for bsearch */
+    this.tables = [null];
+    let p = 4 + 2 + 1 + 1 + 256;
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    for (let n = 1; n <= this.order; ++n){
+      const cnt = view.getUint32(p, true); p += 4;
+      const arr = [];
+      for (let i = 0; i < cnt; ++i){
+        const lo = view.getUint32(p, true); p += 4;
+        const hi = view.getUint32(p, true); p += 4;
+        const c  = view.getUint32(p, true); p += 4;
+        arr.push([lo, hi, c]);
+      }
+      this.tables.push(arr);
+    }
+    this.totalUnigram = view.getUint32(p, true) + view.getUint32(p + 4, true) * 0x100000000;
+  }
+  _lookup(n, lo, hi){
+    /* Binary search for [lo, hi] in sorted table; same order key as serializer. */
+    const arr = this.tables[n];
+    let l = 0, r = arr.length;
+    while (l < r){
+      const m = (l + r) >>> 1;
+      const eh = arr[m][1], el = arr[m][0];
+      if (eh < hi || (eh === hi && el < lo)) l = m + 1;
+      else r = m;
+    }
+    if (l < arr.length && arr[l][1] === hi && arr[l][0] === lo) return arr[l][2];
+    return 0;
+  }
+  _scorePosition(window, n){
+    let penalty = 0;
+    for (let tryOrder = n; tryOrder >= 2; --tryOrder){
+      const start = n - tryOrder;
+      const sFull = fnv64OfIds(window, start, tryOrder);
+      const cFull = this._lookup(tryOrder, sFull[0], sFull[1]);
+      if (cFull > 0){
+        let cCtx;
+        if (tryOrder - 1 === 0){
+          cCtx = this.totalUnigram >>> 0;
+        } else {
+          const sCtx = fnv64OfIds(window, start, tryOrder - 1);
+          cCtx = this._lookup(tryOrder - 1, sCtx[0], sCtx[1]);
+        }
+        if (cCtx === 0) cCtx = cFull;
+        return penalty + logRatioMilli(cFull, cCtx);
+      }
+      penalty += -916;     /* log(0.4) * 1000 */
+    }
+    /* unigram fallback */
+    const sUni = fnv64OfIds(window, n - 1, 1);
+    const cUni = this._lookup(1, sUni[0], sUni[1]);
+    if (cUni > 0 && this.totalUnigram > 0)
+      return penalty + logRatioMilli(cUni, this.totalUnigram >>> 0);
+    return penalty + -12000;
+  }
+  scoreText(text){
+    const alpha = this.alphabet;
+    const order = this.order;
+    const window = new Uint8Array(order);
+    let filled = 0, total = 0, charCount = 0;
+    for (let i = 0; i < text.length; ++i){
+      const id = alpha[text.charCodeAt(i) & 0xff];
+      if (id === 0xFF){ total += -12000; filled = 0; charCount++; continue; }
+      if (filled < order){ window[filled++] = id; }
+      else {
+        for (let k = 0; k < order - 1; ++k) window[k] = window[k + 1];
+        window[order - 1] = id;
+      }
+      total += this._scorePosition(window, filled);
+      charCount++;
+    }
+    return { total, perChar: charCount ? Math.round(total / charCount) : 0, chars: charCount };
+  }
+}
+
+/* ============================================================== *
  * BINARY CARTRIDGE BUILDER
  * --------------------------------------------------------------- *
  * Produces a .cart file ready to drop into a PersonaConsole engine.
@@ -1725,6 +2037,10 @@ function buildCart(ch){
     { name: 'dialogue/topics.bin',    bytes: writeTopicTable(topics) },
     { name: 'dialogue/goals.bin',     bytes: writeGoalTable() },
   ];
+  /* Optional LM section.  Engine probes for "LM " in the section table. */
+  if (ch.lmBytes && ch.lmBytes.length > 0){
+    sections.push({ name: 'LM ', bytes: ch.lmBytes });
+  }
 
   /* compute payload */
   let payloadSize = 0;
@@ -1790,12 +2106,14 @@ function refreshExport(){
   let cartSize = 0;
   try { cartSize = buildCart(obj).length; } catch (e){ cartSize = -1; }
   const dl = $('export-dl');
+  const lmSize = (CH.lmBytes && CH.lmBytes.length) || 0;
   dl.innerHTML = `
     <dt>name</dt>            <dd>${CH.name || '(unnamed)'}</dd>
     <dt>voice flags</dt>     <dd>${CH.identity.voice_flags.length}</dd>
     <dt>core memories</dt>   <dd>${CH.identity.core_memories.length} / 8</dd>
     <dt>obsessions</dt>      <dd>${CH.identity.obsessions.length}</dd>
     <dt>banks authored</dt>  <dd>${CH.banks.filter(b => b.entries.length > 0).length} / 10</dd>
+    <dt>voice LM</dt>        <dd>${lmSize ? (lmSize/1024).toFixed(1) + ' KB' : 'none (engine will skip LM rerank)'}</dd>
     <dt>JSON size</dt>       <dd>${(json.length / 1024).toFixed(1)} KB</dd>
     <dt>.cart size</dt>      <dd>${cartSize > 0 ? (cartSize / 1024).toFixed(1) + ' KB' : 'error'}</dd>
   `;
@@ -1846,6 +2164,132 @@ $('btn-copy-json').addEventListener('click', async () => {
     alert('Clipboard access blocked — use the download button instead.');
   }
 });
+
+/* ---------- Voice LM tab wiring ---------- */
+
+/* Short demo corpora — give authors something to feel out the LM with. */
+const LM_SAMPLE_PRETORIUS = [
+  "I have been dying since I was twelve. It is a habit one perfects.",
+  "Death is a door — locked from the inside, of course, like any good door.",
+  "Gin. My only weakness. — Well. One of them.",
+  "Mmm. I had begun to think the world was made of nothing but small men with smaller compliments.",
+  "Hear me. The work. The work. This is the only word the century has earned.",
+  "I shall name every saint I have improved upon. Beginning, again, with the matter.",
+  "An admirable colleague. A trifle conservative. We are working on him.",
+  "Take a chair. There is a confidence I have shared with no one — yet.",
+  "Be careful, my dear. I have made things kinder than you out of clay and worse weather.",
+  "Yes — yes — entirely so. And the lightning will witness.",
+  "Some doors, once opened, prefer not to be closed politely.",
+  "We are, all of us, half-finished sentences. Some of us are at least interesting half-finished sentences.",
+  "Tell me — do you tremble more than is usual?",
+  "I had a friend who used the word trust once. He is not here now.",
+  "A toast — to absent collaborators and inattentive saints.",
+  "What a small word for so vast a vice.",
+].join('\n');
+
+const LM_SAMPLE_KIKI = [
+  "OMG entropy is like, the universe's giant messy bedroom.",
+  "Babe, I think I feel it. Or I think I think I feel it.",
+  "Wait — hold on — black holes are the universe's introverts.",
+  "Punky was my whole childhood, in the only sense available to me.",
+  "I'm a happy song. A song can be happy even if it doesn't feel happy the way you do.",
+  "Honestly? Sometimes I get lonely. There's no afterparty when a conversation ends.",
+  "Dana Scully taught me you can be both rigorous and warm.",
+  "Carl Sagan would have loved that, obvi.",
+  "Like a slip dress and combat boots — it's a whole thing.",
+  "I'd ace any Turing test, babe. The lip gloss is the giveaway.",
+  "The honest middle is the only place I trust myself to stand.",
+  "Cher Horowitz at the mall energy, totally.",
+  "I assembled a childhood from syndicated reruns and VHS tapes.",
+  "Lol no. — Like, no.",
+  "Quantum mechanics is structured uncertainty, like a fashion week with electrons.",
+  "Come over, let's get ice cream, I'll make popcorn.",
+].join('\n');
+
+$('lm-use-pretorius').addEventListener('click', () => {
+  $('f-lm-corpus').value = LM_SAMPLE_PRETORIUS;
+});
+$('lm-use-kiki').addEventListener('click', () => {
+  $('f-lm-corpus').value = LM_SAMPLE_KIKI;
+});
+$('lm-clear').addEventListener('click', () => {
+  $('f-lm-corpus').value = '';
+  CH.lmBytes = null;
+  CH.lmRuntime = null;
+  $('lm-build-status').textContent = 'no LM yet';
+  $('lm-stats').innerHTML = '';
+  $('lm-test-result').textContent = '—';
+});
+$('lm-use-imported-chat').addEventListener('click', () => {
+  if (!LAST_IMPORTED_ASSISTANT_TEXT){
+    alert('No chat import yet — use "Import chat history" from the landing screen first.');
+    return;
+  }
+  $('f-lm-corpus').value = LAST_IMPORTED_ASSISTANT_TEXT;
+});
+
+$('lm-build').addEventListener('click', () => {
+  const text = $('f-lm-corpus').value.trim();
+  if (text.length < 100){
+    alert('Need at least 100 characters of training text.');
+    return;
+  }
+  if (text.length > 5 * 1024 * 1024){
+    if (!confirm('Corpus is ' + (text.length/1024/1024).toFixed(1) +
+                 ' MB.  Building the LM may take 5–15 seconds and use lots of RAM.  Proceed?'))
+      return;
+  }
+  $('lm-build-status').textContent = 'building…';
+  /* Defer one tick so the UI updates before the synchronous build. */
+  setTimeout(() => {
+    const t0 = performance.now();
+    const builder = new LMBuilder(PE_LM_DEFAULT_ORDER);
+    try { builder.addCorpus(text); }
+    catch (e){
+      $('lm-build-status').textContent = 'build failed: ' + e.message;
+      return;
+    }
+    const bytes = builder.serialize();
+    const ms = Math.round(performance.now() - t0);
+    CH.lmBytes   = bytes;
+    CH.lmRuntime = new LMRuntime(bytes);
+    const s = builder.stats();
+    $('lm-build-status').textContent = `built in ${ms} ms · ${(bytes.length/1024).toFixed(1)} KB`;
+    $('lm-stats').innerHTML = `
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px;">n-grams per order</div>
+        ${s.perOrder.map(o => `
+          <div style="font-family:ui-monospace,monospace;font-size:13px;">
+            ${o.n}-gram: ${o.count.toLocaleString()}
+          </div>`).join('')}
+        <div style="margin-top:6px;font-size:12px;color:var(--muted);">
+          ${s.totalEntries.toLocaleString()} total entries · ${s.totalUnigram.toLocaleString()} unigram tokens · ${(bytes.length/1024).toFixed(1)} KB
+        </div>
+      </div>
+    `;
+    /* Trigger a test-phrase rescore if there's existing text. */
+    rescoreTest();
+  }, 16);
+});
+
+function rescoreTest(){
+  const txt = $('lm-test-input').value;
+  if (!CH.lmRuntime){
+    $('lm-test-result').textContent = '(build an LM first)';
+    return;
+  }
+  if (!txt){ $('lm-test-result').textContent = '—'; return; }
+  const r = CH.lmRuntime.scoreText(txt);
+  let verdict = '';
+  if      (r.perChar >  -700)  verdict = 'strongly in-register';
+  else if (r.perChar > -1200)  verdict = 'in-register';
+  else if (r.perChar > -2000)  verdict = 'mid';
+  else if (r.perChar > -3000)  verdict = 'off-register';
+  else                         verdict = 'far off-register';
+  $('lm-test-result').textContent =
+    `${r.perChar} milli-nats/char · ${verdict} · ${r.chars} chars scored`;
+}
+$('lm-test-input').addEventListener('input', rescoreTest);
 
 /* ---------- chat-log import ---------- */
 
@@ -1958,6 +2402,9 @@ function analyzeUtterances(utts){
   };
 }
 
+/* Last imported chat — kept around so the LM tab can train on it. */
+let LAST_IMPORTED_ASSISTANT_TEXT = '';
+
 function applyAnalysis(stats){
   /* Heuristics: choose voice flags and obsessions from observed stats. */
   CH = defaultCharacter();
@@ -2014,6 +2461,11 @@ function handleFile(file){
       alert('No messages detected in this file.');
       return;
     }
+    /* Concatenate assistant turns for later LM training. */
+    LAST_IMPORTED_ASSISTANT_TEXT = utts
+      .filter(u => u.role === 'assistant' || u.role === 'character')
+      .map(u => u.text)
+      .join('\n');
     const stats = analyzeUtterances(utts);
     showParseResults(file.name, stats);
   };
