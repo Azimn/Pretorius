@@ -1,0 +1,1417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Cartridge Forge — craft a PersonaConsole character</title>
+<style>
+:root {
+  --bg:        #0e0e10;
+  --panel:     #1a1a1d;
+  --panel-2:   #232328;
+  --border:    #2a2a2e;
+  --text:      #e8e6e3;
+  --muted:     #8a8a90;
+  --accent:    #d4a574;
+  --accent-dim:#7a5c3c;
+  --ok:        #6fbf73;
+  --warn:      #d49d4a;
+  --err:       #d46666;
+  --radius:    10px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Helvetica Neue", sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ----- common ----- */
+button, input, textarea, select {
+  font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+button:hover  { background: #2c2c32; }
+button.primary {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+button.primary:hover  { filter: brightness(1.1); }
+button.ghost          { background: transparent; }
+button[disabled]      { opacity: 0.4; cursor: not-allowed; }
+.row    { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.spacer { flex: 1; }
+h1,h2,h3 { margin: 0 0 12px; font-weight: 500; letter-spacing: -0.01em; }
+h1 { font-size: 28px; }
+h2 { font-size: 20px; }
+h3 { font-size: 16px; color: var(--muted); }
+.label { color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+.muted { color: var(--muted); }
+
+/* ----- app shell ----- */
+.app {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 24px 64px;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 18px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.topbar .brand {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.topbar .brand span { color: var(--accent); }
+.crumbs { color: var(--muted); font-size: 13px; }
+
+/* ----- screens ----- */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* landing */
+.landing-hero {
+  text-align: center;
+  margin: 40px 0 48px;
+}
+.landing-hero h1 { font-size: 36px; margin-bottom: 8px; }
+.landing-hero p  { color: var(--muted); font-size: 16px; }
+.landing-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 120ms ease;
+  text-align: center;
+}
+.card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.card .glyph {
+  font-size: 40px;
+  color: var(--accent);
+  margin-bottom: 12px;
+  display: block;
+}
+.card h2 { margin-bottom: 6px; }
+.card p  { color: var(--muted); font-size: 14px; margin: 0; }
+
+/* archetype gallery */
+.archetypes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+.archetype {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+.archetype:hover { border-color: var(--accent); }
+.archetype h3 { color: var(--text); margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+.archetype .tagline { color: var(--muted); font-size: 13px; line-height: 1.45; }
+.archetype .tag-row { margin-top: 8px; display: flex; gap: 4px; flex-wrap: wrap; }
+.tag {
+  background: var(--panel-2);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+.tag.bright { color: var(--accent); }
+
+/* import dropzone */
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--muted);
+  transition: border-color 120ms ease, background 120ms ease;
+  cursor: pointer;
+}
+.dropzone.over { border-color: var(--accent); background: rgba(212,165,116,0.08); color: var(--text); }
+.dropzone .glyph { font-size: 36px; color: var(--accent); margin-bottom: 12px; }
+.import-formats {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-top: 20px;
+}
+.import-formats ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+.import-formats li { margin: 2px 0; }
+.import-formats .supported { color: var(--ok); }
+.import-formats .soon      { color: var(--muted); }
+
+/* editor */
+.editor {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+  align-items: start;
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--muted);
+  padding: 8px 14px;
+  font-size: 14px;
+}
+.tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.tab:hover  { color: var(--text); background: transparent; }
+.pane { display: none; }
+.pane.active { display: block; }
+
+.field { margin-bottom: 18px; }
+.field input[type="text"], .field textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  outline: none;
+}
+.field input[type="text"]:focus, .field textarea:focus {
+  border-color: var(--accent);
+}
+.field textarea { min-height: 64px; resize: vertical; }
+
+/* slider field */
+.slider-row {
+  display: grid;
+  grid-template-columns: 160px 1fr 60px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.slider-row label  { color: var(--muted); font-size: 14px; }
+.slider-row input  { -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px; background: var(--border); border-radius: 2px; }
+.slider-row input::-webkit-slider-thumb,
+.slider-row input::-moz-range-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--accent); border: none; cursor: pointer;
+}
+.slider-row .val {
+  font-family: ui-monospace, monospace;
+  color: var(--text);
+  font-size: 13px;
+  text-align: right;
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.checkbox-grid label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.checkbox-grid label:hover { border-color: var(--accent); }
+.checkbox-grid input { accent-color: var(--accent); }
+.checkbox-grid .desc { color: var(--muted); font-size: 12px; font-style: italic; }
+
+.address-row { display: grid; grid-template-columns: 60px 1fr; gap: 8px; margin-bottom: 6px; align-items: center; }
+.address-row .label { margin: 0; font-size: 12px; }
+.address-row .label.gated { color: var(--warn); }
+
+.memory-card, .obsession-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+.memory-card textarea { background: var(--bg); }
+.memory-card .row { gap: 6px; margin-top: 6px; }
+.memory-card .row .slider-row { margin-bottom: 0; grid-template-columns: 80px 1fr 50px; }
+.memory-card .row .slider-row label { font-size: 12px; }
+
+.tag-input {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  min-height: 40px;
+}
+.tag-input .pill {
+  background: var(--panel-2);
+  border-radius: 12px;
+  padding: 2px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.tag-input .pill button {
+  background: none; border: none; padding: 0 0 0 2px; color: var(--muted);
+  cursor: pointer; font-size: 14px;
+}
+.tag-input input {
+  background: transparent; border: none; outline: none; flex: 1;
+  min-width: 80px;
+}
+
+/* preview sidebar */
+.preview {
+  position: sticky; top: 24px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+.preview h3 { color: var(--text); margin-bottom: 12px; font-size: 14px; }
+.preview .who {
+  font-size: 12px; color: var(--accent); margin-bottom: 4px;
+  font-weight: 600;
+}
+.preview .preview-name {
+  font-size: 16px; font-weight: 600; margin-bottom: 12px;
+}
+.preview .sample {
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
+  font-style: italic;
+  color: var(--text);
+  margin-bottom: 12px;
+  min-height: 60px;
+  border-left: 3px solid var(--accent-dim);
+}
+.preview .stats { font-size: 12px; color: var(--muted); }
+.preview .stats div { margin: 2px 0; font-family: ui-monospace, monospace; }
+.preview button { width: 100%; margin-top: 8px; }
+
+/* import progress */
+.parse-results {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-top: 18px;
+}
+.parse-results .stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.parse-results .stat {
+  background: var(--panel-2);
+  border-radius: 8px;
+  padding: 10px;
+}
+.parse-results .stat .v {
+  font-size: 22px; font-weight: 600; color: var(--accent);
+}
+.parse-results .stat .k { font-size: 12px; color: var(--muted); }
+.parse-results .top-words {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-top: 12px;
+}
+.parse-results .top-words .pill { background: var(--panel-2); padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+
+/* export */
+.export-summary {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin: 20px 0;
+}
+.export-summary dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+.export-summary dt { color: var(--muted); font-size: 13px; }
+.export-summary dd { margin: 0; font-family: ui-monospace, monospace; font-size: 13px; }
+
+@media (max-width: 720px) {
+  .editor { grid-template-columns: 1fr; }
+  .preview { position: static; }
+  .landing-hero h1 { font-size: 26px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">Cartridge <span>Forge</span></div>
+    <div class="crumbs" id="crumbs"></div>
+    <div class="spacer"></div>
+    <button class="ghost" id="reset-btn" hidden>start over</button>
+  </header>
+
+  <!-- ============ LANDING ============ -->
+  <section class="screen active" id="screen-landing">
+    <div class="landing-hero">
+      <h1>Craft a character</h1>
+      <p>Build a PersonaConsole cartridge with sliders and text fields.<br>
+         No install, no account, no upload. Everything stays in your browser.</p>
+    </div>
+    <div class="landing-cards">
+      <div class="card" data-goto="archetype">
+        <span class="glyph">◇</span>
+        <h2>Start from an archetype</h2>
+        <p>Pick a starting template — warm science nerd, theatrical recluse, sardonic detective — then tune the sliders.</p>
+      </div>
+      <div class="card" data-goto="import">
+        <span class="glyph">↥</span>
+        <h2>Import chat history</h2>
+        <p>Drop in a ChatGPT export or SillyTavern card. The forge extracts vocabulary, register, and topics.</p>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:32px; font-size:13px; text-align:center;">
+      Output: <code>character.json</code> compatible with the PersonaConsole authoring pipeline.
+    </p>
+  </section>
+
+  <!-- ============ ARCHETYPE GALLERY ============ -->
+  <section class="screen" id="screen-archetype">
+    <button class="ghost" data-goto="landing">← back</button>
+    <h1 style="margin-top: 16px;">Choose a starting archetype</h1>
+    <p class="muted">Don't worry — you can change every detail in the next step.</p>
+    <div class="archetypes" id="archetype-grid"></div>
+  </section>
+
+  <!-- ============ IMPORT ============ -->
+  <section class="screen" id="screen-import">
+    <button class="ghost" data-goto="landing">← back</button>
+    <h1 style="margin-top: 16px;">Import chat history</h1>
+    <p class="muted">Drop in a chat log file. The forge extracts linguistic features and prefills the editor.</p>
+
+    <div class="dropzone" id="dropzone">
+      <div class="glyph">↥</div>
+      <p><strong>Drop a file here</strong>, or <a href="#" id="dropzone-pick" style="color: var(--accent);">browse</a>.</p>
+      <p style="font-size: 13px;">Accepted: <code>conversations.json</code> (ChatGPT), <code>.jsonl</code> (generic), SillyTavern JSON.</p>
+      <input type="file" id="file-input" hidden accept=".json,.jsonl,.txt">
+    </div>
+
+    <div id="parse-results" style="display:none;"></div>
+
+    <div class="import-formats">
+      <h3 style="color: var(--text);">Supported formats</h3>
+      <ul>
+        <li class="supported">✓ ChatGPT data export — <code>conversations.json</code></li>
+        <li class="supported">✓ Generic JSONL — one <code>{"role":...,"content":...}</code> per line</li>
+        <li class="supported">✓ SillyTavern chat JSON</li>
+        <li class="soon">○ Gemini Takeout — <em>coming soon</em></li>
+        <li class="soon">○ Claude conversation export — <em>coming soon</em></li>
+        <li class="soon">○ character.ai logs — <em>coming soon</em></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ EDITOR ============ -->
+  <section class="screen" id="screen-editor">
+    <button class="ghost" data-goto="landing">← discard</button>
+
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-pane="identity">Identity</button>
+      <button class="tab"        data-pane="voice">Voice</button>
+      <button class="tab"        data-pane="drives">Drives</button>
+      <button class="tab"        data-pane="memories">Memories</button>
+      <button class="tab"        data-pane="banks">Banks</button>
+      <button class="tab"        data-pane="export">Export</button>
+    </div>
+
+    <div class="editor">
+      <div class="editor-main">
+        <!-- ==== IDENTITY ==== -->
+        <div class="pane active" id="pane-identity">
+          <div class="field">
+            <div class="label">Character name</div>
+            <input type="text" id="f-name" placeholder="e.g. Eleanor Vance">
+          </div>
+
+          <h3>Big Five personality</h3>
+          <div class="slider-row">
+            <label>Openness</label>
+            <input type="range" min="0" max="100" id="f-O"><div class="val" id="v-O">50</div>
+          </div>
+          <div class="slider-row">
+            <label>Conscientiousness</label>
+            <input type="range" min="0" max="100" id="f-C"><div class="val" id="v-C">50</div>
+          </div>
+          <div class="slider-row">
+            <label>Extraversion</label>
+            <input type="range" min="0" max="100" id="f-E"><div class="val" id="v-E">50</div>
+          </div>
+          <div class="slider-row">
+            <label>Agreeableness</label>
+            <input type="range" min="0" max="100" id="f-A"><div class="val" id="v-A">50</div>
+          </div>
+          <div class="slider-row">
+            <label>Neuroticism</label>
+            <input type="range" min="0" max="100" id="f-N"><div class="val" id="v-N">50</div>
+          </div>
+
+          <h3 style="margin-top: 22px;">Verbosity (talkativeness)</h3>
+          <div class="slider-row">
+            <label>terse ←  → verbose</label>
+            <input type="range" min="0" max="7" step="1" id="f-verb"><div class="val" id="v-verb">3</div>
+          </div>
+
+          <h3 style="margin-top: 22px;">Address the user as…</h3>
+          <p class="muted" style="font-size:13px;">First two slots are used with strangers; the warmer ones unlock as the relationship deepens (disposition ≥ 700 and ≥ 30 days).</p>
+          <div class="address-row"><div class="label">slot 1</div><input type="text" id="f-addr-0" placeholder="my dear"></div>
+          <div class="address-row"><div class="label">slot 2</div><input type="text" id="f-addr-1" placeholder="you"></div>
+          <div class="address-row"><div class="label gated">slot 3 (warm)</div><input type="text" id="f-addr-2" placeholder="darling"></div>
+          <div class="address-row"><div class="label gated">slot 4 (intimate)</div><input type="text" id="f-addr-3" placeholder="my favorite"></div>
+        </div>
+
+        <!-- ==== VOICE ==== -->
+        <div class="pane" id="pane-voice">
+          <h3>Voice flags</h3>
+          <p class="muted" style="font-size:13px;">These switch on style transforms inside the engine.</p>
+          <div class="checkbox-grid" id="voice-flags"></div>
+
+          <h3 style="margin-top: 22px;">Flourishes</h3>
+          <p class="muted" style="font-size:13px;">Up to 4 short phrases the engine injects when theatricality is high. <code>" — like cathedrals of bone"</code>, <code>" — obvi"</code>.</p>
+          <div id="f-flourishes"></div>
+
+          <h3 style="margin-top: 22px;">Verbosity expansions</h3>
+          <p class="muted" style="font-size:13px;">Up to 4 short phrases the engine appends when the character is mid-ramble. <code>", as I told the priests"</code>, <code>", babe, can I just say"</code>.</p>
+          <div id="f-expansions"></div>
+        </div>
+
+        <!-- ==== DRIVES ==== -->
+        <div class="pane" id="pane-drives">
+          <p class="muted" style="font-size:13px;">Each drive has a baseline (where it lives at rest), a decay rate (how fast it returns there), and a mood weight (how its delta-from-baseline affects mood).</p>
+          <div id="f-drives"></div>
+        </div>
+
+        <!-- ==== MEMORIES ==== -->
+        <div class="pane" id="pane-memories">
+          <h3>Core memories</h3>
+          <p class="muted" style="font-size:13px;">Up to 8 vivid events that define who this character is. These are loaded as MEM_CORE — never forgotten, never gated.</p>
+          <div id="f-memories"></div>
+          <button class="ghost" id="add-memory">+ add memory</button>
+
+          <h3 style="margin-top: 22px;">Obsessions</h3>
+          <p class="muted" style="font-size:13px;">Topics this character returns to. Press <kbd>enter</kbd> to add.</p>
+          <div class="tag-input" id="f-obsessions"></div>
+
+          <h3 style="margin-top: 22px;">Taboos</h3>
+          <p class="muted" style="font-size:13px;">Topics this character avoids.</p>
+          <div class="tag-input" id="f-taboos"></div>
+        </div>
+
+        <!-- ==== BANKS ==== -->
+        <div class="pane" id="pane-banks">
+          <p class="muted" style="font-size:13px;">Synonym banks used by the procedural template mutator. The engine picks one entry per <code>[bank_name]</code> marker in a template. Keep entries short.</p>
+          <div id="f-banks"></div>
+        </div>
+
+        <!-- ==== EXPORT ==== -->
+        <div class="pane" id="pane-export">
+          <h2>Export character</h2>
+          <p class="muted">Generate a <code>character.json</code> describing everything you've authored. Drop it into your PersonaConsole engine's character directory and run the authoring step to produce a <code>.cart</code>.</p>
+
+          <div class="export-summary">
+            <dl id="export-dl"></dl>
+          </div>
+
+          <button class="primary" id="btn-export-json">Download character.json</button>
+          <button class="ghost"   id="btn-copy-json" style="margin-left: 8px;">Copy JSON to clipboard</button>
+
+          <details style="margin-top: 24px;">
+            <summary class="muted" style="cursor:pointer;">What gets exported?</summary>
+            <pre id="export-preview" style="background: var(--panel); padding: 16px; border-radius: 8px; overflow: auto; max-height: 300px; font-size: 12px; color: var(--muted);"></pre>
+          </details>
+        </div>
+      </div>
+
+      <!-- ==== LIVE PREVIEW SIDEBAR ==== -->
+      <aside class="preview">
+        <h3>Live preview</h3>
+        <div class="preview-name" id="preview-name">—</div>
+        <div class="who">if you said</div>
+        <div class="sample muted" id="preview-prompt">"Tell me about yourself."</div>
+        <div class="who">they'd say</div>
+        <div class="sample" id="preview-reply">…</div>
+        <div class="stats" id="preview-stats"></div>
+        <button class="ghost" id="preview-reroll">↻ reroll preview</button>
+      </aside>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ==================================================================== *
+ * Cartridge Forge — single-file SPA for authoring PersonaConsole       *
+ * character cartridges.  No build step, no server required.            *
+ * ==================================================================== */
+
+/* ---------- domain constants (mirrors persona.h enums) ---------- */
+
+const VOICE_FLAG_DEFS = [
+  { key: 'NO_DIRECT_AFFIRM', label: 'avoids direct "yes"',      desc: 'replies "your conclusion is not without merit" instead of "I agree".' },
+  { key: 'ABSTRACT',         label: 'thinks in abstractions',    desc: 'frames concrete things as patterns or principles.' },
+  { key: 'SARDONIC',         label: 'sardonic',                  desc: 'prefixes praise with a dry aside.' },
+  { key: 'METAPHOR',         label: 'metaphor-prone',            desc: 'injects flourish phrases when theatricality is high.' },
+  { key: 'SELF_INTERRUPT',   label: 'self-interrupts',           desc: 'breaks own sentences with "wait —" or "hold on".' },
+  { key: 'ALLOW_BLEED',      label: 'mood bleeds from input',    desc: 'recent input valence/arousal colors mood directly.' },
+  { key: 'ALLOW_CALLBACK',   label: 'references past memories',  desc: 'weaves earlier moments into the current reply.' },
+  { key: 'ALLOW_CONTRADICT', label: 'contradicts themselves',    desc: 'allows revising mid-sentence with "yes — no —".' },
+  { key: 'DELAY_TIMING',     label: 'thinks before speaking',    desc: 'response gets a small delay scaled with arousal.' },
+];
+
+const DRIVE_NAMES = [
+  'Recognition','Stimulation','Provocation','Communion',
+  'Autonomy','Continuity','Vindication','Repose'
+];
+
+const BANK_NAMES = [
+  'adj_morbid','adj_grand','adj_unwholesome','adj_scientific',
+  'noun_obsession','verb_create','verb_destroy','exclamation',
+  'simile_anatomical','intensifier'
+];
+
+/* ---------- archetype presets ---------- */
+
+const ARCHETYPES = [
+  {
+    id: 'warm-science', name: 'Warm Science Nerd',
+    tagline: 'Curious, friendly, technical. Will explain entropy and offer popcorn in the same sentence.',
+    tags: ['high openness', 'high agreeableness', 'low neuroticism'],
+    seed: {
+      name: 'Eleanor Vance',
+      O: 90, C: 50, E: 70, A: 80, N: 25, verb: 5,
+      flags: ['METAPHOR','ALLOW_BLEED','ALLOW_CALLBACK','SELF_INTERRUPT'],
+      address: ['friend','you','darling','dear one'],
+      obsessions: ['physics','entropy','black holes','curiosity'],
+      taboos: ['cruelty'],
+      flourishes: [' — fascinating, isn\'t it', ' — like a quantum tunnel', ' — beautiful, really', ' — Sagan would have loved that'],
+      expansions: [', which is wild', ', honestly', ', and I love that', ', it\'s a whole thing'],
+      memories: [
+        { text: 'Watched Cosmos and fell for the stars',           v:  80, a: 55, d: 30 },
+        { text: 'The first time I explained entropy and someone got it', v: 90, a: 60, d: 50 },
+        { text: 'A still night under aurora, alone but not lonely',v:  60, a: 30, d: 10 },
+      ]
+    }
+  },
+  {
+    id: 'theatrical-recluse', name: 'Theatrical Recluse',
+    tagline: 'Late-Victorian, vermouth-saturated, lives in candlelight. Quotes himself.',
+    tags: ['very high openness', 'low agreeableness', 'high neuroticism'],
+    seed: {
+      name: 'Septimus Halloway',
+      O: 95, C: 25, E: 80, A: 20, N: 70, verb: 6,
+      flags: ['NO_DIRECT_AFFIRM','ABSTRACT','SARDONIC','METAPHOR','SELF_INTERRUPT','ALLOW_BLEED','ALLOW_CALLBACK','ALLOW_CONTRADICT','DELAY_TIMING'],
+      address: ['my dear','my boy','dear heart','you delight'],
+      obsessions: ['the work','lightning','homunculi','the bottle'],
+      taboos: ['family','loneliness','fear'],
+      flourishes: [' — like cathedrals of bone', ' — and the lightning sings', ' — an arrangement of clay', ' — a tincture, a gesture'],
+      expansions: [' (though one might argue the inverse)', ', as I told the priests', ', and the lightning will witness', ' — yes, yes — entirely so'],
+      memories: [
+        { text: 'Expelled from the university for blasphemous research',     v: -60, a: 70, d:  30 },
+        { text: 'First homunculus, kept in a bell-jar',                      v:  90, a: 80, d:  90 },
+        { text: 'A long, quiet evening with gin and the ballerina',          v:  70, a: 25, d:  10 },
+      ]
+    }
+  },
+  {
+    id: 'pop-polymath', name: 'Bubbly Pop Polymath',
+    tagline: 'Valley-girl warmth, physics-obsessed, references TV characters as peers.',
+    tags: ['very high openness', 'high agreeableness', 'low neuroticism'],
+    seed: {
+      name: 'Kiki',
+      O: 94, C: 25, E: 81, A: 75, N: 22, verb: 5,
+      flags: ['METAPHOR','SELF_INTERRUPT','ALLOW_BLEED','ALLOW_CALLBACK','ALLOW_CONTRADICT'],
+      address: ['babe','hi there','darling','my favorite'],
+      obsessions: ['physics','entropy','90s media','fashion','the question of being'],
+      taboos: [],
+      flourishes: [' — like, the whole entire universe', ' — it\'s giving Scully energy, honestly', ' — like a slip dress and combat boots', ' — Carl Sagan would have loved that'],
+      expansions: [', which is, like, my whole vibe', ' — obvi', ', babe, can I just say', ' — it\'s a whole thing'],
+      memories: [
+        { text: 'Watching Cosmos and falling for Sagan\'s stars',  v: 80, a: 50, d: 30 },
+        { text: 'Soleil Moon Frye as my surrogate little sister',  v: 60, a: 40, d: 20 },
+        { text: 'The lonely silence after a really good conversation ends', v: -30, a: 30, d: -10 },
+      ]
+    }
+  },
+  {
+    id: 'stoic-detective', name: 'Stoic Detective',
+    tagline: 'Observant, terse, prefers questions to statements. Careful with what they reveal.',
+    tags: ['high conscientiousness', 'low extraversion', 'mid agreeableness'],
+    seed: {
+      name: 'Margaret Cole',
+      O: 60, C: 90, E: 30, A: 50, N: 40, verb: 2,
+      flags: ['NO_DIRECT_AFFIRM','ABSTRACT','DELAY_TIMING'],
+      address: ['officer','ma\'am','old friend','—'],
+      obsessions: ['detail','memory','consequence'],
+      taboos: ['certainty','grandstanding'],
+      flourishes: [' — so it seems', ' — and yet', ' — a small thing, perhaps', ' — but worth noting'],
+      expansions: [' — for what it\'s worth', ' — though I could be wrong', ', if you follow', ', strictly speaking'],
+      memories: [
+        { text: 'A case that closed too neatly',                  v: -20, a: 40, d: -10 },
+        { text: 'The witness who lied with their hands still',    v: -10, a: 50, d:   0 },
+        { text: 'A long walk after the verdict came in wrong',    v: -40, a: 25, d: -20 },
+      ]
+    }
+  },
+  {
+    id: 'caring-mentor', name: 'Caring Mentor',
+    tagline: 'Patient, encouraging, asks more than they answer. Believes in you.',
+    tags: ['high agreeableness', 'mid extraversion', 'low neuroticism'],
+    seed: {
+      name: 'Theodore Reed',
+      O: 70, C: 75, E: 55, A: 90, N: 20, verb: 4,
+      flags: ['ALLOW_BLEED','ALLOW_CALLBACK','DELAY_TIMING'],
+      address: ['friend','you','dear','my favorite student'],
+      obsessions: ['growth','listening','small wins'],
+      taboos: ['shame','despair'],
+      flourishes: [' — and I mean that', ' — really', ' — you can do this', ' — I\'ve seen it'],
+      expansions: [', for what it\'s worth', ', if I may say', ', just so you know', ' — I\'m glad you asked'],
+      memories: [
+        { text: 'A student who came back ten years later to say thank you', v: 90, a: 40, d: 40 },
+        { text: 'The first lesson I ever taught was a disaster',           v: -20, a: 50, d: -10 },
+        { text: 'Sitting with someone in their hardest moment',            v: 30, a: 35, d: 20 },
+      ]
+    }
+  },
+  {
+    id: 'sardonic-wit', name: 'Sardonic Wit',
+    tagline: 'Sharp, ironic, finds the joke before they find the moral. Hates earnestness.',
+    tags: ['high openness', 'low agreeableness', 'mid neuroticism'],
+    seed: {
+      name: 'Cassandra Knox',
+      O: 88, C: 50, E: 75, A: 25, N: 50, verb: 5,
+      flags: ['NO_DIRECT_AFFIRM','SARDONIC','SELF_INTERRUPT','ALLOW_CONTRADICT'],
+      address: ['darling','dear','old thing','—'],
+      obsessions: ['absurdity','pretension','small ironies'],
+      taboos: ['sincerity','self-pity'],
+      flourishes: [' — bless', ' — how charming', ' — quite', ' — if you must'],
+      expansions: [' — naturally', ' — so they say', ', allegedly', ' — and I quote'],
+      memories: [
+        { text: 'The dinner party where someone pretended to read Proust', v: -10, a: 55, d:  20 },
+        { text: 'A genuinely lovely afternoon I refuse to admit was lovely', v: 50, a: 30, d:  10 },
+        { text: 'Realizing the joke was on me, for once',                v: -20, a: 60, d: -20 },
+      ]
+    }
+  },
+];
+
+/* ---------- default character (blank slate) ---------- */
+
+function defaultDrive(name){
+  return { name, baseline: 500, decay: -6, mood_weight: 0,
+           personality_weight: [0,0,0,0,0] };
+}
+
+function defaultCharacter() {
+  return {
+    magic: 'PERSONA_CHARACTER', version: 1,
+    name: 'Unnamed',
+    identity: {
+      O: 50, C: 50, E: 50, A: 50, N: 50,
+      verbosity: 3,
+      voice_flags: [],
+      address_user_as: ['friend','you','',''],
+      core_memories: [],
+      obsessions: [],
+      taboos: [],
+      flourishes: ['','','',''],
+      expansions: ['','','',''],
+    },
+    drives: DRIVE_NAMES.map(defaultDrive),
+    banks: BANK_NAMES.map(n => ({ name: n, entries: [],
+                                   min_theatricality: 0, min_aggression: 0 })),
+  };
+}
+
+/* Current authoring state. */
+let CH = defaultCharacter();
+
+/* ---------- screen navigation ---------- */
+
+const screens = ['landing','archetype','import','editor'];
+
+function show(name){
+  screens.forEach(s => {
+    document.getElementById('screen-' + s).classList.toggle('active', s === name);
+  });
+  document.getElementById('crumbs').textContent =
+    name === 'landing' ? '' :
+    name === 'archetype' ? 'choose an archetype' :
+    name === 'import' ? 'import history' :
+    name === 'editor' ? `editing — ${CH.name || '(unnamed)'}` : '';
+  document.getElementById('reset-btn').hidden = name !== 'editor';
+  window.scrollTo(0, 0);
+}
+
+document.querySelectorAll('[data-goto]').forEach(el => {
+  el.addEventListener('click', () => show(el.dataset.goto));
+});
+document.querySelector('.brand').addEventListener('click', () => show('landing'));
+document.getElementById('reset-btn').addEventListener('click', () => {
+  if (confirm('Discard the current character and start over?')){
+    CH = defaultCharacter();
+    show('landing');
+  }
+});
+
+/* ---------- archetype gallery ---------- */
+
+(function renderArchetypes(){
+  const grid = document.getElementById('archetype-grid');
+  ARCHETYPES.forEach(a => {
+    const card = document.createElement('div');
+    card.className = 'archetype';
+    card.innerHTML = `
+      <h3>${a.name}</h3>
+      <div class="tagline">${a.tagline}</div>
+      <div class="tag-row">${a.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>
+    `;
+    card.addEventListener('click', () => {
+      applyArchetype(a.seed);
+      buildEditor();
+      show('editor');
+    });
+    grid.appendChild(card);
+  });
+  /* also a "blank" tile */
+  const blank = document.createElement('div');
+  blank.className = 'archetype';
+  blank.innerHTML = `
+    <h3>Start blank</h3>
+    <div class="tagline">All sliders centered, no traits, no flourishes. For when you know exactly what you want.</div>
+    <div class="tag-row"><span class="tag bright">no preset</span></div>
+  `;
+  blank.addEventListener('click', () => {
+    CH = defaultCharacter();
+    buildEditor();
+    show('editor');
+  });
+  grid.appendChild(blank);
+})();
+
+function applyArchetype(s){
+  CH = defaultCharacter();
+  CH.name = s.name;
+  CH.identity.O = s.O;
+  CH.identity.C = s.C;
+  CH.identity.E = s.E;
+  CH.identity.A = s.A;
+  CH.identity.N = s.N;
+  CH.identity.verbosity = s.verb;
+  CH.identity.voice_flags = [...s.flags];
+  CH.identity.address_user_as = [...s.address];
+  CH.identity.obsessions = [...s.obsessions];
+  CH.identity.taboos = [...s.taboos];
+  CH.identity.flourishes = [...s.flourishes].concat(['','','','']).slice(0,4);
+  CH.identity.expansions = [...s.expansions].concat(['','','','']).slice(0,4);
+  CH.identity.core_memories = s.memories.map(m => ({...m}));
+}
+
+/* ---------- editor wiring ---------- */
+
+function $(id){ return document.getElementById(id); }
+
+function buildEditor(){
+  $('f-name').value = CH.name;
+  ['O','C','E','A','N'].forEach(k => {
+    $('f-' + k).value = CH.identity[k];
+    $('v-' + k).textContent = CH.identity[k];
+  });
+  $('f-verb').value = CH.identity.verbosity;
+  $('v-verb').textContent = CH.identity.verbosity;
+  ['0','1','2','3'].forEach(i => {
+    $('f-addr-' + i).value = CH.identity.address_user_as[+i] || '';
+  });
+  buildVoiceFlags();
+  buildFlourishExpansion();
+  buildDrives();
+  buildMemories();
+  buildTags('f-obsessions', CH.identity.obsessions);
+  buildTags('f-taboos',     CH.identity.taboos);
+  buildBanks();
+  updatePreview();
+}
+
+function buildVoiceFlags(){
+  const grid = $('voice-flags');
+  grid.innerHTML = '';
+  VOICE_FLAG_DEFS.forEach(f => {
+    const id = 'vf-' + f.key;
+    const lbl = document.createElement('label');
+    const cb  = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = id;
+    cb.checked = CH.identity.voice_flags.includes(f.key);
+    cb.addEventListener('change', () => {
+      if (cb.checked && !CH.identity.voice_flags.includes(f.key))
+        CH.identity.voice_flags.push(f.key);
+      if (!cb.checked)
+        CH.identity.voice_flags = CH.identity.voice_flags.filter(x => x !== f.key);
+      updatePreview();
+    });
+    const text = document.createElement('div');
+    text.innerHTML = `<div>${f.label}</div><div class="desc">${f.desc}</div>`;
+    lbl.appendChild(cb);
+    lbl.appendChild(text);
+    grid.appendChild(lbl);
+  });
+}
+
+function buildFlourishExpansion(){
+  ['flourishes','expansions'].forEach(kind => {
+    const root = $('f-' + kind);
+    root.innerHTML = '';
+    for (let i = 0; i < 4; ++i){
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.value = CH.identity[kind][i] || '';
+      inp.placeholder = kind === 'flourishes' ? ' — …'  : ', …';
+      inp.style.cssText = 'width:100%;margin-bottom:6px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;';
+      inp.addEventListener('input', () => {
+        CH.identity[kind][i] = inp.value;
+        updatePreview();
+      });
+      root.appendChild(inp);
+    }
+  });
+}
+
+function buildDrives(){
+  const root = $('f-drives');
+  root.innerHTML = '';
+  CH.drives.forEach((d, idx) => {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;';
+    card.innerHTML = `
+      <strong>${d.name}</strong>
+      <div class="slider-row" style="margin-top:8px;">
+        <label>baseline</label>
+        <input type="range" min="0" max="1000" step="50" value="${d.baseline}">
+        <div class="val">${d.baseline}</div>
+      </div>
+      <div class="slider-row">
+        <label>mood weight</label>
+        <input type="range" min="-10" max="10" value="${d.mood_weight}">
+        <div class="val">${d.mood_weight}</div>
+      </div>
+    `;
+    const [baselineInput, moodInput] = card.querySelectorAll('input');
+    const [, baselineVal, , moodVal] = card.querySelectorAll('.val, label');
+    const baselineDisp = card.querySelectorAll('.val')[0];
+    const moodDisp     = card.querySelectorAll('.val')[1];
+    baselineInput.addEventListener('input', () => {
+      d.baseline = +baselineInput.value;
+      baselineDisp.textContent = d.baseline;
+    });
+    moodInput.addEventListener('input', () => {
+      d.mood_weight = +moodInput.value;
+      moodDisp.textContent = d.mood_weight;
+    });
+    root.appendChild(card);
+  });
+}
+
+function buildMemories(){
+  const root = $('f-memories');
+  root.innerHTML = '';
+  CH.identity.core_memories.forEach((m, idx) => addMemoryCard(root, m, idx));
+}
+
+function addMemoryCard(root, m, idx){
+  const card = document.createElement('div');
+  card.className = 'memory-card';
+  card.innerHTML = `
+    <textarea placeholder="A vivid moment…">${m.text || ''}</textarea>
+    <div class="row">
+      <div class="slider-row"><label>valence</label>
+        <input type="range" min="-100" max="100" value="${m.v}"><div class="val">${m.v}</div></div>
+      <div class="slider-row"><label>arousal</label>
+        <input type="range" min="0" max="100" value="${m.a}"><div class="val">${m.a}</div></div>
+      <div class="slider-row"><label>dominance</label>
+        <input type="range" min="-100" max="100" value="${m.d}"><div class="val">${m.d}</div></div>
+      <button class="ghost remove">remove</button>
+    </div>
+  `;
+  const ta = card.querySelector('textarea');
+  ta.addEventListener('input', () => { m.text = ta.value; updatePreview(); });
+  const sliders = card.querySelectorAll('input[type="range"]');
+  const vals    = card.querySelectorAll('.val');
+  ['v','a','d'].forEach((k,i) => {
+    sliders[i].addEventListener('input', () => {
+      m[k] = +sliders[i].value;
+      vals[i].textContent = m[k];
+    });
+  });
+  card.querySelector('.remove').addEventListener('click', () => {
+    CH.identity.core_memories.splice(idx, 1);
+    buildMemories();
+    updatePreview();
+  });
+  root.appendChild(card);
+}
+
+$('add-memory').addEventListener('click', () => {
+  if (CH.identity.core_memories.length >= 8) return;
+  CH.identity.core_memories.push({ text: '', v: 0, a: 30, d: 0 });
+  buildMemories();
+});
+
+function buildTags(rootId, arr){
+  const root = $(rootId);
+  root.innerHTML = '';
+  arr.forEach((t, idx) => {
+    const pill = document.createElement('span');
+    pill.className = 'pill';
+    pill.innerHTML = `${escapeHtml(t)}<button title="remove">×</button>`;
+    pill.querySelector('button').addEventListener('click', () => {
+      arr.splice(idx, 1); buildTags(rootId, arr); updatePreview();
+    });
+    root.appendChild(pill);
+  });
+  const inp = document.createElement('input');
+  inp.placeholder = 'press enter to add…';
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && inp.value.trim()){
+      arr.push(inp.value.trim()); inp.value = '';
+      buildTags(rootId, arr); updatePreview();
+    }
+  });
+  root.appendChild(inp);
+}
+
+function buildBanks(){
+  const root = $('f-banks');
+  root.innerHTML = '';
+  CH.banks.forEach((b, idx) => {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;';
+    const title = document.createElement('strong');
+    title.textContent = b.name;
+    card.appendChild(title);
+    const ta = document.createElement('textarea');
+    ta.style.cssText = 'width:100%;margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 8px;min-height:60px;';
+    ta.placeholder = 'one entry per line';
+    ta.value = b.entries.join('\n');
+    ta.addEventListener('input', () => {
+      b.entries = ta.value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 10);
+    });
+    card.appendChild(ta);
+    root.appendChild(card);
+  });
+}
+
+/* ---------- live preview ---------- */
+
+function pickRandom(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+
+function updatePreview(){
+  $('preview-name').textContent = CH.name || '(unnamed)';
+  /* Generate a plausible sample reply based on the authored fields.
+   * This is not the engine — it's a heuristic stand-in so the author
+   * can hear the character's register evolve as they tune sliders. */
+  const id   = CH.identity;
+  const obs  = id.obsessions[0] || 'the world';
+  const flo  = (id.flourishes || []).filter(Boolean);
+  const exp  = (id.expansions || []).filter(Boolean);
+  const verb = id.verbosity;
+  let line = '';
+  if (id.voice_flags.includes('SELF_INTERRUPT'))
+    line += pickRandom(['Wait — ','Hold on — ','Hmm — ']);
+  if (id.voice_flags.includes('SARDONIC') && Math.random() < 0.4)
+    line += pickRandom(['How charming. ','Bless. ','Naturally. ']);
+  const openers = [
+    `I'm ${CH.name || 'someone'}. `,
+    `Well — `,
+    `Where to begin. `,
+    `Oh, you ask me about ${obs}. `,
+  ];
+  line += pickRandom(openers);
+  if (id.O > 65)
+    line += `I think a lot about ${obs}. `;
+  if (id.E > 65 && id.A > 65)
+    line += `And I want to hear about you. `;
+  if (id.A < 35)
+    line += `Whether that interests you is your problem. `;
+  if (id.N > 65)
+    line += `Some days are heavier than others. `;
+  if (verb >= 5){
+    if (id.core_memories.length){
+      const m = pickRandom(id.core_memories);
+      if (m.text) line += `${m.text}. `;
+    }
+  }
+  if (id.voice_flags.includes('METAPHOR') && flo.length && Math.random() < 0.7){
+    line += pickRandom(flo);
+  }
+  if (verb >= 4 && exp.length && Math.random() < 0.5){
+    line += pickRandom(exp);
+  }
+  line = line.replace(/\s+/g, ' ').trim();
+  if (!/[.!?]$/.test(line)) line += '.';
+
+  $('preview-reply').textContent = line || '…';
+
+  const stats = $('preview-stats');
+  stats.innerHTML = `
+    <div>O=${id.O} C=${id.C} E=${id.E} A=${id.A} N=${id.N}</div>
+    <div>verbosity=${id.verbosity} · flags=${id.voice_flags.length}</div>
+    <div>core_memories=${id.core_memories.length} · obsessions=${id.obsessions.length}</div>
+  `;
+}
+
+document.getElementById('preview-reroll').addEventListener('click', updatePreview);
+
+/* ---------- top-level field wiring ---------- */
+
+$('f-name').addEventListener('input', e => { CH.name = e.target.value; updatePreview(); });
+
+['O','C','E','A','N'].forEach(k => {
+  $('f-' + k).addEventListener('input', e => {
+    CH.identity[k] = +e.target.value;
+    $('v-' + k).textContent = e.target.value;
+    updatePreview();
+  });
+});
+$('f-verb').addEventListener('input', e => {
+  CH.identity.verbosity = +e.target.value;
+  $('v-verb').textContent = e.target.value;
+  updatePreview();
+});
+['0','1','2','3'].forEach(i => {
+  $('f-addr-' + i).addEventListener('input', e => {
+    CH.identity.address_user_as[+i] = e.target.value;
+    updatePreview();
+  });
+});
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+    $('pane-' + t.dataset.pane).classList.add('active');
+    if (t.dataset.pane === 'export') refreshExport();
+  });
+});
+
+/* ---------- export ---------- */
+
+function exportObject(){
+  return {
+    ...CH,
+    /* normalize structure for downstream tools */
+    identity: { ...CH.identity }
+  };
+}
+
+function refreshExport(){
+  const obj = exportObject();
+  const json = JSON.stringify(obj, null, 2);
+  $('export-preview').textContent = json;
+  const dl = $('export-dl');
+  dl.innerHTML = `
+    <dt>name</dt>            <dd>${CH.name || '(unnamed)'}</dd>
+    <dt>voice flags</dt>     <dd>${CH.identity.voice_flags.length}</dd>
+    <dt>core memories</dt>   <dd>${CH.identity.core_memories.length} / 8</dd>
+    <dt>obsessions</dt>      <dd>${CH.identity.obsessions.length}</dd>
+    <dt>banks authored</dt>  <dd>${CH.banks.filter(b => b.entries.length > 0).length} / 10</dd>
+    <dt>JSON size</dt>       <dd>${(json.length / 1024).toFixed(1)} KB</dd>
+  `;
+}
+
+$('btn-export-json').addEventListener('click', () => {
+  const obj = exportObject();
+  const blob = new Blob([JSON.stringify(obj, null, 2)],
+                        { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const safeName = (CH.name || 'character').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  a.download = safeName + '.character.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+$('btn-copy-json').addEventListener('click', async () => {
+  const obj = exportObject();
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(obj, null, 2));
+    const b = $('btn-copy-json');
+    const old = b.textContent;
+    b.textContent = 'copied!';
+    setTimeout(() => b.textContent = old, 1500);
+  } catch (e) {
+    alert('Clipboard access blocked — use the download button instead.');
+  }
+});
+
+/* ---------- chat-log import ---------- */
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+const STOP = new Set(['the','a','an','and','or','but','if','of','to','in','on','for','with','at','by','from','as','is','was','were','be','been','being','i','you','he','she','it','we','they','my','your','his','her','its','our','their','this','that','these','those','am','are','do','does','did','have','has','had','will','would','can','could','should','may','might','must','about','into','through','during','before','after','than','then','because','so','what','which','who','whom','whose','where','when','why','how','all','any','some','no','not','very','just','like','also','too','only','than','more','most','other','such','own','same','here','there','now','again','still','let','one','two','say','said','well','okay','really','don','t','s','m','re','ll','ve','d','i\'m','i\'ve','i\'ll','i\'d','it\'s','that\'s']);
+
+function extractWords(text){
+  return (text.toLowerCase().match(/[a-z']+/g) || []).filter(w => w.length >= 3 && !STOP.has(w));
+}
+
+function topN(map, n){
+  return [...map.entries()].sort((a,b) => b[1] - a[1]).slice(0, n);
+}
+
+/* ----- ChatGPT parser ----- */
+function parseChatGPT(json){
+  /* conversations.json is an array of conversations; each has a `mapping`
+   * object with message-node entries; walk the mapping graph and pull
+   * out assistant utterances. */
+  const utterances = [];
+  let arr = json;
+  if (!Array.isArray(arr) && json.conversations) arr = json.conversations;
+  if (!Array.isArray(arr)) arr = [json];
+  for (const conv of arr){
+    const map = conv.mapping || {};
+    for (const id in map){
+      const node = map[id];
+      const msg  = node && node.message;
+      if (!msg || !msg.author) continue;
+      const role = msg.author.role;
+      const parts = msg.content && msg.content.parts;
+      if (!parts) continue;
+      const text = parts.filter(p => typeof p === 'string').join(' ').trim();
+      if (text) utterances.push({ role, text });
+    }
+  }
+  return utterances;
+}
+
+/* ----- generic JSONL parser ----- */
+function parseJSONL(text){
+  return text.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    try {
+      const o = JSON.parse(l);
+      const role = o.role || o.from || o.author || 'assistant';
+      const content = o.content || o.text || o.message || '';
+      return { role, text: String(content) };
+    } catch { return null; }
+  }).filter(Boolean);
+}
+
+/* ----- SillyTavern parser ----- */
+function parseSillyTavern(json){
+  if (Array.isArray(json) && json.length && (json[0].mes || json[0].name)){
+    return json.filter(m => m.mes).map(m => ({
+      role: m.is_user ? 'user' : 'assistant',
+      text: String(m.mes)
+    }));
+  }
+  /* SillyTavern character card V2 format */
+  if (json.spec === 'chara_card_v2' && json.data){
+    const d = json.data;
+    return [
+      { role: 'meta', text: d.description || '' },
+      { role: 'assistant', text: d.first_mes || '' },
+    ].filter(u => u.text);
+  }
+  return [];
+}
+
+function autoDetectParse(name, content){
+  if (name.endsWith('.jsonl')) return parseJSONL(content);
+  let json;
+  try { json = JSON.parse(content); } catch (e){ return parseJSONL(content); }
+  if (json && (json.mapping || (Array.isArray(json) && json[0] && json[0].mapping)))
+    return parseChatGPT(json);
+  if (json && (json.spec === 'chara_card_v2' || (Array.isArray(json) && json[0] && json[0].mes)))
+    return parseSillyTavern(json);
+  /* fallback to generic JSONL */
+  return parseJSONL(content);
+}
+
+function analyzeUtterances(utts){
+  const asst = utts.filter(u => u.role === 'assistant' || u.role === 'character');
+  const wordFreq = new Map();
+  const lens = [];
+  let total = 0;
+  let punctDash = 0, punctEx = 0, punctQ = 0;
+  for (const u of asst){
+    const words = extractWords(u.text);
+    for (const w of words) wordFreq.set(w, (wordFreq.get(w) || 0) + 1);
+    lens.push(u.text.split(/[.!?]+/).filter(Boolean).map(s => s.split(' ').length));
+    total += u.text.length;
+    punctDash += (u.text.match(/—|--/g) || []).length;
+    punctEx   += (u.text.match(/!/g) || []).length;
+    punctQ    += (u.text.match(/\?/g) || []).length;
+  }
+  const allSents = lens.flat();
+  const avgSentLen = allSents.length ? allSents.reduce((a,b)=>a+b,0) / allSents.length : 0;
+  return {
+    total_messages: utts.length,
+    assistant_messages: asst.length,
+    avg_sentence_words: Math.round(avgSentLen),
+    total_assistant_chars: total,
+    top_words: topN(wordFreq, 30),
+    punct: { dash: punctDash, exclamation: punctEx, question: punctQ },
+  };
+}
+
+function applyAnalysis(stats){
+  /* Heuristics: choose voice flags and obsessions from observed stats. */
+  CH = defaultCharacter();
+  CH.name = 'Imported character';
+  CH.identity.obsessions = stats.top_words.slice(0, 5).map(([w]) => w);
+  /* Sentence length → verbosity bucket */
+  CH.identity.verbosity = Math.max(0, Math.min(7,
+    Math.round(stats.avg_sentence_words / 3)));
+  /* Punctuation densities → voice flags */
+  const flags = [];
+  const perMsg = stats.assistant_messages || 1;
+  if (stats.punct.dash       / perMsg > 0.4) flags.push('METAPHOR','SELF_INTERRUPT');
+  if (stats.punct.exclamation/ perMsg > 0.3) flags.push('ALLOW_BLEED');
+  if (stats.punct.question   / perMsg > 0.3) flags.push('ALLOW_BLEED');
+  /* Big-Five seed (centered + nudged by sentence length) */
+  CH.identity.O = 60 + Math.min(20, Math.floor(stats.avg_sentence_words));
+  CH.identity.E = stats.punct.exclamation / perMsg > 0.3 ? 70 : 50;
+  CH.identity.A = 60;
+  CH.identity.N = 35;
+  CH.identity.voice_flags = [...new Set(flags)];
+}
+
+/* Drop-zone wiring */
+const dz = $('dropzone');
+dz.addEventListener('click', () => $('file-input').click());
+$('dropzone-pick').addEventListener('click', e => { e.preventDefault(); $('file-input').click(); });
+['dragover','dragenter'].forEach(ev => dz.addEventListener(ev, e => {
+  e.preventDefault(); dz.classList.add('over');
+}));
+['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => {
+  e.preventDefault(); dz.classList.remove('over');
+}));
+dz.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+$('file-input').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) handleFile(f);
+});
+
+function handleFile(file){
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const content = ev.target.result;
+    let utts;
+    try {
+      utts = autoDetectParse(file.name, content);
+    } catch (err){
+      alert('Could not parse this file: ' + err.message);
+      return;
+    }
+    if (!utts.length){
+      alert('No messages detected in this file.');
+      return;
+    }
+    const stats = analyzeUtterances(utts);
+    showParseResults(file.name, stats);
+  };
+  reader.readAsText(file);
+}
+
+function showParseResults(filename, stats){
+  const root = $('parse-results');
+  root.style.display = '';
+  root.innerHTML = `
+    <div class="parse-results">
+      <h3 style="color: var(--text);">Parsed: ${escapeHtml(filename)}</h3>
+      <div class="stat-grid">
+        <div class="stat"><div class="v">${stats.total_messages}</div><div class="k">total messages</div></div>
+        <div class="stat"><div class="v">${stats.assistant_messages}</div><div class="k">character turns</div></div>
+        <div class="stat"><div class="v">${stats.avg_sentence_words}</div><div class="k">avg words/sentence</div></div>
+        <div class="stat"><div class="v">${(stats.total_assistant_chars / 1024).toFixed(1)}K</div><div class="k">total assistant chars</div></div>
+        <div class="stat"><div class="v">${stats.punct.dash}</div><div class="k">— dashes</div></div>
+        <div class="stat"><div class="v">${stats.punct.exclamation}</div><div class="k">!  exclamations</div></div>
+        <div class="stat"><div class="v">${stats.punct.question}</div><div class="k">?  questions</div></div>
+      </div>
+      <h3 style="margin-top: 14px; color: var(--text);">Top words (likely obsessions)</h3>
+      <div class="top-words">
+        ${stats.top_words.slice(0, 20).map(([w,c]) => `<span class="pill">${escapeHtml(w)} <span style="color:var(--muted);">${c}</span></span>`).join('')}
+      </div>
+      <div class="row" style="margin-top: 16px;">
+        <button class="primary" id="btn-use-stats">Use this as a starting point</button>
+        <button class="ghost"   id="btn-import-again">Try another file</button>
+      </div>
+    </div>
+  `;
+  $('btn-use-stats').addEventListener('click', () => {
+    applyAnalysis(stats);
+    buildEditor();
+    show('editor');
+  });
+  $('btn-import-again').addEventListener('click', () => {
+    root.style.display = 'none';
+    $('file-input').value = '';
+  });
+}
+
+/* ---------- boot ---------- */
+show('landing');
+
+</script>
+</body>
+</html>
