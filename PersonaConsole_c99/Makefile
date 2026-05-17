@@ -236,6 +236,13 @@ forge_cart_test: build/persona_host
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH — skipping forge_cart_test"; exit 0; }
 	node test/forge_cart_test.js
 
+# Deep-memory bundle (cart + AETHER WAL packaged as .zip).
+# Verifies long-chat-log preservation via the engine's cold-fallback path.
+forge_bundle_test: build/persona_host
+	@command -v node  >/dev/null 2>&1 || { echo "node not in PATH";  exit 0; }
+	@command -v unzip >/dev/null 2>&1 || { echo "unzip not in PATH"; exit 0; }
+	node test/forge_bundle_test.js
+
 character: characters/pretorius/pretorius.cart
 
 kiki_character: characters/kiki/kiki.cart

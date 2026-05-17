@@ -616,8 +616,9 @@ h3 { font-size: 16px; color: var(--muted); }
             <dl id="export-dl"></dl>
           </div>
 
-          <button class="primary" id="btn-export-cart">Download .cart (runnable)</button>
-          <button class="ghost"   id="btn-export-json" style="margin-left: 8px;">Download character.json (source)</button>
+          <button class="primary" id="btn-export-bundle">Download bundle.zip (recommended)</button>
+          <button class="ghost"   id="btn-export-cart" style="margin-left: 8px;">.cart only</button>
+          <button class="ghost"   id="btn-export-json" style="margin-left: 8px;">character.json</button>
           <button class="ghost"   id="btn-copy-json" style="margin-left: 8px;">Copy JSON</button>
           <p class="muted" style="font-size: 13px; margin-top: 12px;">
             The <code>.cart</code> is ready to drop into your PersonaConsole engine
@@ -1203,6 +1204,320 @@ document.querySelectorAll('.tab').forEach(t => {
     if (t.dataset.pane === 'export') refreshExport();
   });
 });
+
+/* ============================================================== *
+ * AETHER WAL serializer + ZIP bundler
+ * --------------------------------------------------------------- *
+ * The engine's long-term episodic store accepts WAL events on disk
+ * and scans them linearly on every cold query.  When the user imports
+ * a huge chat log, we extract the top 8 most identity-defining
+ * exchanges into core_memories_seed (rides inside the .cart) and
+ * spill the rest into an AETHER WAL file shipped alongside the cart
+ * in a .zip bundle.  Engine picks up the prepopulated AETHER on next
+ * persona_open.
+ * ============================================================== */
+
+const AETHER_WAL_MAGIC      = 0xAE57AE57;
+const AETHER_INLINE_TEXT_LEN = 40;
+const AETHER_KEY_COUNT      = 4;
+const AETHER_EVENT_SIZE     = 64;
+const AETHER_WAL_REC_SIZE   = 4 + AETHER_EVENT_SIZE;
+const FORGE_DEEP_MEMORY_CAP = 5000;     /* hard ceiling on AETHER WAL events */
+const FORGE_PARSE_UTT_CAP   = 50000;    /* hard ceiling on imported utterances */
+const FORGE_PARSE_BYTE_CAP  = 10 * 1024 * 1024;  /* refuse files larger than 10 MB */
+
+/* Write one WAL record (magic + event) at offset.  Returns new offset. */
+function writeWalRecord(view, off, ev){
+  view.setUint32(off, AETHER_WAL_MAGIC, true);                  off += 4;
+  view.setUint32(off, ev.timestamp >>> 0, true);                off += 4;
+  view.setUint32(off, ev.last_accessed >>> 0, true);            off += 4;
+  view.setUint16(off, ev.arousal & 0xffff, true);               off += 2;
+  view.setUint16(off, ev.valence & 0xffff, true);               off += 2;
+  view.setUint16(off, ev.dominance & 0xffff, true);             off += 2;
+  view.setUint16(off, ev.retrievability & 0xffff, true);        off += 2;
+  for (let i = 0; i < AETHER_KEY_COUNT; ++i){
+    view.setUint16(off, (ev.keys && ev.keys[i]) || 0, true);    off += 2;
+  }
+  /* inline_text[40], NUL-padded */
+  const enc = new TextEncoder();
+  const txt = enc.encode((ev.inline_text || '').slice(0, AETHER_INLINE_TEXT_LEN - 1));
+  for (let i = 0; i < txt.length && i < AETHER_INLINE_TEXT_LEN - 1; ++i){
+    view.setUint8(off + i, txt[i]);
+  }
+  for (let i = txt.length; i < AETHER_INLINE_TEXT_LEN; ++i){
+    view.setUint8(off + i, 0);
+  }
+  off += AETHER_INLINE_TEXT_LEN;
+  return off;
+}
+
+function buildAetherWal(events){
+  const total = events.length * AETHER_WAL_REC_SIZE;
+  const buf  = new Uint8Array(total);
+  const view = new DataView(buf.buffer);
+  let off = 0;
+  for (const ev of events){
+    off = writeWalRecord(view, off, ev);
+  }
+  return buf;
+}
+
+/* ----- CRC-32 (for ZIP) ----- */
+const CRC_TABLE = (function(){
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; ++n){
+    let c = n;
+    for (let k = 0; k < 8; ++k){
+      c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function crc32(bytes){
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; ++i){
+    c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  }
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+/* ----- Minimal ZIP writer (STORE method, no compression) ----- */
+function buildZip(files){
+  /* files: [{ path: 'foo/bar.bin', bytes: Uint8Array }] */
+  const enc = new TextEncoder();
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+  const now = new Date();
+  const dosTime =
+    ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >>> 1)) & 0xffff;
+  const dosDate =
+    (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xffff;
+
+  for (const f of files){
+    const nameBytes = enc.encode(f.path);
+    const crc = crc32(f.bytes);
+    const size = f.bytes.length;
+    /* local file header (30 bytes + name) */
+    const local = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(local.buffer);
+    lv.setUint32(0,  0x04034b50, true);    /* signature */
+    lv.setUint16(4,  20, true);            /* version needed */
+    lv.setUint16(6,  0,  true);            /* flags */
+    lv.setUint16(8,  0,  true);            /* method (0=store) */
+    lv.setUint16(10, dosTime, true);
+    lv.setUint16(12, dosDate, true);
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, size, true);          /* compressed size */
+    lv.setUint32(22, size, true);          /* uncompressed size */
+    lv.setUint16(26, nameBytes.length, true);
+    lv.setUint16(28, 0, true);             /* extra length */
+    local.set(nameBytes, 30);
+    localParts.push(local);
+    localParts.push(f.bytes);
+
+    /* central directory header (46 bytes + name) */
+    const cd = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(cd.buffer);
+    cv.setUint32(0,  0x02014b50, true);
+    cv.setUint16(4,  20, true);            /* version made by */
+    cv.setUint16(6,  20, true);            /* version needed */
+    cv.setUint16(8,  0, true);             /* flags */
+    cv.setUint16(10, 0, true);             /* method */
+    cv.setUint16(12, dosTime, true);
+    cv.setUint16(14, dosDate, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, size, true);
+    cv.setUint32(24, size, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint16(30, 0, true);             /* extra */
+    cv.setUint16(32, 0, true);             /* comment */
+    cv.setUint16(34, 0, true);             /* disk */
+    cv.setUint16(36, 0, true);             /* internal attrs */
+    cv.setUint32(38, 0, true);             /* external attrs */
+    cv.setUint32(42, offset, true);
+    cd.set(nameBytes, 46);
+    centralParts.push(cd);
+
+    offset += local.length + size;
+  }
+
+  /* central directory size + EOCD */
+  let centralSize = 0;
+  for (const c of centralParts) centralSize += c.length;
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0,  0x06054b50, true);
+  ev.setUint16(4,  0, true);
+  ev.setUint16(6,  0, true);
+  ev.setUint16(8,  files.length, true);
+  ev.setUint16(10, files.length, true);
+  ev.setUint32(12, centralSize, true);
+  ev.setUint32(16, offset, true);
+  ev.setUint16(20, 0, true);
+
+  /* concat everything */
+  let total = offset + centralSize + 22;
+  const out = new Uint8Array(total);
+  let p = 0;
+  for (const x of localParts){ out.set(x, p); p += x.length; }
+  for (const x of centralParts){ out.set(x, p); p += x.length; }
+  out.set(eocd, p);
+  return out;
+}
+
+/* ============================================================== *
+ * DEEP MEMORY EXTRACTION
+ * --------------------------------------------------------------- *
+ * Score each user→assistant exchange for memorability, then split:
+ *   - top 8 → cartridge core_memories_seed
+ *   - next FORGE_DEEP_MEMORY_CAP → AETHER WAL events
+ *   - rest discarded with a "truncated N events" notice
+ * ============================================================== */
+
+/* Tiny sentiment lookup — coarse, integer-only, good enough for ranking. */
+const SENT_POS = new Set([
+  'love','loved','loving','amazing','wonderful','great','brilliant','happy',
+  'joy','beautiful','perfect','best','favorite','grateful','thank','exciting',
+  'kind','warm','cozy','smile','laugh','laughed','cherish','treasure','hope'
+]);
+const SENT_NEG = new Set([
+  'hate','hated','sad','angry','furious','terrible','awful','worst','painful',
+  'cruel','grief','loss','lonely','alone','afraid','scared','broken','tragic',
+  'lost','died','died','crying','tears','horrible','disgusting'
+]);
+const SENT_HIGH_AROUSAL = new Set([
+  'shouted','screamed','furious','panic','rage','ecstatic','thrilled','terror',
+  'kill','crash','explosion','wild','crazy','urgent','emergency'
+]);
+
+function sentimentScore(words){
+  let v = 0, a = 0;
+  for (const w of words){
+    if (SENT_POS.has(w)) v += 1;
+    if (SENT_NEG.has(w)) v -= 1;
+    if (SENT_HIGH_AROUSAL.has(w)) a += 1;
+  }
+  return { v, a };
+}
+
+/* Group utterances into [user, assistant] pairs.  Returns exchanges. */
+function buildExchanges(utts){
+  const ex = [];
+  let pending = null;
+  for (const u of utts){
+    if (u.role === 'user' || u.role === 'human'){
+      pending = u;
+    } else if ((u.role === 'assistant' || u.role === 'character') && pending){
+      ex.push({ user: pending.text, asst: u.text });
+      pending = null;
+    } else if (u.role === 'assistant' || u.role === 'character'){
+      /* assistant turn with no preceding user — still a memory */
+      ex.push({ user: '', asst: u.text });
+    }
+  }
+  return ex;
+}
+
+/* Score one exchange.  Higher = more memorable. */
+function scoreExchange(ex, vocabBoost){
+  const txt = (ex.user + ' ' + ex.asst).toLowerCase();
+  const words = txt.match(/[a-z']+/g) || [];
+  const len = words.length;
+  if (len < 4) return -1;                /* too trivial */
+  const { v, a } = sentimentScore(words);
+  let topicHit = 0;
+  if (vocabBoost){
+    for (const w of words) if (vocabBoost.has(w)) topicHit++;
+  }
+  /* length on log scale + |emotion| + topic hits */
+  return Math.log2(len + 1) * 4
+       + Math.abs(v) * 3
+       + a * 2
+       + topicHit * 2;
+}
+
+function pickMemorableExchanges(utts, opts){
+  opts = opts || {};
+  const exs = buildExchanges(utts);
+  /* Build a small vocab from top words for topic-boost */
+  const wordFreq = new Map();
+  for (const u of utts){
+    if (u.role === 'assistant' || u.role === 'character'){
+      const ws = extractWords(u.text);
+      for (const w of ws) wordFreq.set(w, (wordFreq.get(w) || 0) + 1);
+    }
+  }
+  const topWords = topN(wordFreq, 40).map(([w]) => w);
+  const vocabBoost = new Set(topWords);
+  const scored = exs.map(e => ({ e, s: scoreExchange(e, vocabBoost) }))
+                    .filter(x => x.s > 0)
+                    .sort((a, b) => b.s - a.s);
+
+  /* Top 8 → core_memories. */
+  const coreLimit = opts.coreLimit || 8;
+  const core = scored.slice(0, coreLimit).map(({ e, s }) => exchangeToCore(e, s));
+  /* Next cap → AETHER WAL events. */
+  const deep = scored.slice(coreLimit, coreLimit + FORGE_DEEP_MEMORY_CAP)
+                     .map(({ e }) => exchangeToAetherEvent(e));
+  const truncated = Math.max(0, scored.length - coreLimit - FORGE_DEEP_MEMORY_CAP);
+  return { core, deep, truncated, totalScored: scored.length };
+}
+
+/* Convert exchange → core memory shape used by CH.identity.core_memories. */
+function exchangeToCore(ex, score){
+  const txt = (ex.asst || ex.user).trim();
+  const summary = txt.length > 90 ? txt.slice(0, 87) + '…' : txt;
+  const sent = sentimentScore((txt.toLowerCase().match(/[a-z']+/g) || []));
+  const v = Math.max(-100, Math.min(100, sent.v * 25));
+  const a = Math.max(0,   Math.min(100, 30 + sent.a * 20));
+  const d = 0;
+  return { text: summary, v, a, d };
+}
+
+/* Convert exchange → aether_event_t shape. */
+let __forgeFakeTimebase = Math.floor(Date.now() / 1000) - 365 * 24 * 3600;  /* "a year ago" */
+function exchangeToAetherEvent(ex){
+  const txt = (ex.asst || ex.user).trim();
+  const inline = txt.length > AETHER_INLINE_TEXT_LEN - 1
+               ? txt.slice(0, AETHER_INLINE_TEXT_LEN - 1) : txt;
+  const sent = sentimentScore((txt.toLowerCase().match(/[a-z']+/g) || []));
+  /* Map sentiment to AETHER's 0..65535 ranges; baseline 32768. */
+  const valence = 32768 + sent.v * 6000;
+  const arousal = 30000 + sent.a * 6000;
+  const dominance = 32768;
+  const event = {
+    timestamp:      __forgeFakeTimebase,
+    last_accessed:  __forgeFakeTimebase,
+    arousal:        Math.max(0, Math.min(65535, arousal)),
+    valence:        Math.max(0, Math.min(65535, valence)),
+    dominance:      dominance,
+    retrievability: 40000,
+    keys:           [0, 0, 0, 0],
+    inline_text:    inline,
+  };
+  /* Spread timestamps so events look temporally distributed. */
+  __forgeFakeTimebase += 600;     /* 10 minutes apart */
+  return event;
+}
+
+/* Per-character storage of the extracted deep memory pool. */
+function attachDeepMemories(ch, picked){
+  /* Replace core memories with the extracted ones (the import-suggested
+   * Big Five etc. is still applied separately). */
+  if (picked.core.length > 0){
+    ch.identity.core_memories = picked.core.slice(0, 8);
+  }
+  ch.deepMemoryEvents = picked.deep;      /* not in JSON export — too bulky */
+  ch.deepMemoryStats  = {
+    total_scored: picked.totalScored,
+    core_count:   picked.core.length,
+    deep_count:   picked.deep.length,
+    truncated:    picked.truncated,
+  };
+}
 
 /* ============================================================== *
  * N-GRAM LANGUAGE MODEL BUILDER
@@ -2107,16 +2422,34 @@ function refreshExport(){
   try { cartSize = buildCart(obj).length; } catch (e){ cartSize = -1; }
   const dl = $('export-dl');
   const lmSize = (CH.lmBytes && CH.lmBytes.length) || 0;
+  const deepN  = (CH.deepMemoryEvents && CH.deepMemoryEvents.length) || 0;
+  const walSize = deepN * AETHER_WAL_REC_SIZE;
   dl.innerHTML = `
     <dt>name</dt>            <dd>${CH.name || '(unnamed)'}</dd>
     <dt>voice flags</dt>     <dd>${CH.identity.voice_flags.length}</dd>
-    <dt>core memories</dt>   <dd>${CH.identity.core_memories.length} / 8</dd>
+    <dt>core memories</dt>   <dd>${CH.identity.core_memories.length} / 8 (in cart, never decay)</dd>
+    <dt>deep memories</dt>   <dd>${deepN ? `${deepN.toLocaleString()} (in AETHER bundle, surfaces on specific prompts)` : 'none — author one from a chat import'}</dd>
     <dt>obsessions</dt>      <dd>${CH.identity.obsessions.length}</dd>
     <dt>banks authored</dt>  <dd>${CH.banks.filter(b => b.entries.length > 0).length} / 10</dd>
     <dt>voice LM</dt>        <dd>${lmSize ? (lmSize/1024).toFixed(1) + ' KB' : 'none (engine will skip LM rerank)'}</dd>
     <dt>JSON size</dt>       <dd>${(json.length / 1024).toFixed(1)} KB</dd>
     <dt>.cart size</dt>      <dd>${cartSize > 0 ? (cartSize / 1024).toFixed(1) + ' KB' : 'error'}</dd>
+    <dt>bundle size</dt>     <dd>${deepN ? `~${((cartSize + walSize)/1024).toFixed(1)} KB (cart + ${(walSize/1024).toFixed(1)} KB AETHER WAL)` : '(no bundle — .cart only)'}</dd>
   `;
+  /* Toggle bundle vs cart-only primary button label appropriately. */
+  const bb = $('btn-export-bundle');
+  const cb = $('btn-export-cart');
+  if (deepN > 0){
+    bb.classList.add('primary'); bb.classList.remove('ghost');
+    cb.classList.remove('primary'); cb.classList.add('ghost');
+    bb.disabled = false;
+    bb.textContent = `Download bundle.zip (cart + ${deepN.toLocaleString()} deep memories)`;
+  } else {
+    bb.classList.remove('primary'); bb.classList.add('ghost');
+    cb.classList.add('primary');    cb.classList.remove('ghost');
+    bb.disabled = true;
+    bb.textContent = 'Download bundle.zip (no deep memories yet)';
+  }
 }
 
 function safeFileName(){
@@ -2136,6 +2469,71 @@ $('btn-export-cart').addEventListener('click', () => {
   const a = document.createElement('a');
   a.href = url;
   a.download = safeFileName() + '.cart';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+/* Bundle = .zip containing the cart + an AETHER WAL of deep memories.
+ * Extract structure:
+ *   <name>/
+ *     <name>.cart
+ *     aether/
+ *       wal.dat       (prepopulated AETHER WAL events)
+ *
+ * User then runs:  ./build/persona_host <name>/<name>.cart
+ * Engine auto-detects the AETHER directory next to the cart.        */
+$('btn-export-bundle').addEventListener('click', () => {
+  const ch = exportObject();
+  const events = CH.deepMemoryEvents || [];
+  if (events.length === 0){
+    alert('No deep memories yet — import a chat log first, or just download the .cart.');
+    return;
+  }
+  let cartBytes, walBytes;
+  try {
+    cartBytes = buildCart(ch);
+    walBytes  = buildAetherWal(events);
+  } catch (e){
+    alert('Failed to build bundle: ' + e.message);
+    return;
+  }
+  const name = safeFileName();
+  const files = [
+    { path: `${name}/${name}.cart`,    bytes: cartBytes },
+    { path: `${name}/aether/wal.dat`,  bytes: walBytes },
+    { path: `${name}/README.txt`,      bytes: new TextEncoder().encode(
+      `${ch.name || name} — PersonaConsole cartridge bundle\n`
+      + `==============================================\n\n`
+      + `Authored in Cartridge Forge.\n\n`
+      + `Quick start:\n`
+      + `  1. Extract this zip into your PersonaConsole_c99/characters/ directory:\n`
+      + `       unzip ${name}.zip -d PersonaConsole_c99/characters/\n`
+      + `  2. From PersonaConsole_c99/ run:\n`
+      + `       ./build/persona_host characters/${name}/${name}.cart\n`
+      + `  3. Open http://127.0.0.1:7777/ in a browser.\n\n`
+      + `What's inside:\n`
+      + `  ${name}/${name}.cart     - the runnable cartridge\n`
+      + `                              (${(cartBytes.length/1024).toFixed(1)} KB; identity, drives, banks,\n`
+      + `                              dialogue tables, voice.lm if you built one,\n`
+      + `                              and 8 core memories that never decay)\n`
+      + `  ${name}/aether/wal.dat   - ${events.length.toLocaleString()} prepopulated AETHER deep memories\n`
+      + `                              (${(walBytes.length/1024).toFixed(1)} KB; surfaces in conversation\n`
+      + `                              when the user asks something specific that matches\n`
+      + `                              a stored event)\n`
+    )},
+  ];
+  let zipBytes;
+  try {
+    zipBytes = buildZip(files);
+  } catch (e){
+    alert('Failed to build zip: ' + e.message);
+    return;
+  }
+  const blob = new Blob([zipBytes], { type: 'application/zip' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name + '.zip';
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
@@ -2405,6 +2803,9 @@ function analyzeUtterances(utts){
 /* Last imported chat — kept around so the LM tab can train on it. */
 let LAST_IMPORTED_ASSISTANT_TEXT = '';
 
+/* Stash the parsed utterances so applyAnalysis can extract deep memories. */
+let LAST_PARSED_UTTERANCES = null;
+
 function applyAnalysis(stats){
   /* Heuristics: choose voice flags and obsessions from observed stats. */
   CH = defaultCharacter();
@@ -2425,6 +2826,13 @@ function applyAnalysis(stats){
   CH.identity.A = 60;
   CH.identity.N = 35;
   CH.identity.voice_flags = [...new Set(flags)];
+
+  /* Extract deep memories from the original utterances.  This is what
+   * preserves long chat histories: top 8 → core, next 5000 → AETHER. */
+  if (LAST_PARSED_UTTERANCES && LAST_PARSED_UTTERANCES.length > 0){
+    const picked = pickMemorableExchanges(LAST_PARSED_UTTERANCES);
+    attachDeepMemories(CH, picked);
+  }
 }
 
 /* Drop-zone wiring */
@@ -2447,6 +2855,11 @@ $('file-input').addEventListener('change', e => {
 });
 
 function handleFile(file){
+  /* Hard size cap — refuse outright if the file is unreasonable. */
+  if (file.size > FORGE_PARSE_BYTE_CAP){
+    alert(`File is ${(file.size / 1024 / 1024).toFixed(1)} MB — Forge caps imports at ${FORGE_PARSE_BYTE_CAP / 1024 / 1024} MB.  Please trim it first or open an issue if you genuinely need more.`);
+    return;
+  }
   const reader = new FileReader();
   reader.onload = ev => {
     const content = ev.target.result;
@@ -2461,12 +2874,26 @@ function handleFile(file){
       alert('No messages detected in this file.');
       return;
     }
+    /* Truncate to the parse cap — keep the most recent utterances so
+     * the LM and deep memories reflect the latest character voice. */
+    let truncated = 0;
+    if (utts.length > FORGE_PARSE_UTT_CAP){
+      truncated = utts.length - FORGE_PARSE_UTT_CAP;
+      utts = utts.slice(-FORGE_PARSE_UTT_CAP);
+    }
+    LAST_PARSED_UTTERANCES = utts;
     /* Concatenate assistant turns for later LM training. */
     LAST_IMPORTED_ASSISTANT_TEXT = utts
       .filter(u => u.role === 'assistant' || u.role === 'character')
       .map(u => u.text)
       .join('\n');
     const stats = analyzeUtterances(utts);
+    stats.truncated = truncated;
+    /* Also extract memorable exchanges to show a preview count. */
+    const picked = pickMemorableExchanges(utts);
+    stats.deep_core_count = picked.core.length;
+    stats.deep_pool_count = picked.deep.length;
+    stats.deep_truncated  = picked.truncated;
     showParseResults(file.name, stats);
   };
   reader.readAsText(file);
@@ -2487,6 +2914,19 @@ function showParseResults(filename, stats){
         <div class="stat"><div class="v">${stats.punct.exclamation}</div><div class="k">!  exclamations</div></div>
         <div class="stat"><div class="v">${stats.punct.question}</div><div class="k">?  questions</div></div>
       </div>
+      <h3 style="margin-top: 14px; color: var(--text);">Memory extraction</h3>
+      <div class="stat-grid">
+        <div class="stat"><div class="v">${stats.deep_core_count || 0}</div><div class="k">core memories (in cart)</div></div>
+        <div class="stat"><div class="v">${(stats.deep_pool_count || 0).toLocaleString()}</div><div class="k">deep memories (AETHER bundle)</div></div>
+        ${stats.deep_truncated > 0 ? `<div class="stat"><div class="v" style="color:var(--warn);">${stats.deep_truncated.toLocaleString()}</div><div class="k">below memorability threshold (skipped)</div></div>` : ''}
+        ${stats.truncated > 0 ? `<div class="stat"><div class="v" style="color:var(--warn);">${stats.truncated.toLocaleString()}</div><div class="k">oldest messages truncated</div></div>` : ''}
+      </div>
+      <p class="muted" style="font-size: 12px; margin-top: 6px;">
+        Top-8 most identity-defining exchanges go into the cartridge as <code>MEM_CORE</code>
+        (never decay).  The rest ride along in an AETHER WAL file that lets the engine surface
+        old memories when a sufficiently specific prompt comes in.
+      </p>
+
       <h3 style="margin-top: 14px; color: var(--text);">Top words (likely obsessions)</h3>
       <div class="top-words">
         ${stats.top_words.slice(0, 20).map(([w,c]) => `<span class="pill">${escapeHtml(w)} <span style="color:var(--muted);">${c}</span></span>`).join('')}
