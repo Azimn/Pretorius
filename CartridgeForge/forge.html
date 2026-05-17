@@ -537,7 +537,7 @@ h3 { font-size: 16px; color: var(--muted); }
       <div class="card" data-goto="import">
         <span class="glyph">↥</span>
         <h2>Import chat history</h2>
-        <p>Drop in a ChatGPT export or SillyTavern card. The forge extracts vocabulary, register, and topics.</p>
+        <p>Drop in a ChatGPT, Claude, Gemini, or character.ai export. The forge extracts vocabulary, register, and topics.</p>
       </div>
     </div>
     <p class="muted" style="margin-top:32px; font-size:13px; text-align:center;">
@@ -562,7 +562,7 @@ h3 { font-size: 16px; color: var(--muted); }
     <div class="dropzone" id="dropzone">
       <div class="glyph">↥</div>
       <p><strong>Drop a file here</strong>, or <a href="#" id="dropzone-pick" style="color: var(--accent);">browse</a>.</p>
-      <p style="font-size: 13px;">Accepted: <code>conversations.json</code> (ChatGPT), <code>.jsonl</code> (generic), SillyTavern JSON.</p>
+      <p style="font-size: 13px;">Accepted: ChatGPT, Claude, Gemini, character.ai, SillyTavern, generic JSONL. Format is auto-detected.</p>
       <input type="file" id="file-input" hidden accept=".json,.jsonl,.txt">
     </div>
 
@@ -572,11 +572,11 @@ h3 { font-size: 16px; color: var(--muted); }
       <h3 style="color: var(--text);">Supported formats</h3>
       <ul>
         <li class="supported">✓ ChatGPT data export — <code>conversations.json</code></li>
+        <li class="supported">✓ Claude / Anthropic export — <code>conversations.json</code> with <code>chat_messages</code></li>
+        <li class="supported">✓ Gemini API history / Google Takeout "My Activity" JSON</li>
+        <li class="supported">✓ character.ai logs — <code>.chats[].history</code> or flat <code>src</code>/<code>msg</code> array</li>
+        <li class="supported">✓ SillyTavern chat JSON / character card V2</li>
         <li class="supported">✓ Generic JSONL — one <code>{"role":...,"content":...}</code> per line</li>
-        <li class="supported">✓ SillyTavern chat JSON</li>
-        <li class="soon">○ Gemini Takeout — <em>coming soon</em></li>
-        <li class="soon">○ Claude conversation export — <em>coming soon</em></li>
-        <li class="soon">○ character.ai logs — <em>coming soon</em></li>
       </ul>
     </div>
   </section>
@@ -3643,6 +3643,115 @@ function parseJSONL(text){
   }).filter(Boolean);
 }
 
+/* ----- Claude / Anthropic export parser -----
+ * Anthropic's data export ships conversations.json as an array of:
+ *   { uuid, name, chat_messages: [{ sender: 'human'|'assistant', text, ... }] }
+ * Newer exports nest message text in `content` arrays of typed parts. */
+function parseClaudeExport(json){
+  const utts = [];
+  const arr = Array.isArray(json) ? json : (json.conversations || [json]);
+  for (const conv of arr){
+    const msgs = conv.chat_messages || conv.messages || [];
+    for (const m of msgs){
+      const sender = m.sender || m.role;
+      if (!sender) continue;
+      const role = (sender === 'human' || sender === 'user') ? 'user' : 'assistant';
+      let text = '';
+      if (typeof m.text === 'string'){
+        text = m.text;
+      } else if (Array.isArray(m.content)){
+        text = m.content.map(p => {
+          if (typeof p === 'string') return p;
+          if (p && typeof p.text === 'string') return p.text;
+          return '';
+        }).join(' ').trim();
+      } else if (typeof m.content === 'string'){
+        text = m.content;
+      }
+      if (text) utts.push({ role, text });
+    }
+  }
+  return utts;
+}
+
+/* ----- Gemini / Google Bard parser -----
+ * Two shapes in the wild:
+ *   (a) Google Takeout "My Activity / Gemini" JSON — array of activity
+ *       entries with `header: "Gemini"`, `title: "Said ..."`, `subtitles`.
+ *   (b) Gemini API session history — array of
+ *       { role: 'user'|'model', parts: [{ text: '...' }] }. */
+function parseGemini(json){
+  const utts = [];
+  /* shape (b): role / parts */
+  const arr = Array.isArray(json) ? json : (json.history || json.messages || []);
+  let recognized = false;
+  for (const m of arr){
+    if (!m) continue;
+    if ((m.role === 'user' || m.role === 'model') && (m.parts || m.content)){
+      recognized = true;
+      const parts = m.parts || m.content;
+      const text = (Array.isArray(parts) ? parts : [parts])
+        .map(p => typeof p === 'string' ? p : (p && p.text) || '')
+        .filter(Boolean).join(' ').trim();
+      if (text){
+        utts.push({ role: m.role === 'model' ? 'assistant' : 'user', text });
+      }
+    }
+  }
+  if (recognized) return utts;
+
+  /* shape (a): Takeout My Activity — header === 'Gemini' (or 'Bard') */
+  for (const entry of arr){
+    if (!entry || (entry.header !== 'Gemini' && entry.header !== 'Bard')) continue;
+    const title = entry.title || '';
+    if (title.startsWith('Said ')){
+      utts.push({ role: 'user', text: title.slice(5) });
+    } else if (title.startsWith('Asked ')){
+      utts.push({ role: 'user', text: title.slice(6) });
+    }
+    if (Array.isArray(entry.subtitles)){
+      for (const s of entry.subtitles){
+        if (s && typeof s.name === 'string' && s.name.length > 30){
+          utts.push({ role: 'assistant', text: s.name });
+        }
+      }
+    }
+  }
+  return utts;
+}
+
+/* ----- character.ai parser -----
+ * c.ai user history exports come in several flavors; the common shape is
+ *   { "chats": [{ "history": [{ "src": "user"|"char", "text": "..." }] }] }
+ * Some community dumps use a flat array with `role` ('user'|'char') and
+ * either `msg` or `text`. */
+function parseCharacterAI(json){
+  const utts = [];
+  const collect = list => {
+    for (const m of list){
+      if (!m) continue;
+      const role = m.src || m.role || m.author;
+      const text = m.text || m.msg || m.message || '';
+      if (!role || !text) continue;
+      utts.push({
+        role: (role === 'user' || role === 'human') ? 'user' : 'assistant',
+        text: String(text)
+      });
+    }
+  };
+  if (Array.isArray(json)){
+    collect(json);
+  } else if (json && Array.isArray(json.chats)){
+    for (const chat of json.chats){
+      if (Array.isArray(chat.history)) collect(chat.history);
+      else if (Array.isArray(chat.messages)) collect(chat.messages);
+    }
+  } else if (json && Array.isArray(json.history)){
+    collect(json.history);
+  }
+  return utts;
+}
+
 /* ----- SillyTavern parser ----- */
 function parseSillyTavern(json){
   if (Array.isArray(json) && json.length && (json[0].mes || json[0].name)){
@@ -3670,6 +3779,35 @@ function autoDetectParse(name, content){
     return parseChatGPT(json);
   if (json && (json.spec === 'chara_card_v2' || (Array.isArray(json) && json[0] && json[0].mes)))
     return parseSillyTavern(json);
+  /* Claude / Anthropic export — first conv has chat_messages array. */
+  if (json && (
+       (Array.isArray(json) && json[0] && Array.isArray(json[0].chat_messages))
+       || Array.isArray(json.chat_messages)
+       || (json.conversations && Array.isArray(json.conversations[0] && json.conversations[0].chat_messages))
+     )){
+    return parseClaudeExport(json);
+  }
+  /* Gemini API history — role='user'|'model' + parts. */
+  if (json && Array.isArray(json) && json.length
+       && (json[0].role === 'model' || json[0].role === 'user')
+       && (json[0].parts || json[0].content)){
+    return parseGemini(json);
+  }
+  if (json && (Array.isArray(json.history) || Array.isArray(json.messages))
+       && ((json.history && json.history[0] && (json.history[0].role === 'model'))
+           || (json.messages && json.messages[0] && (json.messages[0].role === 'model')))){
+    return parseGemini(json);
+  }
+  /* Google Takeout My Activity — array of entries with header='Gemini'|'Bard'. */
+  if (json && Array.isArray(json) && json.length
+       && (json[0].header === 'Gemini' || json[0].header === 'Bard')){
+    return parseGemini(json);
+  }
+  /* character.ai — wrapper with .chats or a flat array with src/msg. */
+  if (json && (Array.isArray(json.chats)
+       || (Array.isArray(json) && json[0] && (json[0].src === 'user' || json[0].src === 'char')))){
+    return parseCharacterAI(json);
+  }
   /* fallback to generic JSONL */
   return parseJSONL(content);
 }

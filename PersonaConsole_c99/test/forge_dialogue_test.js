@@ -7,9 +7,15 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const FORGE = path.join(__dirname, '..', '..', 'CartridgeForge', 'forge.html');
-const HOST  = path.join(__dirname, '..', 'build', 'persona_host');
-const OUT   = '/tmp/forge_dialogue_test.cart';
+const FORGE  = path.join(__dirname, '..', '..', 'CartridgeForge', 'forge.html');
+const HOST   = path.join(__dirname, '..', 'build', 'persona_host');
+const OUTDIR = '/tmp/forge_dialogue_test';
+const OUT    = OUTDIR + '/override.cart';
+
+if (fs.existsSync(OUTDIR)) {
+  require('child_process').execSync(`rm -rf ${OUTDIR}`);
+}
+fs.mkdirSync(OUTDIR, { recursive: true });
 
 console.log('--- extracting JS from', FORGE);
 const html = fs.readFileSync(FORGE, 'utf-8');
@@ -122,10 +128,12 @@ if (res.status !== 0){ console.error('persona_host exit', res.status); process.e
  * prefixed CUSTOM-, so any reply must contain CUSTOM. */
 const replies = res.stdout.split('\n').filter(l => l.startsWith('{"reply"'));
 let customHits = 0;
+/* engine may lower-case the first character of a reply (sentence-case
+ * style transform), so match case-insensitive. */
 for (const r of replies){
-  if (r.includes('CUSTOM-')) customHits++;
+  if (/custom-/i.test(r)) customHits++;
 }
-console.log(`replies: ${replies.length}, with CUSTOM- prefix: ${customHits}`);
+console.log(`replies: ${replies.length}, with CUSTOM- marker: ${customHits}`);
 if (customHits === 0){
   console.error('FAIL: engine did not surface any CUSTOM- template');
   process.exit(1);

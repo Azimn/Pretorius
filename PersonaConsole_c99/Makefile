@@ -253,6 +253,11 @@ forge_archetypes_test: build/persona_host
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node test/forge_archetypes_test.js
 
+# Chat-log import parsers (ChatGPT / Claude / Gemini / character.ai / etc.)
+forge_parsers_test:
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node test/forge_parsers_test.js
+
 character: characters/pretorius/pretorius.cart
 
 kiki_character: characters/kiki/kiki.cart
