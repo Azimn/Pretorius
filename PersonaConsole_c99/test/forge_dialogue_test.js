@@ -75,6 +75,12 @@ ch.name = 'Override Test';
 ch.identity.address_user_as = ['comrade','you','',''];
 ch.identity.obsessions = ['the project','the work'];
 
+/* Single custom today state — the engine should pick it and report its
+ * label back through /state.today.  Lowercase to match engine sanitizer. */
+ch.todayStates = [
+  { label: 'todaycheck', mood: 0, vf_or: 0, goal: 0xFFFF },
+];
+
 /* Custom templates: a single unmistakable greeting line + a who line +
  * a generic monologue so the engine can always produce something. */
 ch.dialoguePack = {
@@ -136,6 +142,18 @@ for (const r of replies){
 console.log(`replies: ${replies.length}, with CUSTOM- marker: ${customHits}`);
 if (customHits === 0){
   console.error('FAIL: engine did not surface any CUSTOM- template');
+  process.exit(1);
+}
+
+/* Today-state override should produce "today":"todaycheck" on every reply
+ * (there's only one state to pick). */
+let todayHits = 0;
+for (const r of replies){
+  if (/"today":"todaycheck"/i.test(r)) todayHits++;
+}
+console.log(`replies with today=todaycheck: ${todayHits}/${replies.length}`);
+if (todayHits === 0){
+  console.error('FAIL: custom today state did not surface');
   process.exit(1);
 }
 

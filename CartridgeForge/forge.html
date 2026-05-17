@@ -721,6 +721,13 @@ h3 { font-size: 16px; color: var(--muted); }
             <button class="ghost" id="dlg-goals-add">+ add goal</button>
           </div>
 
+          <div class="dlg-section" id="dlg-today-section">
+            <h3 style="margin-top:24px;">Today states <span class="dlg-count" id="dlg-today-count"></span></h3>
+            <p class="muted" style="font-size:13px;">Each session-start the engine picks one of these as the character's "mood today" using the session seed.  A state adds a mood bias, optionally OR's voice flags in, and can bias goal selection.</p>
+            <div id="f-dlg-today"></div>
+            <button class="ghost" id="dlg-today-add">+ add today state</button>
+          </div>
+
           <div class="dlg-section" id="dlg-fallbacks-section">
             <h3 style="margin-top:24px;">Fallback lines</h3>
             <p class="muted" style="font-size:13px;">Used when no template scores high enough.  Tier 1 = neutral ("tell me more"), tier 2 = recovering ("hmm. where was I"), tier 3 = checked-out ("...").</p>
@@ -1207,6 +1214,7 @@ function defaultCharacter() {
     banks: BANK_NAMES.map(n => ({ name: n, entries: [],
                                    min_theatricality: 0, min_aggression: 0 })),
     dialoguePack: null,        /* null → use GENERIC_* tables at export */
+    todayStates: null,         /* null → use GENERIC_TODAY at export */
   };
 }
 
@@ -1549,6 +1557,7 @@ function renderDialoguePack(){
   renderTemplatesEditor();
   renderPatternsEditor();
   renderGoalsEditor();
+  renderTodayEditor();
   renderFallbacksEditor();
 }
 
@@ -1886,6 +1895,111 @@ function buildGoalRow(g, idx){
   return row;
 }
 
+/* ---- today states ---- */
+/* Lazily resolved — VOICE_FLAG_BITS is declared further down in the file
+ * so referring to it at top-level here would hit a TDZ. */
+let TODAY_VOICE_FLAG_KEYS = null;
+function todayVoiceFlagKeys(){
+  if (TODAY_VOICE_FLAG_KEYS) return TODAY_VOICE_FLAG_KEYS;
+  TODAY_VOICE_FLAG_KEYS = Object.keys(VOICE_FLAG_BITS).filter(k => {
+    /* bits 5-7 are verbosity; we don't expose those here */
+    const v = VOICE_FLAG_BITS[k];
+    return v < (1 << 5) || v >= (1 << 8);
+  });
+  return TODAY_VOICE_FLAG_KEYS;
+}
+
+function renderTodayEditor(){
+  const root = $('f-dlg-today');
+  const count = $('dlg-today-count');
+  root.innerHTML = '';
+  const arr = CH.todayStates;
+  if (!arr || !arr.length){
+    count.textContent = `(using generic pack, ${GENERIC_TODAY.length} states)`;
+    const empty = document.createElement('div');
+    empty.className = 'dlg-empty';
+    empty.textContent = 'No overrides — generic today states are shipped with the cart.';
+    root.appendChild(empty);
+    return;
+  }
+  count.textContent = `(${arr.length} custom)`;
+  arr.forEach((t, idx) => root.appendChild(buildTodayRow(t, idx)));
+}
+
+function buildTodayRow(t, idx){
+  const row = document.createElement('div');
+  row.className = 'dlg-row';
+  const flagNames = todayVoiceFlagKeys().filter(k => (t.vf_or || 0) & VOICE_FLAG_BITS[k]);
+  const flagLabel = flagNames.length ? flagNames.join('+') : 'no flags';
+  const goalLabel = (t.goal === undefined || t.goal === 0xFFFF) ? 'any goal' : `goal #${t.goal}`;
+  row.innerHTML = `
+    <div class="head">
+      <span class="text-cell">${escapeHtml(t.label || '(unnamed)')}</span>
+      <span class="text-cell">mood ${t.mood >= 0 ? '+' : ''}${t.mood || 0}</span>
+      <span class="text-cell">${flagLabel} · ${goalLabel}</span>
+      <span class="actions">
+        <button class="toggle">▾</button>
+        <button class="del">×</button>
+      </span>
+    </div>
+    <div class="body">
+      <div class="grid-3">
+        <div>
+          <label>label (short, lowercase)</label>
+          <input type="text" class="fld-label" value="${escapeHtml(t.label || '')}" maxlength="23">
+        </div>
+        <div>
+          <label>mood bias (−1000…1000)</label>
+          <input type="number" class="fld-mood" min="-1000" max="1000" value="${t.mood || 0}">
+        </div>
+        <div>
+          <label>bias goal id (0xFFFF = any)</label>
+          <input type="number" class="fld-goal" min="0" max="65535" value="${t.goal !== undefined ? t.goal : 0xFFFF}">
+        </div>
+      </div>
+      <label>voice flags this state adds</label>
+      <div class="flags fld-flags">
+        ${todayVoiceFlagKeys().map(k =>
+          `<label><input type="checkbox" data-bit="${VOICE_FLAG_BITS[k]}" ${(t.vf_or||0)&VOICE_FLAG_BITS[k]?'checked':''}> ${k.toLowerCase()}</label>`).join('')}
+      </div>
+    </div>
+  `;
+  const head = row.querySelector('.head');
+  head.querySelector('.toggle').addEventListener('click', e => {
+    e.stopPropagation();
+    row.classList.toggle('expanded');
+  });
+  head.querySelector('.del').addEventListener('click', e => {
+    e.stopPropagation();
+    CH.todayStates.splice(idx, 1);
+    renderTodayEditor();
+  });
+  head.addEventListener('click', () => row.classList.toggle('expanded'));
+
+  const body = row.querySelector('.body');
+  body.addEventListener('click', e => e.stopPropagation());
+  const wire = (sel, fn) => body.querySelector(sel).addEventListener('input', fn);
+  wire('.fld-label', e => { t.label = e.target.value.toLowerCase().slice(0, 23); refreshHead(); });
+  wire('.fld-mood',  e => { t.mood = clampInt(e.target.value, -1000, 1000); refreshHead(); });
+  wire('.fld-goal',  e => { t.goal = clampInt(e.target.value, 0, 0xFFFF); refreshHead(); });
+  body.querySelectorAll('.fld-flags input').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const bit = +cb.dataset.bit;
+      t.vf_or = ((t.vf_or || 0) & ~bit) | (cb.checked ? bit : 0);
+      refreshHead();
+    });
+  });
+  function refreshHead(){
+    const cells = head.querySelectorAll('.text-cell');
+    const names = todayVoiceFlagKeys().filter(k => (t.vf_or || 0) & VOICE_FLAG_BITS[k]);
+    cells[0].textContent = t.label || '(unnamed)';
+    cells[1].textContent = 'mood ' + (t.mood >= 0 ? '+' : '') + (t.mood || 0);
+    cells[2].textContent = (names.length ? names.join('+') : 'no flags') + ' · ' +
+                           ((t.goal === undefined || t.goal === 0xFFFF) ? 'any goal' : `goal #${t.goal}`);
+  }
+  return row;
+}
+
 /* ---- fallbacks ---- */
 function renderFallbacksEditor(){
   const fb = CH.dialoguePack && CH.dialoguePack.fallbacks;
@@ -1966,6 +2080,12 @@ function bindDialogueButtons(){
     });
     renderGoalsEditor();
   });
+  $('dlg-today-add').addEventListener('click', () => {
+    if (!CH.todayStates) CH.todayStates = [];
+    if (CH.todayStates.length >= 16) return;
+    CH.todayStates.push({ label: 'new_state', mood: 0, vf_or: 0, goal: 0xFFFF });
+    renderTodayEditor();
+  });
   $('dlg-load-generic').addEventListener('click', () => {
     if (CH.dialoguePack && (CH.dialoguePack.templates || CH.dialoguePack.patterns ||
                             CH.dialoguePack.goals || CH.dialoguePack.fallbacks)){
@@ -1981,12 +2101,14 @@ function bindDialogueButtons(){
         tier3: GENERIC_FALLBACKS.tier3.slice(),
       }
     };
+    CH.todayStates = GENERIC_TODAY.map(t => Object.assign({}, t));
     renderDialoguePack();
   });
   $('dlg-clear').addEventListener('click', () => {
-    if (!CH.dialoguePack) return;
-    if (!confirm('Clear all dialogue overrides? Generic pack will be used.')) return;
+    if (!CH.dialoguePack && !CH.todayStates) return;
+    if (!confirm('Clear all dialogue + today overrides? Generic pack will be used.')) return;
     CH.dialoguePack = null;
+    CH.todayStates = null;
     renderDialoguePack();
   });
   bindFallbackInputs();
@@ -3064,17 +3186,19 @@ function writeDriveTable(ch){
   return w.done();
 }
 
-function writeTodayTable(){
+function writeTodayTable(ch){
   const w = new BinaryWriter(SZ_TODAY_TABLE);
-  w.u32(GENERIC_TODAY.length);
+  const customT = ch && ch.todayStates;
+  const states = (customT && customT.length) ? customT : GENERIC_TODAY;
+  w.u32(Math.min(states.length, PE_TODAY_MAX));
   for (let i = 0; i < PE_TODAY_MAX; ++i){
-    const t = GENERIC_TODAY[i] || { label:'', mood:0, vf_or:0, goal:0xFFFF };
+    const t = states[i] || { label:'', mood:0, vf_or:0, goal:0xFFFF };
     w.str(t.label, PE_TODAY_LABEL);
     w.i16(t.mood);
     for (let k = 0; k < PE_DRIVE_COUNT; ++k) w.i16(0);  /* drive_modifiers */
     w.u16(t.goal !== undefined ? t.goal : 0xFFFF);
     w.u32(0);                             /* dialogue_mask */
-    w.u32(t.vf_or >>> 0);
+    w.u32((t.vf_or || 0) >>> 0);
   }
   console.assert(w.pos === SZ_TODAY_TABLE, 'today size mismatch: ' + w.pos);
   return w.done();
@@ -3234,7 +3358,7 @@ function buildCart(ch){
   const sections = [
     { name: 'identity.bin',           bytes: writeIdentitySection(ch, topics) },
     { name: 'drives.bin',             bytes: writeDriveTable(ch) },
-    { name: 'today.bin',              bytes: writeTodayTable() },
+    { name: 'today.bin',              bytes: writeTodayTable(ch) },
     { name: 'banks.bin',              bytes: writeBankRegistry(ch) },
     { name: 'dialogue/patterns.bin',  bytes: writePatternTable(topics, ch) },
     { name: 'dialogue/templates.bin', bytes: writeTemplateTable(ch) },
@@ -3322,6 +3446,7 @@ function refreshExport(){
     if (dp.goals)     dpParts.push(`${dp.goals.length} goals`);
     if (dp.fallbacks) dpParts.push('fallbacks');
   }
+  if (CH.todayStates && CH.todayStates.length) dpParts.push(`${CH.todayStates.length} today states`);
   const dpLabel = dpParts.length ? dpParts.join(', ') + ' (custom)'
                                  : 'generic pack (no overrides)';
   dl.innerHTML = `
