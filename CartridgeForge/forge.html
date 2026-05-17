@@ -267,6 +267,129 @@ h3 { font-size: 16px; color: var(--muted); }
 .address-row .label { margin: 0; font-size: 12px; }
 .address-row .label.gated { color: var(--warn); }
 
+/* dialogue editor */
+.dlg-section { margin-bottom: 8px; }
+.dlg-count {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: normal;
+  margin-left: 6px;
+}
+.dlg-row {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.dlg-row .head {
+  display: grid;
+  grid-template-columns: 110px 90px 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+.dlg-row .head select,
+.dlg-row .head input[type="text"],
+.dlg-row .head input[type="number"] {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--text);
+  font-size: 13px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.dlg-row .head .text-cell {
+  font-family: ui-monospace, monospace;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dlg-row .head .text-cell.placeholder { color: var(--muted); font-style: italic; }
+.dlg-row .body {
+  display: none;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.dlg-row.expanded .body { display: block; }
+.dlg-row .body label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 6px;
+  margin-bottom: 2px;
+}
+.dlg-row .body textarea,
+.dlg-row .body input[type="text"],
+.dlg-row .body input[type="number"] {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--text);
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+.dlg-row .body textarea { min-height: 44px; resize: vertical; }
+.dlg-row .body .grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.dlg-row .body .grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.dlg-row .body .grid-8 {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+}
+.dlg-row .body .grid-8 .cell label { text-align: center; }
+.dlg-row .body .grid-8 .cell input { text-align: center; padding: 2px 4px; }
+.dlg-row .body .flags {
+  display: flex; flex-wrap: wrap; gap: 6px 12px;
+  margin-top: 4px;
+}
+.dlg-row .body .flags label {
+  display: flex; align-items: center; gap: 4px;
+  margin: 0; font-size: 12px; color: var(--text);
+}
+.dlg-row .head button.toggle,
+.dlg-row .head button.del {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  padding: 2px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  min-width: 24px;
+}
+.dlg-row .head button.del:hover { color: var(--warn); border-color: var(--warn); }
+.dlg-row .head .actions { display: flex; gap: 4px; }
+.dlg-fallback-row { margin-bottom: 10px; }
+.dlg-fallback-row label { display: block; color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+.dlg-fallback-row textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--text);
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  resize: vertical;
+}
+.dlg-empty { color: var(--muted); font-style: italic; font-size: 13px; padding: 6px 0; }
+
 .memory-card, .obsession-card {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -468,6 +591,7 @@ h3 { font-size: 16px; color: var(--muted); }
       <button class="tab"        data-pane="drives">Drives</button>
       <button class="tab"        data-pane="memories">Memories</button>
       <button class="tab"        data-pane="banks">Banks</button>
+      <button class="tab"        data-pane="dialogue">Dialogue</button>
       <button class="tab"        data-pane="lm">Voice LM</button>
       <button class="tab"        data-pane="export">Export</button>
     </div>
@@ -558,6 +682,61 @@ h3 { font-size: 16px; color: var(--muted); }
         <div class="pane" id="pane-banks">
           <p class="muted" style="font-size:13px;">Synonym banks used by the procedural template mutator. The engine picks one entry per <code>[bank_name]</code> marker in a template. Keep entries short.</p>
           <div id="f-banks"></div>
+        </div>
+
+        <!-- ==== DIALOGUE ==== -->
+        <div class="pane" id="pane-dialogue">
+          <p class="muted" style="font-size:13px;">
+            Override the generic dialogue pack with your character's own
+            templates, keyword patterns, goals, and fallback lines.  Leave
+            sections untouched to use the generic pack — the cartridge
+            will work either way.  Placeholders <code>{address}</code>,
+            <code>{topic}</code>, <code>{memory}</code>, <code>{name}</code>
+            are filled by the engine at runtime; <code>[bank_name]</code>
+            inserts a random entry from a synonym bank.
+          </p>
+          <div class="row" style="gap:6px; margin-bottom:14px;">
+            <button class="ghost" id="dlg-load-generic">Load generic pack as starting point</button>
+            <button class="ghost" id="dlg-clear">Clear all overrides</button>
+          </div>
+
+          <div class="dlg-section" id="dlg-templates-section">
+            <h3>Templates <span class="dlg-count" id="dlg-templates-count"></span></h3>
+            <p class="muted" style="font-size:13px;">Lines the character says, indexed by group (greeting / praise / insult / …) and intent.  Engine picks among matching templates by current plan + register.</p>
+            <div id="f-dlg-templates"></div>
+            <button class="ghost" id="dlg-templates-add">+ add template</button>
+          </div>
+
+          <div class="dlg-section" id="dlg-patterns-section">
+            <h3 style="margin-top:24px;">Keyword patterns <span class="dlg-count" id="dlg-patterns-count"></span></h3>
+            <p class="muted" style="font-size:13px;">Substrings of the user's input that tag it with a class (praise / insult / threat / question / …), assign a group, and shift VAD.  Order matters — earlier rows win.</p>
+            <div id="f-dlg-patterns"></div>
+            <button class="ghost" id="dlg-patterns-add">+ add pattern</button>
+          </div>
+
+          <div class="dlg-section" id="dlg-goals-section">
+            <h3 style="margin-top:24px;">Goals <span class="dlg-count" id="dlg-goals-count"></span></h3>
+            <p class="muted" style="font-size:13px;">Each goal pulls toward an intent when its drive-weight vector aligns with the character's current drive deltas.  Higher priority = stronger pull.</p>
+            <div id="f-dlg-goals"></div>
+            <button class="ghost" id="dlg-goals-add">+ add goal</button>
+          </div>
+
+          <div class="dlg-section" id="dlg-fallbacks-section">
+            <h3 style="margin-top:24px;">Fallback lines</h3>
+            <p class="muted" style="font-size:13px;">Used when no template scores high enough.  Tier 1 = neutral ("tell me more"), tier 2 = recovering ("hmm. where was I"), tier 3 = checked-out ("...").</p>
+            <div class="dlg-fallback-row">
+              <label>Tier 1 (neutral)</label>
+              <textarea id="f-dlg-fb1" rows="3" placeholder="one line per row, max 5"></textarea>
+            </div>
+            <div class="dlg-fallback-row">
+              <label>Tier 2 (recovering)</label>
+              <textarea id="f-dlg-fb2" rows="3" placeholder="one line per row, max 5"></textarea>
+            </div>
+            <div class="dlg-fallback-row">
+              <label>Tier 3 (checked out)</label>
+              <textarea id="f-dlg-fb3" rows="3" placeholder="one line per row, max 5"></textarea>
+            </div>
+          </div>
         </div>
 
         <!-- ==== VOICE LM ==== -->
@@ -831,6 +1010,7 @@ function defaultCharacter() {
     drives: DRIVE_NAMES.map(defaultDrive),
     banks: BANK_NAMES.map(n => ({ name: n, entries: [],
                                    min_theatricality: 0, min_aggression: 0 })),
+    dialoguePack: null,        /* null → use GENERIC_* tables at export */
   };
 }
 
@@ -940,6 +1120,7 @@ function buildEditor(){
   buildTags('f-obsessions', CH.identity.obsessions);
   buildTags('f-taboos',     CH.identity.taboos);
   buildBanks();
+  renderDialoguePack();
   updatePreview();
 }
 
@@ -1110,6 +1291,492 @@ function buildBanks(){
     root.appendChild(card);
   });
 }
+
+/* ---------- dialogue pack editor ---------- */
+/* CH.dialoguePack is null until the author touches it.  When null,
+ * buildCart() falls back to GENERIC_PATTERNS / GENERIC_TEMPLATES /
+ * GENERIC_GOALS / GENERIC_FALLBACKS.  When non-null, override arrays
+ * win.  Each sub-array (templates/patterns/goals) may itself be null
+ * to fall back per-section. */
+
+const G_NAMES = {
+  1:'praise', 2:'insult', 3:'question', 4:'threat', 5:'intimacy',
+  6:'greeting', 7:'who', 8:'neutral', 0xFFFF:'(filler/any)'
+};
+const INTENT_NAMES = ['answer','evade','accuse','flatter','threaten','probe',
+                      'redirect','monologue','reminisce','withdraw','joke','boast'];
+const RHET_NAMES   = ['assert','hedge','deflect','escalate','lament','gloat',
+                      'indict','romanticize','intone','confess'];
+const STANCE_NAMES = ['neutral','dominant','intimate','defensive',
+                      'condescending','conspiratorial'];
+
+function ensureDialoguePack(){
+  if (!CH.dialoguePack){
+    CH.dialoguePack = { templates: null, patterns: null, goals: null, fallbacks: null };
+  }
+  return CH.dialoguePack;
+}
+
+/* Group select <option> list. */
+function groupOptionsHtml(selected){
+  let out = '';
+  for (const id of [1,2,3,4,5,6,7,8,0xFFFF]){
+    out += `<option value="${id}" ${id===selected?'selected':''}>${G_NAMES[id]}</option>`;
+  }
+  return out;
+}
+function intentOptionsHtml(selected){
+  return INTENT_NAMES.map((n,i) =>
+    `<option value="${i}" ${i===selected?'selected':''}>${n}</option>`).join('');
+}
+
+function renderDialoguePack(){
+  renderTemplatesEditor();
+  renderPatternsEditor();
+  renderGoalsEditor();
+  renderFallbacksEditor();
+}
+
+/* ---- templates ---- */
+function renderTemplatesEditor(){
+  const root = $('f-dlg-templates');
+  const count = $('dlg-templates-count');
+  root.innerHTML = '';
+  const arr = CH.dialoguePack && CH.dialoguePack.templates;
+  if (!arr){
+    count.textContent = `(using generic pack, ${GENERIC_TEMPLATES.length} templates)`;
+    const empty = document.createElement('div');
+    empty.className = 'dlg-empty';
+    empty.textContent = 'No overrides — generic templates are shipped with the cart.';
+    root.appendChild(empty);
+    return;
+  }
+  count.textContent = `(${arr.length} custom)`;
+  arr.forEach((t, idx) => root.appendChild(buildTemplateRow(t, idx)));
+}
+
+function buildTemplateRow(t, idx){
+  const row = document.createElement('div');
+  row.className = 'dlg-row';
+  const groupLabel = G_NAMES[t.group !== undefined ? t.group : 0xFFFF];
+  const intentLabel = INTENT_NAMES[t.intent || 0];
+  const preview = (t.text && t.text.length) ? escapeHtml(t.text) :
+                  '<span class="text-cell placeholder">(empty)</span>';
+  row.innerHTML = `
+    <div class="head">
+      <span class="text-cell" title="${groupLabel}/${intentLabel}">${groupLabel} · ${intentLabel}</span>
+      <span class="text-cell">base ${t.base !== undefined ? t.base : 30}</span>
+      <span class="text-cell">${preview}</span>
+      <span class="actions">
+        <button class="toggle" title="expand">▾</button>
+        <button class="del" title="remove">×</button>
+      </span>
+    </div>
+    <div class="body">
+      <div class="grid-3">
+        <div>
+          <label>group</label>
+          <select class="fld-group">${groupOptionsHtml(t.group !== undefined ? t.group : 0xFFFF)}</select>
+        </div>
+        <div>
+          <label>intent</label>
+          <select class="fld-intent">${intentOptionsHtml(t.intent || 0)}</select>
+        </div>
+        <div>
+          <label>base score (0–100)</label>
+          <input type="number" class="fld-base" min="0" max="100" value="${t.base !== undefined ? t.base : 30}">
+        </div>
+      </div>
+      <label>text — use {address} {topic} {memory} {name} placeholders, [bank_name] for synonym banks</label>
+      <textarea class="fld-text" rows="2">${escapeHtml(t.text || '')}</textarea>
+      <div class="grid">
+        <div>
+          <label>mood_min (−1000…1000, blank = any)</label>
+          <input type="number" class="fld-moodmin" min="-1000" max="1000" value="${t.mood_min !== undefined ? t.mood_min : -1000}">
+        </div>
+        <div>
+          <label>mood_max</label>
+          <input type="number" class="fld-moodmax" min="-1000" max="1000" value="${t.mood_max !== undefined ? t.mood_max : 1000}">
+        </div>
+      </div>
+      <div class="grid-3">
+        <div>
+          <label>min_cert (0–255)</label>
+          <input type="number" class="fld-mincert" min="0" max="255" value="${t.min_cert || 0}">
+        </div>
+        <div>
+          <label>min_aggr</label>
+          <input type="number" class="fld-minaggr" min="0" max="255" value="${t.min_aggr || 0}">
+        </div>
+        <div>
+          <label>min_theat</label>
+          <input type="number" class="fld-mintheat" min="0" max="255" value="${t.min_theat || 0}">
+        </div>
+      </div>
+      <label>rhetorical modes (any of)</label>
+      <div class="flags fld-rhet">
+        ${RHET_NAMES.map((n,i) =>
+          `<label><input type="checkbox" data-bit="${i}" ${((t.rhet||0)>>i)&1?'checked':''}> ${n}</label>`).join('')}
+      </div>
+      <label>stances (any of)</label>
+      <div class="flags fld-stance">
+        ${STANCE_NAMES.map((n,i) =>
+          `<label><input type="checkbox" data-bit="${i}" ${((t.stance||0)>>i)&1?'checked':''}> ${n}</label>`).join('')}
+      </div>
+    </div>
+  `;
+  const head = row.querySelector('.head');
+  head.querySelector('.toggle').addEventListener('click', e => {
+    e.stopPropagation();
+    row.classList.toggle('expanded');
+  });
+  head.querySelector('.del').addEventListener('click', e => {
+    e.stopPropagation();
+    CH.dialoguePack.templates.splice(idx, 1);
+    renderTemplatesEditor();
+  });
+  head.addEventListener('click', () => row.classList.toggle('expanded'));
+
+  const body = row.querySelector('.body');
+  body.addEventListener('click', e => e.stopPropagation());
+  const wire = (sel, fn) => body.querySelector(sel).addEventListener('input', fn);
+  wire('.fld-group',    e => { t.group = +e.target.value; refreshHead(); });
+  wire('.fld-intent',   e => { t.intent = +e.target.value; refreshHead(); });
+  wire('.fld-base',     e => { t.base = clampInt(e.target.value, 0, 100); refreshHead(); });
+  wire('.fld-text',     e => { t.text = e.target.value; refreshHead(); });
+  wire('.fld-moodmin',  e => { t.mood_min = clampInt(e.target.value, -1000, 1000); });
+  wire('.fld-moodmax',  e => { t.mood_max = clampInt(e.target.value, -1000, 1000); });
+  wire('.fld-mincert',  e => { t.min_cert = clampInt(e.target.value, 0, 255); });
+  wire('.fld-minaggr',  e => { t.min_aggr = clampInt(e.target.value, 0, 255); });
+  wire('.fld-mintheat', e => { t.min_theat = clampInt(e.target.value, 0, 255); });
+
+  body.querySelectorAll('.fld-rhet input').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const bit = +cb.dataset.bit;
+      t.rhet = ((t.rhet || 0) & ~(1 << bit)) | (cb.checked ? (1 << bit) : 0);
+    });
+  });
+  body.querySelectorAll('.fld-stance input').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const bit = +cb.dataset.bit;
+      t.stance = ((t.stance || 0) & ~(1 << bit)) | (cb.checked ? (1 << bit) : 0);
+    });
+  });
+
+  function refreshHead(){
+    const cells = head.querySelectorAll('.text-cell');
+    cells[0].textContent = G_NAMES[t.group !== undefined ? t.group : 0xFFFF] + ' · ' + INTENT_NAMES[t.intent || 0];
+    cells[1].textContent = 'base ' + (t.base !== undefined ? t.base : 30);
+    if (t.text && t.text.length){
+      cells[2].textContent = t.text;
+      cells[2].classList.remove('placeholder');
+    } else {
+      cells[2].textContent = '(empty)';
+      cells[2].classList.add('placeholder');
+    }
+  }
+  return row;
+}
+
+/* ---- patterns ---- */
+function renderPatternsEditor(){
+  const root = $('f-dlg-patterns');
+  const count = $('dlg-patterns-count');
+  root.innerHTML = '';
+  const arr = CH.dialoguePack && CH.dialoguePack.patterns;
+  if (!arr){
+    count.textContent = `(using generic pack, ${GENERIC_PATTERNS.length} patterns)`;
+    const empty = document.createElement('div');
+    empty.className = 'dlg-empty';
+    empty.textContent = 'No overrides — generic patterns are shipped with the cart.';
+    root.appendChild(empty);
+    return;
+  }
+  count.textContent = `(${arr.length} custom)`;
+  arr.forEach((p, idx) => root.appendChild(buildPatternRow(p, idx)));
+}
+
+const CLS_NAMES = ['neutral','praise','insult','question','threat','intimacy'];
+
+function buildPatternRow(p, idx){
+  const row = document.createElement('div');
+  row.className = 'dlg-row';
+  row.innerHTML = `
+    <div class="head">
+      <span class="text-cell">${escapeHtml(p.kw || '(empty)')}</span>
+      <span class="text-cell">${CLS_NAMES[p.cls || 0] || '?'}</span>
+      <span class="text-cell">→ ${G_NAMES[p.group !== undefined ? p.group : 0xFFFF]} · v${p.v||0} a${p.a||0} d${p.d||0}</span>
+      <span class="actions">
+        <button class="toggle">▾</button>
+        <button class="del">×</button>
+      </span>
+    </div>
+    <div class="body">
+      <div class="grid-3">
+        <div>
+          <label>keyword (lowercase substring)</label>
+          <input type="text" class="fld-kw" value="${escapeHtml(p.kw || '')}">
+        </div>
+        <div>
+          <label>input class</label>
+          <select class="fld-cls">
+            ${CLS_NAMES.map((n,i) => `<option value="${i}" ${i===(p.cls||0)?'selected':''}>${n}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label>template group</label>
+          <select class="fld-group">${groupOptionsHtml(p.group !== undefined ? p.group : 0xFFFF)}</select>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div>
+          <label>valence Δ (−100…100)</label>
+          <input type="number" class="fld-v" min="-100" max="100" value="${p.v||0}">
+        </div>
+        <div>
+          <label>arousal Δ (−100…100)</label>
+          <input type="number" class="fld-a" min="-100" max="100" value="${p.a||0}">
+        </div>
+        <div>
+          <label>dominance Δ (−100…100)</label>
+          <input type="number" class="fld-d" min="-100" max="100" value="${p.d||0}">
+        </div>
+      </div>
+      <label>flags</label>
+      <div class="flags">
+        <label><input type="checkbox" class="fld-intox" ${(p.flags||0)&1?'checked':''}> intoxicant (triggers embodiment)</label>
+      </div>
+    </div>
+  `;
+  const head = row.querySelector('.head');
+  head.querySelector('.toggle').addEventListener('click', e => {
+    e.stopPropagation();
+    row.classList.toggle('expanded');
+  });
+  head.querySelector('.del').addEventListener('click', e => {
+    e.stopPropagation();
+    CH.dialoguePack.patterns.splice(idx, 1);
+    renderPatternsEditor();
+  });
+  head.addEventListener('click', () => row.classList.toggle('expanded'));
+
+  const body = row.querySelector('.body');
+  body.addEventListener('click', e => e.stopPropagation());
+  const wire = (sel, fn) => body.querySelector(sel).addEventListener('input', fn);
+  wire('.fld-kw',    e => { p.kw = e.target.value.toLowerCase().slice(0, 23); refreshHead(); });
+  wire('.fld-cls',   e => { p.cls = +e.target.value; refreshHead(); });
+  wire('.fld-group', e => { p.group = +e.target.value; refreshHead(); });
+  wire('.fld-v',     e => { p.v = clampInt(e.target.value, -100, 100); refreshHead(); });
+  wire('.fld-a',     e => { p.a = clampInt(e.target.value, -100, 100); refreshHead(); });
+  wire('.fld-d',     e => { p.d = clampInt(e.target.value, -100, 100); refreshHead(); });
+  body.querySelector('.fld-intox').addEventListener('change', e => {
+    p.flags = (p.flags || 0) & ~1; if (e.target.checked) p.flags |= 1;
+  });
+
+  function refreshHead(){
+    const cells = head.querySelectorAll('.text-cell');
+    cells[0].textContent = p.kw || '(empty)';
+    cells[1].textContent = CLS_NAMES[p.cls || 0];
+    cells[2].textContent = `→ ${G_NAMES[p.group !== undefined ? p.group : 0xFFFF]} · v${p.v||0} a${p.a||0} d${p.d||0}`;
+  }
+  return row;
+}
+
+/* ---- goals ---- */
+function renderGoalsEditor(){
+  const root = $('f-dlg-goals');
+  const count = $('dlg-goals-count');
+  root.innerHTML = '';
+  const arr = CH.dialoguePack && CH.dialoguePack.goals;
+  if (!arr){
+    count.textContent = `(using generic pack, ${GENERIC_GOALS.length} goals)`;
+    const empty = document.createElement('div');
+    empty.className = 'dlg-empty';
+    empty.textContent = 'No overrides — generic goals are shipped with the cart.';
+    root.appendChild(empty);
+    return;
+  }
+  count.textContent = `(${arr.length} custom)`;
+  arr.forEach((g, idx) => root.appendChild(buildGoalRow(g, idx)));
+}
+
+function buildGoalRow(g, idx){
+  const row = document.createElement('div');
+  row.className = 'dlg-row';
+  row.innerHTML = `
+    <div class="head">
+      <span class="text-cell">${escapeHtml(g.name || '(unnamed)')}</span>
+      <span class="text-cell">prio ${g.prio || 0}</span>
+      <span class="text-cell">→ ${INTENT_NAMES[g.intent || 0]}</span>
+      <span class="actions">
+        <button class="toggle">▾</button>
+        <button class="del">×</button>
+      </span>
+    </div>
+    <div class="body">
+      <div class="grid-3">
+        <div>
+          <label>name</label>
+          <input type="text" class="fld-name" value="${escapeHtml(g.name || '')}">
+        </div>
+        <div>
+          <label>priority (0–255)</label>
+          <input type="number" class="fld-prio" min="0" max="255" value="${g.prio || 0}">
+        </div>
+        <div>
+          <label>intent</label>
+          <select class="fld-intent">${intentOptionsHtml(g.intent || 0)}</select>
+        </div>
+      </div>
+      <label>drive weights (−128…127) — positive: when this drive is over baseline, goal activates</label>
+      <div class="grid-8">
+        ${DRIVE_NAMES.map((n,i) => `
+          <div class="cell">
+            <label>${n.slice(0,5)}</label>
+            <input type="number" class="fld-dw" data-i="${i}" min="-128" max="127" value="${g.dw[i] || 0}">
+          </div>`).join('')}
+      </div>
+    </div>
+  `;
+  const head = row.querySelector('.head');
+  head.querySelector('.toggle').addEventListener('click', e => {
+    e.stopPropagation();
+    row.classList.toggle('expanded');
+  });
+  head.querySelector('.del').addEventListener('click', e => {
+    e.stopPropagation();
+    CH.dialoguePack.goals.splice(idx, 1);
+    renderGoalsEditor();
+  });
+  head.addEventListener('click', () => row.classList.toggle('expanded'));
+
+  const body = row.querySelector('.body');
+  body.addEventListener('click', e => e.stopPropagation());
+  const wire = (sel, fn) => body.querySelector(sel).addEventListener('input', fn);
+  wire('.fld-name',   e => { g.name = e.target.value.slice(0, 15); refreshHead(); });
+  wire('.fld-prio',   e => { g.prio = clampInt(e.target.value, 0, 255); refreshHead(); });
+  wire('.fld-intent', e => { g.intent = +e.target.value; refreshHead(); });
+  body.querySelectorAll('.fld-dw').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const i = +inp.dataset.i;
+      g.dw[i] = clampInt(inp.value, -128, 127);
+    });
+  });
+  function refreshHead(){
+    const cells = head.querySelectorAll('.text-cell');
+    cells[0].textContent = g.name || '(unnamed)';
+    cells[1].textContent = 'prio ' + (g.prio || 0);
+    cells[2].textContent = '→ ' + INTENT_NAMES[g.intent || 0];
+  }
+  return row;
+}
+
+/* ---- fallbacks ---- */
+function renderFallbacksEditor(){
+  const fb = CH.dialoguePack && CH.dialoguePack.fallbacks;
+  const setVal = (id, lines) => { $(id).value = (lines || []).join('\n'); };
+  if (fb){
+    setVal('f-dlg-fb1', fb.tier1);
+    setVal('f-dlg-fb2', fb.tier2);
+    setVal('f-dlg-fb3', fb.tier3);
+  } else {
+    /* show generic content as placeholder ghost — but don't activate
+     * the override until the user types. */
+    $('f-dlg-fb1').value = '';
+    $('f-dlg-fb2').value = '';
+    $('f-dlg-fb3').value = '';
+    $('f-dlg-fb1').placeholder = 'generic: ' + GENERIC_FALLBACKS.tier1.join(' / ');
+    $('f-dlg-fb2').placeholder = 'generic: ' + GENERIC_FALLBACKS.tier2.join(' / ');
+    $('f-dlg-fb3').placeholder = 'generic: ' + GENERIC_FALLBACKS.tier3.join(' / ');
+  }
+}
+
+function bindFallbackInputs(){
+  const wire = (id, tier) => {
+    $(id).addEventListener('input', e => {
+      const lines = e.target.value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 5);
+      if (lines.length === 0 && !CH.dialoguePack?.fallbacks){
+        return;          /* nothing to commit yet */
+      }
+      ensureDialoguePack();
+      if (!CH.dialoguePack.fallbacks){
+        CH.dialoguePack.fallbacks = {
+          tier1: GENERIC_FALLBACKS.tier1.slice(),
+          tier2: GENERIC_FALLBACKS.tier2.slice(),
+          tier3: GENERIC_FALLBACKS.tier3.slice(),
+        };
+      }
+      CH.dialoguePack.fallbacks[tier] = lines;
+    });
+  };
+  wire('f-dlg-fb1', 'tier1');
+  wire('f-dlg-fb2', 'tier2');
+  wire('f-dlg-fb3', 'tier3');
+}
+
+/* ---- buttons ---- */
+function clampInt(v, lo, hi){
+  let n = parseInt(v, 10);
+  if (!Number.isFinite(n)) n = 0;
+  if (n < lo) n = lo;
+  if (n > hi) n = hi;
+  return n;
+}
+
+function bindDialogueButtons(){
+  $('dlg-templates-add').addEventListener('click', () => {
+    ensureDialoguePack();
+    if (!CH.dialoguePack.templates) CH.dialoguePack.templates = [];
+    if (CH.dialoguePack.templates.length >= 256) return;
+    CH.dialoguePack.templates.push({
+      group: 0xFFFF, intent: INTENT.MONOLOGUE, base: 30,
+      mood_min: -1000, mood_max: 1000, text: ''
+    });
+    renderTemplatesEditor();
+  });
+  $('dlg-patterns-add').addEventListener('click', () => {
+    ensureDialoguePack();
+    if (!CH.dialoguePack.patterns) CH.dialoguePack.patterns = [];
+    if (CH.dialoguePack.patterns.length >= 128) return;
+    CH.dialoguePack.patterns.push({ kw: '', cls: 0, group: 0xFFFF, v: 0, a: 0, d: 0 });
+    renderPatternsEditor();
+  });
+  $('dlg-goals-add').addEventListener('click', () => {
+    ensureDialoguePack();
+    if (!CH.dialoguePack.goals) CH.dialoguePack.goals = [];
+    if (CH.dialoguePack.goals.length >= 32) return;
+    CH.dialoguePack.goals.push({
+      id: CH.dialoguePack.goals.length + 1, name: 'new_goal', prio: 20,
+      intent: INTENT.PROBE, dw: [0,0,0,0,0,0,0,0]
+    });
+    renderGoalsEditor();
+  });
+  $('dlg-load-generic').addEventListener('click', () => {
+    if (CH.dialoguePack && (CH.dialoguePack.templates || CH.dialoguePack.patterns ||
+                            CH.dialoguePack.goals || CH.dialoguePack.fallbacks)){
+      if (!confirm('Replace current overrides with the generic pack?')) return;
+    }
+    CH.dialoguePack = {
+      templates: GENERIC_TEMPLATES.map(t => Object.assign({}, t)),
+      patterns:  GENERIC_PATTERNS.map(p => Object.assign({}, p)),
+      goals:     GENERIC_GOALS.map(g => Object.assign({}, g, { dw: g.dw.slice() })),
+      fallbacks: {
+        tier1: GENERIC_FALLBACKS.tier1.slice(),
+        tier2: GENERIC_FALLBACKS.tier2.slice(),
+        tier3: GENERIC_FALLBACKS.tier3.slice(),
+      }
+    };
+    renderDialoguePack();
+  });
+  $('dlg-clear').addEventListener('click', () => {
+    if (!CH.dialoguePack) return;
+    if (!confirm('Clear all dialogue overrides? Generic pack will be used.')) return;
+    CH.dialoguePack = null;
+    renderDialoguePack();
+  });
+  bindFallbackInputs();
+}
+bindDialogueButtons();
 
 /* ---------- live preview ---------- */
 
@@ -2219,13 +2886,15 @@ function writeBankRegistry(ch){
   return w.done();
 }
 
-function writePatternTable(topics){
+function writePatternTable(topics, ch){
   const w = new BinaryWriter(SZ_PATTERN_TABLE);
   const topicByName = {};
   for (const t of topics) topicByName[t.name] = t.id;
 
-  /* generic keyword patterns + topic-keyword patterns from obsessions */
-  const all = GENERIC_PATTERNS.slice();
+  /* override-or-generic, plus topic-keyword patterns from obsessions */
+  const customP = ch && ch.dialoguePack && ch.dialoguePack.patterns;
+  const basePatterns = (customP && customP.length) ? customP : GENERIC_PATTERNS;
+  const all = basePatterns.slice();
   for (const t of topics){
     if (!t.name) continue;
     const tname = t.name.toLowerCase();
@@ -2255,12 +2924,14 @@ function writePatternTable(topics){
   return w.done();
 }
 
-function writeTemplateTable(){
+function writeTemplateTable(ch){
   const w = new BinaryWriter(SZ_TEMPLATE_TABLE);
-  const n = Math.min(GENERIC_TEMPLATES.length, PE_TEMPLATE_MAX);
+  const customT = ch && ch.dialoguePack && ch.dialoguePack.templates;
+  const templates = (customT && customT.length) ? customT : GENERIC_TEMPLATES;
+  const n = Math.min(templates.length, PE_TEMPLATE_MAX);
   w.u32(n);
   for (let i = 0; i < PE_TEMPLATE_MAX; ++i){
-    const t = GENERIC_TEMPLATES[i];
+    const t = templates[i];
     if (!t){
       /* zero-fill an empty Template (218 bytes) */
       w.pad(218);
@@ -2287,17 +2958,19 @@ function writeTemplateTable(){
   return w.done();
 }
 
-function writeFallbackTable(){
+function writeFallbackTable(ch){
   const w = new BinaryWriter(SZ_FALLBACK_TABLE);
+  const fb = (ch && ch.dialoguePack && ch.dialoguePack.fallbacks)
+             ? ch.dialoguePack.fallbacks : GENERIC_FALLBACKS;
   for (let i = 0; i < PE_FALLBACK_PER_TIER; ++i)
-    w.str(GENERIC_FALLBACKS.tier1[i] || '', PE_TEMPLATE_TEXT);
+    w.str(fb.tier1[i] || '', PE_TEMPLATE_TEXT);
   for (let i = 0; i < PE_FALLBACK_PER_TIER; ++i)
-    w.str(GENERIC_FALLBACKS.tier2[i] || '', PE_TEMPLATE_TEXT);
+    w.str(fb.tier2[i] || '', PE_TEMPLATE_TEXT);
   for (let i = 0; i < PE_FALLBACK_PER_TIER; ++i)
-    w.str(GENERIC_FALLBACKS.tier3[i] || '', PE_TEMPLATE_TEXT);
-  w.u8(Math.min(GENERIC_FALLBACKS.tier1.length, PE_FALLBACK_PER_TIER));
-  w.u8(Math.min(GENERIC_FALLBACKS.tier2.length, PE_FALLBACK_PER_TIER));
-  w.u8(Math.min(GENERIC_FALLBACKS.tier3.length, PE_FALLBACK_PER_TIER));
+    w.str(fb.tier3[i] || '', PE_TEMPLATE_TEXT);
+  w.u8(Math.min(fb.tier1.length, PE_FALLBACK_PER_TIER));
+  w.u8(Math.min(fb.tier2.length, PE_FALLBACK_PER_TIER));
+  w.u8(Math.min(fb.tier3.length, PE_FALLBACK_PER_TIER));
   w.u8(0);
   console.assert(w.pos === SZ_FALLBACK_TABLE, 'fallbacks size mismatch: ' + w.pos);
   return w.done();
@@ -2318,12 +2991,14 @@ function writeTopicTable(topics){
   return w.done();
 }
 
-function writeGoalTable(){
+function writeGoalTable(ch){
   const w = new BinaryWriter(SZ_GOAL_TABLE);
-  const n = Math.min(GENERIC_GOALS.length, PE_GOAL_MAX);
+  const customG = ch && ch.dialoguePack && ch.dialoguePack.goals;
+  const goals = (customG && customG.length) ? customG : GENERIC_GOALS;
+  const n = Math.min(goals.length, PE_GOAL_MAX);
   w.u32(n);
   for (let i = 0; i < PE_GOAL_MAX; ++i){
-    const g = GENERIC_GOALS[i] || { id:0, prio:0, intent:0, name:'', dw:[0,0,0,0,0,0,0,0] };
+    const g = goals[i] || { id:0, prio:0, intent:0, name:'', dw:[0,0,0,0,0,0,0,0] };
     w.u16(g.id);
     w.u8(g.prio);
     for (let k = 0; k < PE_DRIVE_COUNT; ++k) w.i8(g.dw[k] || 0);
@@ -2346,11 +3021,11 @@ function buildCart(ch){
     { name: 'drives.bin',             bytes: writeDriveTable(ch) },
     { name: 'today.bin',              bytes: writeTodayTable() },
     { name: 'banks.bin',              bytes: writeBankRegistry(ch) },
-    { name: 'dialogue/patterns.bin',  bytes: writePatternTable(topics) },
-    { name: 'dialogue/templates.bin', bytes: writeTemplateTable() },
-    { name: 'dialogue/fallback.bin',  bytes: writeFallbackTable() },
+    { name: 'dialogue/patterns.bin',  bytes: writePatternTable(topics, ch) },
+    { name: 'dialogue/templates.bin', bytes: writeTemplateTable(ch) },
+    { name: 'dialogue/fallback.bin',  bytes: writeFallbackTable(ch) },
     { name: 'dialogue/topics.bin',    bytes: writeTopicTable(topics) },
-    { name: 'dialogue/goals.bin',     bytes: writeGoalTable() },
+    { name: 'dialogue/goals.bin',     bytes: writeGoalTable(ch) },
   ];
   /* Optional LM section.  Engine probes for "LM " in the section table. */
   if (ch.lmBytes && ch.lmBytes.length > 0){
@@ -2424,6 +3099,16 @@ function refreshExport(){
   const lmSize = (CH.lmBytes && CH.lmBytes.length) || 0;
   const deepN  = (CH.deepMemoryEvents && CH.deepMemoryEvents.length) || 0;
   const walSize = deepN * AETHER_WAL_REC_SIZE;
+  const dp = CH.dialoguePack;
+  const dpParts = [];
+  if (dp){
+    if (dp.templates) dpParts.push(`${dp.templates.length} templates`);
+    if (dp.patterns)  dpParts.push(`${dp.patterns.length} patterns`);
+    if (dp.goals)     dpParts.push(`${dp.goals.length} goals`);
+    if (dp.fallbacks) dpParts.push('fallbacks');
+  }
+  const dpLabel = dpParts.length ? dpParts.join(', ') + ' (custom)'
+                                 : 'generic pack (no overrides)';
   dl.innerHTML = `
     <dt>name</dt>            <dd>${CH.name || '(unnamed)'}</dd>
     <dt>voice flags</dt>     <dd>${CH.identity.voice_flags.length}</dd>
@@ -2431,6 +3116,7 @@ function refreshExport(){
     <dt>deep memories</dt>   <dd>${deepN ? `${deepN.toLocaleString()} (in AETHER bundle, surfaces on specific prompts)` : 'none — author one from a chat import'}</dd>
     <dt>obsessions</dt>      <dd>${CH.identity.obsessions.length}</dd>
     <dt>banks authored</dt>  <dd>${CH.banks.filter(b => b.entries.length > 0).length} / 10</dd>
+    <dt>dialogue pack</dt>   <dd>${dpLabel}</dd>
     <dt>voice LM</dt>        <dd>${lmSize ? (lmSize/1024).toFixed(1) + ' KB' : 'none (engine will skip LM rerank)'}</dd>
     <dt>JSON size</dt>       <dd>${(json.length / 1024).toFixed(1)} KB</dd>
     <dt>.cart size</dt>      <dd>${cartSize > 0 ? (cartSize / 1024).toFixed(1) + ' KB' : 'error'}</dd>

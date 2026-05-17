@@ -243,6 +243,11 @@ forge_bundle_test: build/persona_host
 	@command -v unzip >/dev/null 2>&1 || { echo "unzip not in PATH"; exit 0; }
 	node test/forge_bundle_test.js
 
+# Custom dialogue pack overrides reach the engine.
+forge_dialogue_test: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node test/forge_dialogue_test.js
+
 character: characters/pretorius/pretorius.cart
 
 kiki_character: characters/kiki/kiki.cart
