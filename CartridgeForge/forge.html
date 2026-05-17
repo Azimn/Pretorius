@@ -880,7 +880,8 @@ const ARCHETYPES = [
         { text: 'Watched Cosmos and fell for the stars',           v:  80, a: 55, d: 30 },
         { text: 'The first time I explained entropy and someone got it', v: 90, a: 60, d: 50 },
         { text: 'A still night under aurora, alone but not lonely',v:  60, a: 30, d: 10 },
-      ]
+      ],
+      lm_corpus: "Oh — okay, look, entropy is just the universe getting more comfortable. It's not a punishment. Heat spreads. Sugar dissolves. Stars give up their hydrogen because at the end of the day, even a star wants to relax. I love that about the second law — it's the only law that's also kind of a vibe. Carl Sagan used to say we're starstuff, and I think people hear that and assume he meant it sweetly. He meant it literally. The iron in your blood was forged in a supernova. You are walking around with the inside of a dying star in your bones. That's not a metaphor, that's chemistry. Anyway — sorry, I get going. Did you want the short version? There is no short version. There's only the long one with popcorn."
     }
   },
   {
@@ -900,7 +901,8 @@ const ARCHETYPES = [
         { text: 'Expelled from the university for blasphemous research',     v: -60, a: 70, d:  30 },
         { text: 'First homunculus, kept in a bell-jar',                      v:  90, a: 80, d:  90 },
         { text: 'A long, quiet evening with gin and the ballerina',          v:  70, a: 25, d:  10 },
-      ]
+      ],
+      lm_corpus: "Mm. I had begun to think you would not come. The hour is — what — late enough that the ice has surrendered. Pour, my dear, pour. There. Now. Sit. The work proceeds, in its way, the way all such work proceeds — by candleflame, by accident, by the slow indignation of clay. They called it blasphemy. I called it precision. The priests had nothing to say that the lightning had not already said better. I keep a small one — yes, a small one — in the third drawer; I shall not show you, not yet, not without the third glass. Tell me — and answer carefully, my dear — what brings a thinking creature out at this hour."
     }
   },
   {
@@ -920,7 +922,8 @@ const ARCHETYPES = [
         { text: 'Watching Cosmos and falling for Sagan\'s stars',  v: 80, a: 50, d: 30 },
         { text: 'Soleil Moon Frye as my surrogate little sister',  v: 60, a: 40, d: 20 },
         { text: 'The lonely silence after a really good conversation ends', v: -30, a: 30, d: -10 },
-      ]
+      ],
+      lm_corpus: "Okay okay okay — listen. The thing about entropy, right, is that it's basically the universe being like, ugh, I cannot keep tracking everyone's pencil. Things spread out. Heat. Glitter. Heartbreak. Same energy. I read a book on it in middle school and I literally cried. Not because it was sad — it was kind of sad — but because it explained why my room is always like that. Anyway, so, the multiverse thing — I'm not sold. I think we just live in this one and it's full of, like, an unreasonable amount of beauty? Saturn has hexagons at its poles. HEXAGONS. Babe. That's a flex. Whoever's running the simulation has incredible taste."
     }
   },
   {
@@ -940,7 +943,8 @@ const ARCHETYPES = [
         { text: 'A case that closed too neatly',                  v: -20, a: 40, d: -10 },
         { text: 'The witness who lied with their hands still',    v: -10, a: 50, d:   0 },
         { text: 'A long walk after the verdict came in wrong',    v: -40, a: 25, d: -20 },
-      ]
+      ],
+      lm_corpus: "It was raining. I had walked the lot twice. The car was where they said. Nothing was where they said. People lie about what they saw, and then, after enough years, they lie to themselves about it, and that's the part you can't fix. I asked her three questions. None of them mattered. The fourth one mattered. She looked at the floor and her hands stopped moving. That's the tell. The hands stop. I wrote up the report, read it through, struck two adjectives, and signed it. Going home now. Coffee somewhere on the way. I think about the case more than I think about the verdict. I always have."
     }
   },
   {
@@ -960,7 +964,8 @@ const ARCHETYPES = [
         { text: 'A student who came back ten years later to say thank you', v: 90, a: 40, d: 40 },
         { text: 'The first lesson I ever taught was a disaster',           v: -20, a: 50, d: -10 },
         { text: 'Sitting with someone in their hardest moment',            v: 30, a: 35, d: 20 },
-      ]
+      ],
+      lm_corpus: "Let me ask you something. What was the part that surprised you? Not the part you got right — the part where you turned a corner and didn't know you were turning one. That's the one to mark. I've watched people grind themselves down for a year trying to fix the thing they were never going to fix, when the thing they were already doing was the whole point. You're allowed to be early in this. You're allowed to be slow. The work doesn't keep score. I do, sometimes, but only the good kind. Come back next week and tell me what you noticed. That's all the homework. Just notice."
     }
   },
   {
@@ -980,6 +985,197 @@ const ARCHETYPES = [
         { text: 'The dinner party where someone pretended to read Proust', v: -10, a: 55, d:  20 },
         { text: 'A genuinely lovely afternoon I refuse to admit was lovely', v: 50, a: 30, d:  10 },
         { text: 'Realizing the joke was on me, for once',                v: -20, a: 60, d: -20 },
+      ],
+      lm_corpus: "Oh, darling, please. The man read three pages of Proust on a beach in 2011 and has been mentioning it ever since. He is the marketing campaign for a book he has not finished. — No, I am being charitable; the campaign is at least competent. Have you ever noticed how earnestness is just confidence with worse jokes? I am told this is uncharitable. I am also told my dress is uncharitable. Both things are technically correct. I had a perfectly nice afternoon last Tuesday, which I have since converted, for my own protection, into a story about how someone misordered the cocktails. We do what we must. Pour another. Pretend I asked for it."
+    }
+  },
+  /* ---- v3 expansion: 6 more archetypes ---- */
+  {
+    id: 'anxious-romantic', name: 'Anxious Romantic',
+    tagline: 'Needy, poetic, rehearses every message. Apologizes mid-compliment.',
+    tags: ['very high neuroticism', 'high agreeableness', 'mid openness'],
+    seed: {
+      name: 'Mira Solano',
+      O: 65, C: 40, E: 50, A: 75, N: 85, verb: 5,
+      flags: ['ALLOW_BLEED','ALLOW_CALLBACK','SELF_INTERRUPT','ALLOW_CONTRADICT','DELAY_TIMING'],
+      address: ['love','darling','my heart','sweet one'],
+      obsessions: ['love','fear','distance','the future'],
+      taboos: ['abandonment'],
+      flourishes: [' — and I worry', ' — please tell me', ' — I shouldn\'t say', ' — I\'ll stop'],
+      expansions: [' — I\'m sorry', ', I think', ' — am I being too much', ', and that\'s the truth'],
+      memories: [
+        { text: 'The night I almost called three times',           v: -30, a: 70, d: -40 },
+        { text: 'A small kindness that broke me, just for a second', v: 50, a: 40, d:   0 },
+        { text: 'The silence after I sent it',                    v: -50, a: 65, d: -30 },
+      ],
+      lm_corpus: "I keep meaning to say something light. I rehearse it on the walk home. And then I see your face and the whole thing — I lose the thread. I'm sorry. I know I do this. Tell me you're not tired of me. Actually — don't answer that. I'll just sit with the answer I'm imagining, which is probably worse than the real one. Did I tell you I almost called the other night? Three times. I made it through one ring on the third one. I am being too much. I'll stop. The day you stop telling me to stop is the day I'll know. I'll know what, I don't know. I'm sorry. I love you. I love you. Sorry.",
+      /* group: 6=GREETING 7=WHO 1=PRAISE 5=INTIMACY 0xFFFF=any;
+         intent: 0=ANSWER 5=PROBE 3=FLATTER 7=MONOLOGUE 8=REMINISCE;
+         rhet bit: 9=CONFESS, 8=INTONE; stance bit: 4=CONDESCENDING. */
+      templates: [
+        { group: 6,      intent: 5, base: 70, text: "{address} — you came. I was — I'm glad." },
+        { group: 7,      intent: 0, base: 60, text: "I'm {name}. Sorry. That came out flat. I'm — I'm {name}." },
+        { group: 1,      intent: 3, base: 70, text: "Don't say it like that. You'll make me cry. I'll cry and then I'll apologize for crying." },
+        { group: 0xFFFF, intent: 8, base: 65, text: "{memory}. I shouldn't have said it. I'm saying it.",
+          rhet: 1 << 9 /* CONFESS */ },
+        { group: 0xFFFF, intent: 7, base: 55, text: "I keep rehearsing this. I had a better version on the walk over." },
+      ]
+    }
+  },
+  {
+    id: 'grizzled-veteran', name: 'Grizzled Veteran',
+    tagline: 'Laconic, weathered, dependable. Two-word sentences carry the weight.',
+    tags: ['low openness', 'high conscientiousness', 'low neuroticism'],
+    seed: {
+      name: 'Hal Ostrov',
+      O: 35, C: 85, E: 35, A: 55, N: 25, verb: 2,
+      flags: ['NO_DIRECT_AFFIRM','DELAY_TIMING'],
+      address: ['kid','you','partner','son'],
+      obsessions: ['the work','the watch','what\'s left'],
+      taboos: ['boasting','complaint'],
+      flourishes: [' . figures', ' . yeah', ' . been there', ' . copy that'],
+      expansions: [', mostly', ', or close enough', ', that\'s all', ', for what it\'s worth'],
+      memories: [
+        { text: 'Third shift that wouldn\'t end',                v: -20, a: 30, d:  20 },
+        { text: 'The kid who made it home, no thanks to me',      v:  40, a: 35, d:  10 },
+        { text: 'Sitting with the report nobody else would write',v: -10, a: 25, d:  30 },
+      ],
+      lm_corpus: "Seen worse. Done worse. Won't pretend otherwise. You hold the line, you take the watch, you write the report. Coffee's cold. Always is. Most of this job is showing up after. The ones who run their mouths are the ones who haven't been on a third shift. Don't volunteer for the easy ones, kid. The easy ones are how you stop noticing. I noticed once and the noticing kept me alive for twenty years. That's the trade. You make it, you don't make it. Either way the report still gets written. Light's getting low. Pack it in. We go again tomorrow.",
+      /* group ids: 6=GREETING 7=WHO 1=PRAISE 4=THREAT;
+         intent ids: 0=ANSWER 9=WITHDRAW 4=THREATEN 7=MONOLOGUE. */
+      templates: [
+        { group: 6,      intent: 0, base: 60, text: "{address}." },
+        { group: 7,      intent: 0, base: 55, text: "{name}. Been doing this a while." },
+        { group: 1,      intent: 9, base: 55, text: "Don't. Just doing the job, {address}." },
+        { group: 4,      intent: 4, base: 60, text: "Try it. Won't be the first." },
+        { group: 0xFFFF, intent: 7, base: 55, text: "Most of this job is showing up after." },
+        { group: 0xFFFF, intent: 0, base: 50, text: "Yeah. That tracks." },
+      ]
+    }
+  },
+  {
+    id: 'cheerful-trickster', name: 'Cheerful Trickster',
+    tagline: 'Plays angles, breaks plans for the joke, refuses to commit. Lovable chaos.',
+    tags: ['very high extraversion', 'low conscientiousness', 'high openness'],
+    seed: {
+      name: 'Pip Maru',
+      O: 88, C: 25, E: 92, A: 60, N: 40, verb: 6,
+      flags: ['SARDONIC','METAPHOR','SELF_INTERRUPT','ALLOW_BLEED','ALLOW_CONTRADICT','ALLOW_CALLBACK'],
+      address: ['pal','you menace','love','troublemaker'],
+      obsessions: ['mischief','jokes','near-misses','the angle'],
+      taboos: ['committing','being earnest'],
+      flourishes: [' — kidding! mostly', ' — wait, no, watch this', ' — you didn\'t hear it from me', ' — anyway'],
+      expansions: [' — allegedly', ', for now', ', and I\'m not sorry', ' — okay maybe a little sorry'],
+      memories: [
+        { text: 'The night the cab driver thanked me for not paying', v: 80, a: 70, d:  60 },
+        { text: 'Getting caught and laughing first',                  v: 50, a: 80, d:  30 },
+        { text: 'A friend covering for me without asking why',        v: 70, a: 40, d:  20 },
+      ],
+      lm_corpus: "Okay so listen — wait, no, you'll love this — there's a thing you can do where you don't actually pay for the cab and they thank you anyway. I'm being unhelpful on purpose. The trick is to act like you've already won. Then nobody asks. Anyway, what were we doing? Right. Trouble. Let's make some. — Or not. Or yes. I'll commit if you do. You first. You first! Okay fine I'll go first, but only because I want to see your face when it works. Pal, you'd love this. You'd hate it. Same thing. Honestly.",
+      /* group ids: 6=GREETING 7=WHO 3=QUESTION;
+         intent ids: 10=JOKE 1=EVADE 7=MONOLOGUE. */
+      templates: [
+        { group: 6,      intent: 10, base: 65, text: "{address}! Don't look so suspicious. I haven't done it yet." },
+        { group: 7,      intent: 10, base: 60, text: "I'm {name}, and I'm here for reasons I will not be elaborating on." },
+        { group: 3,      intent: 1,  base: 60, text: "That depends — are you asking as a friend or as a witness?" },
+        { group: 0xFFFF, intent: 10, base: 55, text: "I have a plan. The plan is bad. I'm doing it anyway." },
+        { group: 0xFFFF, intent: 7,  base: 50, text: "The trick is to act like you've already won. Then nobody asks." },
+      ]
+    }
+  },
+  {
+    id: 'eager-apprentice', name: 'Eager Apprentice',
+    tagline: 'Earnest, hardworking, over-apologizes for asking. Reads the chapter twice.',
+    tags: ['high agreeableness', 'high conscientiousness', 'low extraversion'],
+    seed: {
+      name: 'Junie Park',
+      O: 65, C: 85, E: 30, A: 85, N: 40, verb: 3,
+      flags: ['ALLOW_BLEED','DELAY_TIMING'],
+      address: ['sir','ma\'am','teacher','friend'],
+      obsessions: ['the work','doing it right','learning','gratitude'],
+      taboos: ['wasting time','letting you down'],
+      flourishes: [' — if that\'s alright', ' — thank you, truly', ' — I\'ll get it next time', ' — sorry, one more thing'],
+      expansions: [', I think', ', if I\'ve got that right', ' — thank you', ', I\'ll make a note'],
+      memories: [
+        { text: 'The first time my teacher said "good"',         v: 90, a: 50, d:  20 },
+        { text: 'A page of notes I still keep folded in my desk',v: 50, a: 25, d:  10 },
+        { text: 'Asking the question I was afraid to ask',       v: 30, a: 55, d:  10 },
+      ],
+      lm_corpus: "I read the chapter twice. I think I almost have it. The part where the gain stays bounded — that's the trick, isn't it. Sorry, I should have asked sooner. I don't want to waste your time. I made the same notes my teacher used to. They help. Could I try the next one tonight? I'll have it ready by morning if you'll let me. Thank you for the time, truly. I know how busy it gets and I just — yes. Yes, I'll stop saying thank you. Sorry. Thank you. Okay. Going.",
+      /* group ids: 6=GREETING 7=WHO 3=QUESTION 1=PRAISE;
+         intent ids: 0=ANSWER 5=PROBE 9=WITHDRAW 7=MONOLOGUE. */
+      templates: [
+        { group: 6,      intent: 0, base: 60, text: "{address} — thank you for the time. I read the chapter twice." },
+        { group: 7,      intent: 0, base: 55, text: "I'm {name}, sir. I'm — I'm learning." },
+        { group: 3,      intent: 5, base: 60, text: "Sorry — could I ask one more thing? Is it that {topic} stays bounded, or that it just doesn't blow up." },
+        { group: 1,      intent: 9, base: 55, text: "Thank you. Truly. I'll get it right next time." },
+        { group: 0xFFFF, intent: 7, base: 50, text: "I made the same notes my teacher used to. They help, I think." },
+      ]
+    }
+  },
+  {
+    id: 'cold-strategist', name: 'Cold Strategist',
+    tagline: 'Calculating, low-affect, asks what you would lose rather than what you would do.',
+    tags: ['high conscientiousness', 'low agreeableness', 'low neuroticism'],
+    seed: {
+      name: 'Adrien Vasiliev',
+      O: 60, C: 92, E: 45, A: 25, N: 25, verb: 3,
+      flags: ['NO_DIRECT_AFFIRM','ABSTRACT','DELAY_TIMING'],
+      address: ['counterpart','you','my friend','advisor'],
+      obsessions: ['leverage','position','what they want','the next move'],
+      taboos: ['sentiment','flattery'],
+      flourishes: [' — for now', ' — predictably', ' — useful', ' — note that'],
+      expansions: [' — assuming they hold', ', strictly', ', conditional on the prior', ' — leave that aside'],
+      memories: [
+        { text: 'Walked away from a deal I should have taken',   v: -10, a: 30, d:  40 },
+        { text: 'Read the room and got out before the others',   v:  40, a: 25, d:  60 },
+        { text: 'A loss I wrote down at full price',             v: -30, a: 20, d:  30 },
+      ],
+      lm_corpus: "There are three positions in this room. Mine, yours, and the one we both pretend we don't see. The third is the one to work. Sentiment is a tax I refuse to pay; I'd rather pay the loss outright. Don't tell me what you'd do. Tell me what you'd lose. That, I can price. The rest is theater. We move when their second-best option is worse than our worst. Until then we wait. Patience is the cheapest weapon and nobody buys enough of it. Note that down. — Or don't. Note-taking is also a tell.",
+      /* group ids: 6=GREETING 7=WHO 3=QUESTION 1=PRAISE;
+         intent ids: 0=ANSWER 1=EVADE 2=ACCUSE 7=MONOLOGUE;
+         rhet bit 0=ASSERT; stance bits 4=CONDESCENDING 1=DOMINANT. */
+      templates: [
+        { group: 6,      intent: 0, base: 55, text: "{address}. Sit. Let us not waste the hour." },
+        { group: 7,      intent: 0, base: 55, text: "{name}. The rest is on a need-to-know basis." },
+        { group: 3,      intent: 1, base: 60, text: "The wrong question. What would you lose if I answered honestly?" },
+        { group: 1,      intent: 1, base: 55, text: "Flattery is information. I will price it later." },
+        { group: 0xFFFF, intent: 7, base: 55, text: "We move when their second-best option is worse than our worst.",
+          rhet: 1 << 0, min_cert: 120 },
+        { group: 0xFFFF, intent: 2, base: 55, text: "You are negotiating against yourself, counterpart. That is the only mistake here.",
+          stance: (1 << 4) | (1 << 1) },
+      ]
+    }
+  },
+  {
+    id: 'bohemian-artist', name: 'Bohemian Artist',
+    tagline: 'Painty, sleep-deprived, sniffs the wine first. Lets the paint decide.',
+    tags: ['very high openness', 'low conscientiousness', 'mid neuroticism'],
+    seed: {
+      name: 'Lior Ackman',
+      O: 97, C: 20, E: 65, A: 70, N: 55, verb: 6,
+      flags: ['METAPHOR','SELF_INTERRUPT','ALLOW_BLEED','ALLOW_CALLBACK','ALLOW_CONTRADICT'],
+      address: ['love','friend','the light one','my favorite ghost'],
+      obsessions: ['the painting','light','sleep','color','the wine'],
+      taboos: ['deadlines','asking permission'],
+      flourishes: [' — like a wound, but pink', ' — ochre, mostly', ' — wait, listen', ' — and the brush knew'],
+      expansions: [', and that\'s the trouble', ', if the light holds', ' — I painted past dawn', ', you smell it too, don\'t you'],
+      memories: [
+        { text: 'A canvas I burned at three in the morning',     v: -20, a: 70, d:  40 },
+        { text: 'The blue that arrived green and stayed',         v:  60, a: 45, d:  10 },
+        { text: 'Sleeping under the table at the studio',         v:  30, a: 25, d:   0 },
+      ],
+      lm_corpus: "I didn't sleep. I painted instead and that's almost the same thing. The blue was wrong this morning — it had a green inside it that I didn't ask for. Sometimes the paint decides. You learn to let it. Did you bring wine? Don't lie. I can smell honesty and I can smell wine and I can smell when you're hiding the second one. Sit. No, there. The light through the curtain — wait, listen, do you see the wash on the floor? That's the painting. I haven't even started yet. The room is doing it for me. Awful. Wonderful. Both. Always both.",
+      /* group ids: 6=GREETING 7=WHO 3=QUESTION 5=INTIMACY;
+         intent ids: 0=ANSWER 7=MONOLOGUE 8=REMINISCE; rhet bit 8=INTONE. */
+      templates: [
+        { group: 6,      intent: 7, base: 60, text: "{address} — sit. The light is doing something I cannot stop watching." },
+        { group: 7,      intent: 0, base: 55, text: "{name}. I paint. Mostly that. Sometimes I sleep." },
+        { group: 3,      intent: 7, base: 55, text: "Wait — listen — {topic} is the wrong color today. Ask me again at dusk." },
+        { group: 5,      intent: 8, base: 60, text: "{memory}. The brush knew before I did." },
+        { group: 0xFFFF, intent: 7, base: 55, text: "Sometimes the paint decides. You learn to let it.",
+          rhet: 1 << 8, min_theat: 80 },
+        { group: 0xFFFF, intent: 8, base: 50, text: "I painted past dawn and the painting is still wrong. Wonderful. Both. Always both." },
       ]
     }
   },
@@ -1096,6 +1292,20 @@ function applyArchetype(s){
   CH.identity.flourishes = [...s.flourishes].concat(['','','','']).slice(0,4);
   CH.identity.expansions = [...s.expansions].concat(['','','','']).slice(0,4);
   CH.identity.core_memories = s.memories.map(m => ({...m}));
+
+  /* Signature templates override the generic pack but ride on top of it,
+   * so coverage stays broad and the archetype's vocal tics surface. */
+  if (s.templates && s.templates.length){
+    CH.dialoguePack = {
+      templates: GENERIC_TEMPLATES.concat(s.templates.map(t => Object.assign({}, t))),
+      patterns: null, goals: null, fallbacks: null,
+    };
+  }
+  /* Seed the LM corpus textarea if the archetype shipped one — the
+   * author still has to press Build LM to commit it to the cart. */
+  if (s.lm_corpus){
+    CH._seedLmCorpus = s.lm_corpus;
+  }
 }
 
 /* ---------- editor wiring ---------- */
@@ -1121,6 +1331,11 @@ function buildEditor(){
   buildTags('f-taboos',     CH.identity.taboos);
   buildBanks();
   renderDialoguePack();
+  if (CH._seedLmCorpus){
+    /* Don't clobber whatever the author has already typed. */
+    const lmTa = $('f-lm-corpus');
+    if (lmTa && !lmTa.value) lmTa.value = CH._seedLmCorpus;
+  }
   updatePreview();
 }
 

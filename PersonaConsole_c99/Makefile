@@ -248,6 +248,11 @@ forge_dialogue_test: build/persona_host
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node test/forge_dialogue_test.js
 
+# Every archetype in the gallery builds + replies through persona_host.
+forge_archetypes_test: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node test/forge_archetypes_test.js
+
 character: characters/pretorius/pretorius.cart
 
 kiki_character: characters/kiki/kiki.cart
