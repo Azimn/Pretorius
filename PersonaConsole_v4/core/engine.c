@@ -8,6 +8,7 @@
 #include "identity.h"
 #include "environment.h"
 #include "../render/render_backend.h"   /* v4: renderer dispatch */
+#include "../memory/affect_curve.h"     /* v4: nonlinear affect */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -57,9 +58,26 @@ void pe_decay_drives(Engine *eng, uint32_t delta_ms){
             accel += (traits[k] * d->personality_weight[k]) >> 16; /* 0.16 fixed */
         step += (step * accel) / 0x1000;
 
+        /* V4 priority 4: salience-weighted decay.  Drives far from
+         * baseline carry "emotional inertia" — they decay slower than
+         * mild perturbations, matching how affect actually persists.
+         * The shape comes from affect_decay (squared inverse salience),
+         * applied to the signed delta-from-baseline. */
         int32_t v = eng->state.drive_values[i];
-        if (v > d->baseline) v -= step > 0 ? step : -step;
-        else if (v < d->baseline) v += step > 0 ? step : -step;
+        int32_t delta = v - d->baseline;
+        if (step != 0 && delta != 0){
+            int abs_delta = delta < 0 ? -delta : delta;
+            int salience = abs_delta;            /* 0..1000 */
+            /* rate is the linear step expressed as per-mille of full
+             * range — affect_decay's domain expects 0..1000 base rate */
+            int base_rate = (int)((step * 1000) / 1000);
+            if (base_rate < 1) base_rate = 1;
+            if (base_rate > 1000) base_rate = 1000;
+            int16_t new_delta = affect_decay((int16_t)delta,
+                                             (int16_t)salience,
+                                             base_rate);
+            v = (int32_t)d->baseline + new_delta;
+        }
         eng->state.drive_values[i] = pe_clamp16(v, 0, 1000);
     }
     /* fatigue creeps up over time, repose drains it */
@@ -89,7 +107,15 @@ void pe_compute_mood(Engine *eng){
     }
     /* fatigue depresses mood */
     m -= eng->state.fatigue / 4;
-    eng->state.mood = pe_clamp16(m, -1000, 1000);
+
+    /* V4 priority 4: mood hysteresis.  Compute the target mood from
+     * drives + bleed + fatigue as before, then move toward it via
+     * affect_hysteresis_apply rather than snapping.  This prevents
+     * the "emotional pinball" failure mode where mood flips with
+     * every input — replaces it with emotional inertia. */
+    int target = (int)pe_clamp16(m, -1000, 1000);
+    int delta  = target - (int)eng->state.mood;
+    eng->state.mood = affect_hysteresis_apply(eng->state.mood, delta);
 }
 
 /* ---------- drives respond to classified input ---------- */
