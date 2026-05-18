@@ -58,6 +58,9 @@ MEMORY_SRC := \
 SCHEMA_SRC := \
     schema/schema_state.c
 
+INSTRUMENTATION_SRC := \
+    instrumentation/state_trace.c
+
 RENDER_TEMPLATES_SRC := \
     render/templates/dialogue.c        \
     render/templates/voice.c           \
@@ -69,7 +72,7 @@ RENDER_CORE_SRC := \
     render/slm/slm_backend.c \
     render/providers/ollama_provider.c
 
-ENGINE_SRC := $(CORE_SRC) $(MEMORY_SRC) $(SCHEMA_SRC) \
+ENGINE_SRC := $(CORE_SRC) $(MEMORY_SRC) $(SCHEMA_SRC) $(INSTRUMENTATION_SRC) \
               $(RENDER_TEMPLATES_SRC) $(RENDER_CORE_SRC)
 
 # LSH subsystem (SimHash + consolidation) — self-contained.
@@ -136,6 +139,8 @@ build/%.o: core/%.c $(CORE_HEADERS) $(MEMORY_HEADERS) $(RENDER_HEADERS) | build
 build/%.o: memory/%.c $(CORE_HEADERS) $(MEMORY_HEADERS) $(RENDER_HEADERS) | build
 	$(CC) $(CFLAGS) -c $< -o $@
 build/%.o: schema/%.c $(CORE_HEADERS) $(MEMORY_HEADERS) | build
+	$(CC) $(CFLAGS) -c $< -o $@
+build/%.o: instrumentation/%.c instrumentation/state_trace.h | build
 	$(CC) $(CFLAGS) -c $< -o $@
 build/%.o: render/%.c $(CORE_HEADERS) $(MEMORY_HEADERS) $(RENDER_HEADERS) render/render_backend.h render/prompt_compiler.h | build
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -291,7 +296,13 @@ v4_schema_run: build/persona_host
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/replay/schema_integration_test.js
 
-v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run
+build/v4_instr_test: tests/replay/instrumentation_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) tests/replay/instrumentation_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+v4_instr_run: build/v4_instr_test
+	./build/v4_instr_test
+
+v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run v4_instr_run
 	@echo "--- V4 tests: green ---"
 
 # ----- profile sanity drivers -----

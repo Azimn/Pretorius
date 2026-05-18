@@ -9,6 +9,7 @@
 #include "environment.h"
 #include "../render/render_backend.h"   /* v4: renderer dispatch */
 #include "../memory/affect_curve.h"     /* v4: nonlinear affect */
+#include "../instrumentation/state_trace.h"  /* v4: observability */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -555,7 +556,13 @@ int persona_process_input(Engine *eng,
                 (int16_t)eng->identity.agreeableness,
                 (int16_t)eng->identity.neuroticism,
             };
+            int prev = eng->schema.slot[SCHEMA_USER_HOSTILE +
+                       (evt == SCHEMA_EVT_INSULTED_US ? 0 :
+                        evt == SCHEMA_EVT_THREATENED_US ? 0 : -1)];
+            (void)prev;
             schema_apply_event(&eng->schema, (SchemaEvent)evt, magnitude, traits);
+            trace_emit(eng->state.turn_count, PE_TRACE_SCHEMA_EVENT,
+                       evt, magnitude, "schema_event", NULL);
         }
         /* Every turn ticks the schema decay, even when no event fires. */
         schema_tick(&eng->schema);
@@ -642,6 +649,8 @@ int persona_process_input(Engine *eng,
             RenderResult res;
             memset(&res, 0, sizeof(res));
             be->render(be, &ctx, &res);
+            trace_render_dispatch(eng->state.turn_count, be->name,
+                                  res.latency_ms, res.output_len, res.flags);
             /* bit 0: backend deferred to legacy path.  bit 1: backend
              * unavailable, fall back.  Either way drop to legacy. */
             if (res.output_len > 0 && !(res.flags & 0x3u)){
@@ -650,6 +659,10 @@ int persona_process_input(Engine *eng,
                 memcpy(out, res.output, copy);
                 out[copy] = 0;
                 goto post_render;
+            }
+            if (res.flags & 0x2u){
+                trace_emit(eng->state.turn_count, PE_TRACE_RENDER_FALLBACK,
+                           0, 0, be->name, "unavailable→template");
             }
         }
     }
