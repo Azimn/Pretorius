@@ -302,7 +302,20 @@ build/v4_instr_test: tests/replay/instrumentation_test.c build/libpersona.a buil
 v4_instr_run: build/v4_instr_test
 	./build/v4_instr_test
 
-v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run v4_instr_run
+# Canonical continuity benchmark — measures the properties the AI
+# industry does NOT measure: emotional persistence, schema stability,
+# relational continuity, autobiographical consistency, renderer
+# invariance.  Pass threshold = 60/100.
+v4_continuity_run: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/continuity_benchmark.js
+
+v4_continuity_kiki: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	CART_OBSESSIONS="physics,entropy,Sagan,Scully,babe,cosmos" \
+	  node tests/continuity/continuity_benchmark.js profiles/kiki/kiki.cart
+
+v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run v4_instr_run v4_continuity_run
 	@echo "--- V4 tests: green ---"
 
 # ----- profile sanity drivers -----
