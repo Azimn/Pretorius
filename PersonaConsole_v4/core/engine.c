@@ -503,6 +503,38 @@ int persona_process_input(Engine *eng,
     eng->state.prev_input_emotion = eng->state.last_input_emotion;
     eng->state.last_input_emotion = ev;
 
+    /* V4 priority 3: translate the canonical input class into a symbolic
+     * schema event and apply it to the active relation's belief state.
+     * input_class is set by pe_classify_input — character-agnostic,
+     * pattern-table-driven, no text reaches schema_apply_event. */
+    {
+        int evt = -1;
+        switch (eng->input_class){
+        case 1: evt = SCHEMA_EVT_PRAISED_US;     break;
+        case 2: evt = SCHEMA_EVT_INSULTED_US;    break;
+        case 4: evt = SCHEMA_EVT_THREATENED_US;  break;
+        case 5: evt = SCHEMA_EVT_CONFIDED_IN_US; break;
+        default: break;
+        }
+        if (evt >= 0){
+            /* Magnitude derived from arousal (0..100 → 0..200) so loud
+             * insults register harder than mild ones, deterministically. */
+            int magnitude = (int)ev.arousal * 2;
+            if (magnitude < 0)   magnitude = 0;
+            if (magnitude > 255) magnitude = 255;
+            int16_t traits[5] = {
+                (int16_t)eng->identity.openness,
+                (int16_t)eng->identity.conscientiousness,
+                (int16_t)eng->identity.extraversion,
+                (int16_t)eng->identity.agreeableness,
+                (int16_t)eng->identity.neuroticism,
+            };
+            schema_apply_event(&eng->schema, (SchemaEvent)evt, magnitude, traits);
+        }
+        /* Every turn ticks the schema decay, even when no event fires. */
+        schema_tick(&eng->schema);
+    }
+
     /* 3b. v3.0: predictive coding — compare last turn's prediction to
      * actual; write surprise_last + update prediction_error_accum; jolt
      * acute_spike on large mismatches.  Skipped on turn 1 (no prediction). */
@@ -576,7 +608,7 @@ int persona_process_input(Engine *eng,
         ctx.memories  = &mem;
         ctx.plan      = &eng->plan;
         ctx.relation  = &eng->relation;
-        ctx.schema    = NULL;          /* wired in priority 3 */
+        ctx.schema    = &eng->schema;
         ctx.seed      = eng->state.rng_state;
 
         RenderBackend *be = render_backend_default();

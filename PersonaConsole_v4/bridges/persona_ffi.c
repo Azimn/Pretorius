@@ -119,7 +119,10 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"voice_delta\":%d,"
         "\"voice_choice\":%u,"
         "\"disposition\":%d,"
-        "\"user_id\":\"%s\"}",
+        "\"user_id\":\"%s\","
+        "\"schema\":{\"trustworthy\":%d,\"hostile\":%d,\"intimate\":%d,"
+                    "\"competent\":%d,\"deceptive\":%d,\"owed\":%d,"
+                    "\"owes\":%d,\"dignity\":%d}}",
         eng->identity.character_name,
         eng->state.mood,
         intent_name(eng->state.current_intent),
@@ -133,6 +136,14 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         eng->state.last_voice_delta,
         eng->state.last_voice_choice,
         eng->relation.disposition,
-        s->user_id);
+        s->user_id,
+        (int)eng->schema.slot[SCHEMA_USER_TRUSTWORTHY],
+        (int)eng->schema.slot[SCHEMA_USER_HOSTILE],
+        (int)eng->schema.slot[SCHEMA_USER_INTIMATE],
+        (int)eng->schema.slot[SCHEMA_USER_COMPETENT],
+        (int)eng->schema.slot[SCHEMA_USER_DECEPTIVE],
+        (int)eng->schema.slot[SCHEMA_RELATIONSHIP_OWED],
+        (int)eng->schema.slot[SCHEMA_RELATIONSHIP_OWES],
+        (int)eng->schema.slot[SCHEMA_SELF_DIGNITY]);
     return n;
 }

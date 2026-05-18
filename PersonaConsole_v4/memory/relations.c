@@ -1,4 +1,4 @@
-/* relations.c — per-user relation files. */
+/* relations.c — per-user relation files + V4 schema persistence. */
 #include "persona.h"
 #include "persona_internal.h"
 #include <stdio.h>
@@ -12,6 +12,15 @@ static int relation_path(Engine *eng, uint32_t hash, char *out, size_t n){
     if (pe_path_join(rel_dir, sizeof(rel_dir), base, "relations") != 0) return -1;
     pe_mkdir_p(rel_dir);
     int w = snprintf(out, n, "%s/%08x.bin", rel_dir, hash);
+    return (w > 0 && (size_t)w < n) ? 0 : -1;
+}
+
+static int schema_path(Engine *eng, uint32_t hash, char *out, size_t n){
+    char rel_dir[256];
+    char base[256];
+    snprintf(base, sizeof(base), "%.220s", eng->char_dir);
+    if (pe_path_join(rel_dir, sizeof(rel_dir), base, "relations") != 0) return -1;
+    int w = snprintf(out, n, "%s/%08x.schema", rel_dir, hash);
     return (w > 0 && (size_t)w < n) ? 0 : -1;
 }
 
@@ -49,6 +58,16 @@ int pe_load_relation(Engine *eng, const char *user_id){
     }
     eng->state.user_id_hash = h;
     eng->state.trust_user   = eng->relation.disposition; /* cached */
+
+    /* V4: load the per-relation schema (compressed beliefs).  No file =
+     * fresh acquaintance, init to zero. */
+    char spath[512];
+    schema_path(eng, h, spath, sizeof(spath));
+    SchemaState fresh; schema_state_init(&fresh);
+    if (pe_read_file(spath, &eng->schema, sizeof(SchemaState)) != 0
+        || eng->schema.version != fresh.version){
+        eng->schema = fresh;
+    }
     return 0;
 }
 
@@ -56,5 +75,12 @@ int pe_save_relation(Engine *eng){
     if (eng->relation.user_hash == 0) return 0;
     char path[512];
     relation_path(eng, eng->relation.user_hash, path, sizeof(path));
-    return pe_write_file_atomic(path, &eng->relation, sizeof(Relation));
+    int rc = pe_write_file_atomic(path, &eng->relation, sizeof(Relation));
+    if (rc != 0) return rc;
+
+    /* V4: persist the schema as a sibling file.  Atomic write so a
+     * crash mid-save leaves the previous schema intact. */
+    char spath[512];
+    schema_path(eng, eng->relation.user_hash, spath, sizeof(spath));
+    return pe_write_file_atomic(spath, &eng->schema, sizeof(SchemaState));
 }

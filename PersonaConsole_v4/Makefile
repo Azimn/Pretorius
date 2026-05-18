@@ -287,7 +287,11 @@ v4_ollama_run: build/persona_host
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/replay/ollama_provider_test.js
 
-v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run
+v4_schema_run: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/replay/schema_integration_test.js
+
+v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run
 	@echo "--- V4 tests: green ---"
 
 # ----- profile sanity drivers -----

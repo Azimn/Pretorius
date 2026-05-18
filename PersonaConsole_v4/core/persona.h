@@ -471,6 +471,13 @@ typedef struct {
 
 #pragma pack(pop)
 
+/* V4: per-relation belief state (compressed identity interpretations).
+ * Forward-included so Engine can carry a schema for the active user.
+ * Schemas persist in a sibling file <relations_dir>/<hash>.schema.
+ * Not part of the v3.x Relation struct — added without breaking the
+ * existing on-disk relation layout. */
+#include "../schema/schema_state.h"
+
 /* ---------- v2: utterance plan (not serialized — per-turn scratch) ---------- */
 typedef struct {
     uint16_t rhetorical_mode;     /* PE_RHET_* */
@@ -509,6 +516,7 @@ struct Engine {
     NPCState       state;
     MemoryStore    memory;
     Relation       relation;                /* current interlocutor */
+    SchemaState    schema;                  /* V4: per-relation compressed beliefs */
 
     /* per-turn scratch (no heap) */
     uint16_t       active_memories[PE_ACTIVE_MAX];
