@@ -7,6 +7,7 @@
 #include "aether.h"              /* v3.2: long-term episodic storage */
 #include "identity.h"
 #include "environment.h"
+#include "../render/render_backend.h"   /* v4: renderer dispatch */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -300,6 +301,7 @@ int persona_open(Engine *eng, const char *character_dir){
     int is_cart = pe_is_cart_path(character_dir);
     char state_dir[256];
     memset(eng, 0, sizeof(*eng));
+    render_backends_init();   /* v4: idempotent renderer registry init */
     if (is_cart){
         if (pe_cart_validate_file(character_dir) != 0){
             fprintf(stderr, "persona: cartridge validation failed: %s\n", character_dir);
@@ -552,8 +554,51 @@ int persona_process_input(Engine *eng,
     /* 9a. v2: build rhetorical plan before realization */
     pe_build_plan(eng);
 
+    /* V4: renderer dispatch.  Compose a RenderContext from Layer 1 state
+     * and offer the selected backend the chance to produce the reply.
+     * The template backend defers to the legacy pe_generate_response()
+     * call below (signaled by flags bit 0).  An SLM backend that's
+     * actually available will fill out->output and we use that instead. */
+    {
+        RetrievedMemorySet mem;
+        memset(&mem, 0, sizeof(mem));
+        int em_n = 0;
+        for (int i = 0; i < PE_ACTIVE_MAX && em_n < 4; ++i){
+            uint16_t idx = eng->active_memories[i];
+            if (idx >= PE_EPISODIC_MAX) break;  /* sentinel-tagged cold entries */
+            mem.episodic_idx[em_n++] = idx;
+        }
+        mem.episodic_count = em_n;
+
+        RenderContext ctx;
+        memset(&ctx, 0, sizeof(ctx));
+        ctx.npc       = eng;
+        ctx.memories  = &mem;
+        ctx.plan      = &eng->plan;
+        ctx.relation  = &eng->relation;
+        ctx.schema    = NULL;          /* wired in priority 3 */
+        ctx.seed      = eng->state.rng_state;
+
+        RenderBackend *be = render_backend_default();
+        if (be && be->render){
+            RenderResult res;
+            memset(&res, 0, sizeof(res));
+            be->render(be, &ctx, &res);
+            /* bit 0: backend deferred to legacy path.  bit 1: backend
+             * unavailable, fall back.  Either way drop to legacy. */
+            if (res.output_len > 0 && !(res.flags & 0x3u)){
+                size_t copy = (size_t)res.output_len;
+                if (copy >= n) copy = n - 1;
+                memcpy(out, res.output, copy);
+                out[copy] = 0;
+                goto post_render;
+            }
+        }
+    }
+
     /* 10–11. candidates, repetition, transforms, select (plan-driven) */
     pe_generate_response(eng, input_text, out, n);
+post_render:;
 
     /* 11b. v3.1: dream recall — prepend dream_phrase to first response after
      * a long absence.  Only fires once (dream_pending is cleared here). */
