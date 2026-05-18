@@ -1,0 +1,15 @@
+{
+  "output": "characters/pretorius/pretorius.cart",
+  "lm_file": "characters/pretorius/voice.lm",
+  "sections": [
+    {"name": "identity.bin", "path": "characters/pretorius/identity.bin"},
+    {"name": "drives.bin", "path": "characters/pretorius/drives.bin"},
+    {"name": "today.bin", "path": "characters/pretorius/today.bin"},
+    {"name": "banks.bin", "path": "characters/pretorius/banks.bin"},
+    {"name": "dialogue/patterns.bin", "path": "characters/pretorius/dialogue/patterns.bin"},
+    {"name": "dialogue/templates.bin", "path": "characters/pretorius/dialogue/templates.bin"},
+    {"name": "dialogue/fallback.bin", "path": "characters/pretorius/dialogue/fallback.bin"},
+    {"name": "dialogue/topics.bin", "path": "characters/pretorius/dialogue/topics.bin"},
+    {"name": "dialogue/goals.bin", "path": "characters/pretorius/dialogue/goals.bin"}
+  ]
+}

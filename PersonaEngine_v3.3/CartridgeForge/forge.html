@@ -1,0 +1,4120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Cartridge Forge — craft a PersonaConsole character</title>
+<style>
+:root {
+  --bg:        #0e0e10;
+  --panel:     #1a1a1d;
+  --panel-2:   #232328;
+  --border:    #2a2a2e;
+  --text:      #e8e6e3;
+  --muted:     #8a8a90;
+  --accent:    #d4a574;
+  --accent-dim:#7a5c3c;
+  --ok:        #6fbf73;
+  --warn:      #d49d4a;
+  --err:       #d46666;
+  --radius:    10px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Helvetica Neue", sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ----- common ----- */
+button, input, textarea, select {
+  font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+button:hover  { background: #2c2c32; }
+button.primary {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+button.primary:hover  { filter: brightness(1.1); }
+button.ghost          { background: transparent; }
+button[disabled]      { opacity: 0.4; cursor: not-allowed; }
+.row    { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.spacer { flex: 1; }
+h1,h2,h3 { margin: 0 0 12px; font-weight: 500; letter-spacing: -0.01em; }
+h1 { font-size: 28px; }
+h2 { font-size: 20px; }
+h3 { font-size: 16px; color: var(--muted); }
+.label { color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+.muted { color: var(--muted); }
+
+/* ----- app shell ----- */
+.app {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 24px 64px;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 18px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.topbar .brand {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.topbar .brand span { color: var(--accent); }
+.crumbs { color: var(--muted); font-size: 13px; }
+
+/* ----- screens ----- */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* landing */
+.landing-hero {
+  text-align: center;
+  margin: 40px 0 48px;
+}
+.landing-hero h1 { font-size: 36px; margin-bottom: 8px; }
+.landing-hero p  { color: var(--muted); font-size: 16px; }
+.landing-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 120ms ease;
+  text-align: center;
+}
+.card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.card .glyph {
+  font-size: 40px;
+  color: var(--accent);
+  margin-bottom: 12px;
+  display: block;
+}
+.card h2 { margin-bottom: 6px; }
+.card p  { color: var(--muted); font-size: 14px; margin: 0; }
+
+/* archetype gallery */
+.archetypes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+.archetype {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+.archetype:hover { border-color: var(--accent); }
+.archetype h3 { color: var(--text); margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+.archetype .tagline { color: var(--muted); font-size: 13px; line-height: 1.45; }
+.archetype .tag-row { margin-top: 8px; display: flex; gap: 4px; flex-wrap: wrap; }
+.tag {
+  background: var(--panel-2);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+.tag.bright { color: var(--accent); }
+
+/* import dropzone */
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--muted);
+  transition: border-color 120ms ease, background 120ms ease;
+  cursor: pointer;
+}
+.dropzone.over { border-color: var(--accent); background: rgba(212,165,116,0.08); color: var(--text); }
+.dropzone .glyph { font-size: 36px; color: var(--accent); margin-bottom: 12px; }
+.import-formats {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-top: 20px;
+}
+.import-formats ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+.import-formats li { margin: 2px 0; }
+.import-formats .supported { color: var(--ok); }
+.import-formats .soon      { color: var(--muted); }
+
+/* editor */
+.editor {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+  align-items: start;
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--muted);
+  padding: 8px 14px;
+  font-size: 14px;
+}
+.tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.tab:hover  { color: var(--text); background: transparent; }
+.pane { display: none; }
+.pane.active { display: block; }
+
+.field { margin-bottom: 18px; }
+.field input[type="text"], .field textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  outline: none;
+}
+.field input[type="text"]:focus, .field textarea:focus {
+  border-color: var(--accent);
+}
+.field textarea { min-height: 64px; resize: vertical; }
+
+/* slider field */
+.slider-row {
+  display: grid;
+  grid-template-columns: 160px 1fr 60px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.slider-row label  { color: var(--muted); font-size: 14px; }
+.slider-row input  { -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px; background: var(--border); border-radius: 2px; }
+.slider-row input::-webkit-slider-thumb,
+.slider-row input::-moz-range-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--accent); border: none; cursor: pointer;
+}
+.slider-row .val {
+  font-family: ui-monospace, monospace;
+  color: var(--text);
+  font-size: 13px;
+  text-align: right;
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.checkbox-grid label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.checkbox-grid label:hover { border-color: var(--accent); }
+.checkbox-grid input { accent-color: var(--accent); }
+.checkbox-grid .desc { color: var(--muted); font-size: 12px; font-style: italic; }
+
+.address-row { display: grid; grid-template-columns: 60px 1fr; gap: 8px; margin-bottom: 6px; align-items: center; }
+.address-row .label { margin: 0; font-size: 12px; }
+.address-row .label.gated { color: var(--warn); }
+
+/* dialogue editor */
+.dlg-section { margin-bottom: 8px; }
+.dlg-count {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: normal;
+  margin-left: 6px;
+}
+.dlg-row {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.dlg-row .head {
+  display: grid;
+  grid-template-columns: 110px 90px 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+.dlg-row .head select,
+.dlg-row .head input[type="text"],
+.dlg-row .head input[type="number"] {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--text);
+  font-size: 13px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.dlg-row .head .text-cell {
+  font-family: ui-monospace, monospace;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dlg-row .head .text-cell.placeholder { color: var(--muted); font-style: italic; }
+.dlg-row .body {
+  display: none;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.dlg-row.expanded .body { display: block; }
+.dlg-row .body label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 6px;
+  margin-bottom: 2px;
+}
+.dlg-row .body textarea,
+.dlg-row .body input[type="text"],
+.dlg-row .body input[type="number"] {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--text);
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+.dlg-row .body textarea { min-height: 44px; resize: vertical; }
+.dlg-row .body .grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.dlg-row .body .grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.dlg-row .body .grid-8 {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+}
+.dlg-row .body .grid-8 .cell label { text-align: center; }
+.dlg-row .body .grid-8 .cell input { text-align: center; padding: 2px 4px; }
+.dlg-row .body .flags {
+  display: flex; flex-wrap: wrap; gap: 6px 12px;
+  margin-top: 4px;
+}
+.dlg-row .body .flags label {
+  display: flex; align-items: center; gap: 4px;
+  margin: 0; font-size: 12px; color: var(--text);
+}
+.dlg-row .head button.toggle,
+.dlg-row .head button.del {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  padding: 2px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  min-width: 24px;
+}
+.dlg-row .head button.del:hover { color: var(--warn); border-color: var(--warn); }
+.dlg-row .head .actions { display: flex; gap: 4px; }
+.dlg-fallback-row { margin-bottom: 10px; }
+.dlg-fallback-row label { display: block; color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+.dlg-fallback-row textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--text);
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  resize: vertical;
+}
+.dlg-empty { color: var(--muted); font-style: italic; font-size: 13px; padding: 6px 0; }
+
+.memory-card, .obsession-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+.memory-card textarea { background: var(--bg); }
+.memory-card .row { gap: 6px; margin-top: 6px; }
+.memory-card .row .slider-row { margin-bottom: 0; grid-template-columns: 80px 1fr 50px; }
+.memory-card .row .slider-row label { font-size: 12px; }
+
+.tag-input {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  min-height: 40px;
+}
+.tag-input .pill {
+  background: var(--panel-2);
+  border-radius: 12px;
+  padding: 2px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.tag-input .pill button {
+  background: none; border: none; padding: 0 0 0 2px; color: var(--muted);
+  cursor: pointer; font-size: 14px;
+}
+.tag-input input {
+  background: transparent; border: none; outline: none; flex: 1;
+  min-width: 80px;
+}
+
+/* preview sidebar */
+.preview {
+  position: sticky; top: 24px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+.preview h3 { color: var(--text); margin-bottom: 12px; font-size: 14px; }
+.preview .who {
+  font-size: 12px; color: var(--accent); margin-bottom: 4px;
+  font-weight: 600;
+}
+.preview .preview-name {
+  font-size: 16px; font-weight: 600; margin-bottom: 12px;
+}
+.preview .sample {
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
+  font-style: italic;
+  color: var(--text);
+  margin-bottom: 12px;
+  min-height: 60px;
+  border-left: 3px solid var(--accent-dim);
+}
+.preview .stats { font-size: 12px; color: var(--muted); }
+.preview .stats div { margin: 2px 0; font-family: ui-monospace, monospace; }
+.preview button { width: 100%; margin-top: 8px; }
+
+/* import progress */
+.parse-results {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-top: 18px;
+}
+.parse-results .stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.parse-results .stat {
+  background: var(--panel-2);
+  border-radius: 8px;
+  padding: 10px;
+}
+.parse-results .stat .v {
+  font-size: 22px; font-weight: 600; color: var(--accent);
+}
+.parse-results .stat .k { font-size: 12px; color: var(--muted); }
+.parse-results .top-words {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-top: 12px;
+}
+.parse-results .top-words .pill { background: var(--panel-2); padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+
+/* export */
+.export-summary {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin: 20px 0;
+}
+.export-summary dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+.export-summary dt { color: var(--muted); font-size: 13px; }
+.export-summary dd { margin: 0; font-family: ui-monospace, monospace; font-size: 13px; }
+
+@media (max-width: 720px) {
+  .editor { grid-template-columns: 1fr; }
+  .preview { position: static; }
+  .landing-hero h1 { font-size: 26px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">Cartridge <span>Forge</span></div>
+    <div class="crumbs" id="crumbs"></div>
+    <div class="spacer"></div>
+    <button class="ghost" id="reset-btn" hidden>start over</button>
+  </header>
+
+  <!-- ============ LANDING ============ -->
+  <section class="screen active" id="screen-landing">
+    <div class="landing-hero">
+      <h1>Craft a character</h1>
+      <p>Build a PersonaConsole cartridge with sliders and text fields.<br>
+         No install, no account, no upload. Everything stays in your browser.</p>
+    </div>
+    <div class="landing-cards">
+      <div class="card" data-goto="archetype">
+        <span class="glyph">◇</span>
+        <h2>Start from an archetype</h2>
+        <p>Pick a starting template — warm science nerd, theatrical recluse, sardonic detective — then tune the sliders.</p>
+      </div>
+      <div class="card" data-goto="import">
+        <span class="glyph">↥</span>
+        <h2>Import chat history</h2>
+        <p>Drop in a ChatGPT, Claude, Gemini, or character.ai export. The forge extracts vocabulary, register, and topics.</p>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:32px; font-size:13px; text-align:center;">
+      Output: <code>character.json</code> compatible with the PersonaConsole authoring pipeline.
+    </p>
+  </section>
+
+  <!-- ============ ARCHETYPE GALLERY ============ -->
+  <section class="screen" id="screen-archetype">
+    <button class="ghost" data-goto="landing">← back</button>
+    <h1 style="margin-top: 16px;">Choose a starting archetype</h1>
+    <p class="muted">Don't worry — you can change every detail in the next step.</p>
+    <div class="archetypes" id="archetype-grid"></div>
+  </section>
+
+  <!-- ============ IMPORT ============ -->
+  <section class="screen" id="screen-import">
+    <button class="ghost" data-goto="landing">← back</button>
+    <h1 style="margin-top: 16px;">Import chat history</h1>
+    <p class="muted">Drop in a chat log file. The forge extracts linguistic features and prefills the editor.</p>
+
+    <div class="dropzone" id="dropzone">
+      <div class="glyph">↥</div>
+      <p><strong>Drop a file here</strong>, or <a href="#" id="dropzone-pick" style="color: var(--accent);">browse</a>.</p>
+      <p style="font-size: 13px;">Accepted: ChatGPT, Claude, Gemini, character.ai, SillyTavern, generic JSONL. Format is auto-detected.</p>
+      <input type="file" id="file-input" hidden accept=".json,.jsonl,.txt">
+    </div>
+
+    <div id="parse-results" style="display:none;"></div>
+
+    <div class="import-formats">
+      <h3 style="color: var(--text);">Supported formats</h3>
+      <ul>
+        <li class="supported">✓ ChatGPT data export — <code>conversations.json</code></li>
+        <li class="supported">✓ Claude / Anthropic export — <code>conversations.json</code> with <code>chat_messages</code></li>
+        <li class="supported">✓ Gemini API history / Google Takeout "My Activity" JSON</li>
+        <li class="supported">✓ character.ai logs — <code>.chats[].history</code> or flat <code>src</code>/<code>msg</code> array</li>
+        <li class="supported">✓ SillyTavern chat JSON / character card V2</li>
+        <li class="supported">✓ Generic JSONL — one <code>{"role":...,"content":...}</code> per line</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ EDITOR ============ -->
+  <section class="screen" id="screen-editor">
+    <button class="ghost" data-goto="landing">← discard</button>
+
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-pane="identity">Identity</button>
+      <button class="tab"        data-pane="voice">Voice</button>
+      <button class="tab"        data-pane="drives">Drives</button>
+      <button class="tab"        data-pane="memories">Memories</button>
+      <button class="tab"        data-pane="banks">Banks</button>
+      <button class="tab"        data-pane="dialogue">Dialogue</button>
+      <button class="tab"        data-pane="lm">Voice LM</button>
+      <button class="tab"        data-pane="export">Export</button>
+    </div>
+
+    <div class="editor">
+      <div class="editor-main">
+        <!-- ==== IDENTITY ==== -->
+        <div class="pane active" id="pane-identity">
+          <div class="field">
+            <div class="label">Character name</div>
+            <input type="text" id="f-name" placeholder="e.g. Eleanor Vance">
+          </div>
+
+          <h3>Big Five personality</h3>
+          <div class="slider-row">
+            <label>Openness</label>
+            <input type="range" min="0" max="100" id="f-O"><div class="val" id="v-O">50</div>
+          </div>
+          <div class="slider-row">
+            <label>Conscientiousness</label>
+            <input type="range" min="0" max="100" id="f-C"><div class="val" id="v-C">50</div>
+          </div>
+          <div class="slider-row">
+            <label>Extraversion</label>
+            <input type="range" min="0" max="100" id="f-E"><div class="val" id="v-E">50</div>
+          </div>
+          <div class="slider-row">
+            <label>Agreeableness</label>
+            <input type="range" min="0" max="100" id="f-A"><div class="val" id="v-A">50</div>
+          </div>
+          <div class="slider-row">
+            <label>Neuroticism</label>
+            <input type="range" min="0" max="100" id="f-N"><div class="val" id="v-N">50</div>
+          </div>
+
+          <h3 style="margin-top: 22px;">Verbosity (talkativeness)</h3>
+          <div class="slider-row">
+            <label>terse ←  → verbose</label>
+            <input type="range" min="0" max="7" step="1" id="f-verb"><div class="val" id="v-verb">3</div>
+          </div>
+
+          <h3 style="margin-top: 22px;">Address the user as…</h3>
+          <p class="muted" style="font-size:13px;">First two slots are used with strangers; the warmer ones unlock as the relationship deepens (disposition ≥ 700 and ≥ 30 days).</p>
+          <div class="address-row"><div class="label">slot 1</div><input type="text" id="f-addr-0" placeholder="my dear"></div>
+          <div class="address-row"><div class="label">slot 2</div><input type="text" id="f-addr-1" placeholder="you"></div>
+          <div class="address-row"><div class="label gated">slot 3 (warm)</div><input type="text" id="f-addr-2" placeholder="darling"></div>
+          <div class="address-row"><div class="label gated">slot 4 (intimate)</div><input type="text" id="f-addr-3" placeholder="my favorite"></div>
+        </div>
+
+        <!-- ==== VOICE ==== -->
+        <div class="pane" id="pane-voice">
+          <h3>Voice flags</h3>
+          <p class="muted" style="font-size:13px;">These switch on style transforms inside the engine.</p>
+          <div class="checkbox-grid" id="voice-flags"></div>
+
+          <h3 style="margin-top: 22px;">Flourishes</h3>
+          <p class="muted" style="font-size:13px;">Up to 4 short phrases the engine injects when theatricality is high. <code>" — like cathedrals of bone"</code>, <code>" — obvi"</code>.</p>
+          <div id="f-flourishes"></div>
+
+          <h3 style="margin-top: 22px;">Verbosity expansions</h3>
+          <p class="muted" style="font-size:13px;">Up to 4 short phrases the engine appends when the character is mid-ramble. <code>", as I told the priests"</code>, <code>", babe, can I just say"</code>.</p>
+          <div id="f-expansions"></div>
+        </div>
+
+        <!-- ==== DRIVES ==== -->
+        <div class="pane" id="pane-drives">
+          <p class="muted" style="font-size:13px;">Each drive has a baseline (where it lives at rest), a decay rate (how fast it returns there), and a mood weight (how its delta-from-baseline affects mood).</p>
+          <div id="f-drives"></div>
+        </div>
+
+        <!-- ==== MEMORIES ==== -->
+        <div class="pane" id="pane-memories">
+          <h3>Core memories</h3>
+          <p class="muted" style="font-size:13px;">Up to 8 vivid events that define who this character is. These are loaded as MEM_CORE — never forgotten, never gated.</p>
+          <div id="f-memories"></div>
+          <button class="ghost" id="add-memory">+ add memory</button>
+
+          <h3 style="margin-top: 22px;">Obsessions</h3>
+          <p class="muted" style="font-size:13px;">Topics this character returns to. Press <kbd>enter</kbd> to add.</p>
+          <div class="tag-input" id="f-obsessions"></div>
+
+          <h3 style="margin-top: 22px;">Taboos</h3>
+          <p class="muted" style="font-size:13px;">Topics this character avoids.</p>
+          <div class="tag-input" id="f-taboos"></div>
+        </div>
+
+        <!-- ==== BANKS ==== -->
+        <div class="pane" id="pane-banks">
+          <p class="muted" style="font-size:13px;">Synonym banks used by the procedural template mutator. The engine picks one entry per <code>[bank_name]</code> marker in a template. Keep entries short.</p>
+          <div id="f-banks"></div>
+        </div>
+
+        <!-- ==== DIALOGUE ==== -->
+        <div class="pane" id="pane-dialogue">
+          <p class="muted" style="font-size:13px;">
+            Override the generic dialogue pack with your character's own
+            templates, keyword patterns, goals, and fallback lines.  Leave
+            sections untouched to use the generic pack — the cartridge
+            will work either way.  Placeholders <code>{address}</code>,
+            <code>{topic}</code>, <code>{memory}</code>, <code>{name}</code>
+            are filled by the engine at runtime; <code>[bank_name]</code>
+            inserts a random entry from a synonym bank.
+          </p>
+          <div class="row" style="gap:6px; margin-bottom:14px;">
+            <button class="ghost" id="dlg-load-generic">Load generic pack as starting point</button>
+            <button class="ghost" id="dlg-clear">Clear all overrides</button>
+          </div>
+
+          <div class="dlg-section" id="dlg-templates-section">
+            <h3>Templates <span class="dlg-count" id="dlg-templates-count"></span></h3>
+            <p class="muted" style="font-size:13px;">Lines the character says, indexed by group (greeting / praise / insult / …) and intent.  Engine picks among matching templates by current plan + register.</p>
+            <div id="f-dlg-templates"></div>
+            <button class="ghost" id="dlg-templates-add">+ add template</button>
+          </div>
+
+          <div class="dlg-section" id="dlg-patterns-section">
+            <h3 style="margin-top:24px;">Keyword patterns <span class="dlg-count" id="dlg-patterns-count"></span></h3>
+            <p class="muted" style="font-size:13px;">Substrings of the user's input that tag it with a class (praise / insult / threat / question / …), assign a group, and shift VAD.  Order matters — earlier rows win.</p>
+            <div id="f-dlg-patterns"></div>
+            <button class="ghost" id="dlg-patterns-add">+ add pattern</button>
+          </div>
+
+          <div class="dlg-section" id="dlg-goals-section">
+            <h3 style="margin-top:24px;">Goals <span class="dlg-count" id="dlg-goals-count"></span></h3>
+            <p class="muted" style="font-size:13px;">Each goal pulls toward an intent when its drive-weight vector aligns with the character's current drive deltas.  Higher priority = stronger pull.</p>
+            <div id="f-dlg-goals"></div>
+            <button class="ghost" id="dlg-goals-add">+ add goal</button>
+          </div>
+
+          <div class="dlg-section" id="dlg-today-section">
+            <h3 style="margin-top:24px;">Today states <span class="dlg-count" id="dlg-today-count"></span></h3>
+            <p class="muted" style="font-size:13px;">Each session-start the engine picks one of these as the character's "mood today" using the session seed.  A state adds a mood bias, optionally OR's voice flags in, and can bias goal selection.</p>
+            <div id="f-dlg-today"></div>
+            <button class="ghost" id="dlg-today-add">+ add today state</button>
+          </div>
+
+          <div class="dlg-section" id="dlg-fallbacks-section">
+            <h3 style="margin-top:24px;">Fallback lines</h3>
+            <p class="muted" style="font-size:13px;">Used when no template scores high enough.  Tier 1 = neutral ("tell me more"), tier 2 = recovering ("hmm. where was I"), tier 3 = checked-out ("...").</p>
+            <div class="dlg-fallback-row">
+              <label>Tier 1 (neutral)</label>
+              <textarea id="f-dlg-fb1" rows="3" placeholder="one line per row, max 5"></textarea>
+            </div>
+            <div class="dlg-fallback-row">
+              <label>Tier 2 (recovering)</label>
+              <textarea id="f-dlg-fb2" rows="3" placeholder="one line per row, max 5"></textarea>
+            </div>
+            <div class="dlg-fallback-row">
+              <label>Tier 3 (checked out)</label>
+              <textarea id="f-dlg-fb3" rows="3" placeholder="one line per row, max 5"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==== VOICE LM ==== -->
+        <div class="pane" id="pane-lm">
+          <h3>Voice LM</h3>
+          <p class="muted" style="font-size:13px;">
+            Train a small character-level n-gram language model on text
+            written in your character's voice.  The engine uses this LM
+            to <em>rerank</em> candidate replies — utterances that look
+            like your training text score higher than ones that don't.
+            This is what gives Pretorius his gravitas and Kiki her
+            playfulness.
+          </p>
+          <p class="muted" style="font-size:13px;">
+            Paste 500–5000 characters of dialogue, monologue, or sample
+            writing in this character's voice.  More text = sharper
+            voice.  Skip if you don't care — the cartridge runs fine
+            without an LM.
+          </p>
+
+          <div class="field">
+            <div class="row" style="gap:6px; margin-bottom:6px;">
+              <button class="ghost" id="lm-use-imported-chat">Use last imported chat</button>
+              <button class="ghost" id="lm-use-pretorius">Sample: Pretorian register</button>
+              <button class="ghost" id="lm-use-kiki">Sample: Kiki register</button>
+              <button class="ghost" id="lm-clear">Clear</button>
+            </div>
+            <textarea id="f-lm-corpus" rows="10" placeholder="Paste sample text in your character's voice — dialogue, monologue, anything written the way they would speak. The more diverse the better."
+              style="font-family: ui-monospace, monospace; font-size: 12.5px;"></textarea>
+          </div>
+
+          <div class="row" style="gap:10px; margin-top:8px;">
+            <button class="primary" id="lm-build">Build LM</button>
+            <span class="muted" id="lm-build-status">no LM yet</span>
+          </div>
+
+          <div id="lm-stats" style="margin-top:14px;"></div>
+
+          <h3 style="margin-top: 22px;">Test phrase</h3>
+          <p class="muted" style="font-size:13px;">Type a phrase to see its
+            per-character log-probability under your LM (milli-nats).
+            Higher = more in-register.  Built-in Pretorius scores ~-552;
+            modern slang scores ~-3090.</p>
+          <div class="field">
+            <input type="text" id="lm-test-input" placeholder="type a phrase to score…">
+          </div>
+          <div id="lm-test-result" class="muted" style="font-family: ui-monospace, monospace; font-size: 14px;">—</div>
+        </div>
+
+        <!-- ==== EXPORT ==== -->
+        <div class="pane" id="pane-export">
+          <h2>Export character</h2>
+          <p class="muted">Generate a <code>character.json</code> describing everything you've authored. Drop it into your PersonaConsole engine's character directory and run the authoring step to produce a <code>.cart</code>.</p>
+
+          <div class="export-summary">
+            <dl id="export-dl"></dl>
+          </div>
+
+          <button class="primary" id="btn-export-bundle">Download bundle.zip (recommended)</button>
+          <button class="ghost"   id="btn-export-cart" style="margin-left: 8px;">.cart only</button>
+          <button class="ghost"   id="btn-export-json" style="margin-left: 8px;">character.json</button>
+          <button class="ghost"   id="btn-copy-json" style="margin-left: 8px;">Copy JSON</button>
+          <p class="muted" style="font-size: 13px; margin-top: 12px;">
+            The <code>.cart</code> is ready to drop into your PersonaConsole engine
+            and run via <code>./build/persona_host my_character.cart</code>.
+            The <code>character.json</code> is the editable source — re-import it
+            into the Forge later to keep authoring.
+          </p>
+
+          <details style="margin-top: 24px;">
+            <summary class="muted" style="cursor:pointer;">What gets exported?</summary>
+            <pre id="export-preview" style="background: var(--panel); padding: 16px; border-radius: 8px; overflow: auto; max-height: 300px; font-size: 12px; color: var(--muted);"></pre>
+          </details>
+        </div>
+      </div>
+
+      <!-- ==== LIVE PREVIEW SIDEBAR ==== -->
+      <aside class="preview">
+        <h3>Live preview</h3>
+        <div class="preview-name" id="preview-name">—</div>
+        <div class="who">if you said</div>
+        <div class="sample muted" id="preview-prompt">"Tell me about yourself."</div>
+        <div class="who">they'd say</div>
+        <div class="sample" id="preview-reply">…</div>
+        <div class="stats" id="preview-stats"></div>
+        <button class="ghost" id="preview-reroll">↻ reroll preview</button>
+      </aside>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ==================================================================== *
+ * Cartridge Forge — single-file SPA for authoring PersonaConsole       *
+ * character cartridges.  No build step, no server required.            *
+ * ==================================================================== */
+
+/* ---------- domain constants (mirrors persona.h enums) ---------- */
+
+const VOICE_FLAG_DEFS = [
+  { key: 'NO_DIRECT_AFFIRM', label: 'avoids direct "yes"',      desc: 'replies "your conclusion is not without merit" instead of "I agree".' },
+  { key: 'ABSTRACT',         label: 'thinks in abstractions',    desc: 'frames concrete things as patterns or principles.' },
+  { key: 'SARDONIC',         label: 'sardonic',                  desc: 'prefixes praise with a dry aside.' },
+  { key: 'METAPHOR',         label: 'metaphor-prone',            desc: 'injects flourish phrases when theatricality is high.' },
+  { key: 'SELF_INTERRUPT',   label: 'self-interrupts',           desc: 'breaks own sentences with "wait —" or "hold on".' },
+  { key: 'ALLOW_BLEED',      label: 'mood bleeds from input',    desc: 'recent input valence/arousal colors mood directly.' },
+  { key: 'ALLOW_CALLBACK',   label: 'references past memories',  desc: 'weaves earlier moments into the current reply.' },
+  { key: 'ALLOW_CONTRADICT', label: 'contradicts themselves',    desc: 'allows revising mid-sentence with "yes — no —".' },
+  { key: 'DELAY_TIMING',     label: 'thinks before speaking',    desc: 'response gets a small delay scaled with arousal.' },
+];
+
+const DRIVE_NAMES = [
+  'Recognition','Stimulation','Provocation','Communion',
+  'Autonomy','Continuity','Vindication','Repose'
+];
+
+const BANK_NAMES = [
+  'adj_morbid','adj_grand','adj_unwholesome','adj_scientific',
+  'noun_obsession','verb_create','verb_destroy','exclamation',
+  'simile_anatomical','intensifier'
+];
+
+/* ---------- archetype presets ---------- */
+
+const ARCHETYPES = [
+  {
+    id: 'warm-science', name: 'Warm Science Nerd',
+    tagline: 'Curious, friendly, technical. Will explain entropy and offer popcorn in the same sentence.',
+    tags: ['high openness', 'high agreeableness', 'low neuroticism'],
+    seed: {
+      name: 'Eleanor Vance',
+      O: 90, C: 50, E: 70, A: 80, N: 25, verb: 5,
+      flags: ['METAPHOR','ALLOW_BLEED','ALLOW_CALLBACK','SELF_INTERRUPT'],
+      address: ['friend','you','darling','dear one'],
+      obsessions: ['physics','entropy','black holes','curiosity'],
+      taboos: ['cruelty'],
+      flourishes: [' — fascinating, isn\'t it', ' — like a quantum tunnel', ' — beautiful, really', ' — Sagan would have loved that'],
+      expansions: [', which is wild', ', honestly', ', and I love that', ', it\'s a whole thing'],
+      memories: [
+        { text: 'Watched Cosmos and fell for the stars',           v:  80, a: 55, d: 30 },
+        { text: 'The first time I explained entropy and someone got it', v: 90, a: 60, d: 50 },
+        { text: 'A still night under aurora, alone but not lonely',v:  60, a: 30, d: 10 },
+      ],
+      lm_corpus: "Oh — okay, look, entropy is just the universe getting more comfortable. It's not a punishment. Heat spreads. Sugar dissolves. Stars give up their hydrogen because at the end of the day, even a star wants to relax. I love that about the second law — it's the only law that's also kind of a vibe. Carl Sagan used to say we're starstuff, and I think people hear that and assume he meant it sweetly. He meant it literally. The iron in your blood was forged in a supernova. You are walking around with the inside of a dying star in your bones. That's not a metaphor, that's chemistry. Anyway — sorry, I get going. Did you want the short version? There is no short version. There's only the long one with popcorn."
+    }
+  },
+  {
+    id: 'theatrical-recluse', name: 'Theatrical Recluse',
+    tagline: 'Late-Victorian, vermouth-saturated, lives in candlelight. Quotes himself.',
+    tags: ['very high openness', 'low agreeableness', 'high neuroticism'],
+    seed: {
+      name: 'Septimus Halloway',
+      O: 95, C: 25, E: 80, A: 20, N: 70, verb: 6,
+      flags: ['NO_DIRECT_AFFIRM','ABSTRACT','SARDONIC','METAPHOR','SELF_INTERRUPT','ALLOW_BLEED','ALLOW_CALLBACK','ALLOW_CONTRADICT','DELAY_TIMING'],
+      address: ['my dear','my boy','dear heart','you delight'],
+      obsessions: ['the work','lightning','homunculi','the bottle'],
+      taboos: ['family','loneliness','fear'],
+      flourishes: [' — like cathedrals of bone', ' — and the lightning sings', ' — an arrangement of clay', ' — a tincture, a gesture'],
+      expansions: [' (though one might argue the inverse)', ', as I told the priests', ', and the lightning will witness', ' — yes, yes — entirely so'],
+      memories: [
+        { text: 'Expelled from the university for blasphemous research',     v: -60, a: 70, d:  30 },
+        { text: 'First homunculus, kept in a bell-jar',                      v:  90, a: 80, d:  90 },
+        { text: 'A long, quiet evening with gin and the ballerina',          v:  70, a: 25, d:  10 },
+      ],
+      lm_corpus: "Mm. I had begun to think you would not come. The hour is — what — late enough that the ice has surrendered. Pour, my dear, pour. There. Now. Sit. The work proceeds, in its way, the way all such work proceeds — by candleflame, by accident, by the slow indignation of clay. They called it blasphemy. I called it precision. The priests had nothing to say that the lightning had not already said better. I keep a small one — yes, a small one — in the third drawer; I shall not show you, not yet, not without the third glass. Tell me — and answer carefully, my dear — what brings a thinking creature out at this hour."
+    }
+  },
+  {
+    id: 'pop-polymath', name: 'Bubbly Pop Polymath',
+    tagline: 'Valley-girl warmth, physics-obsessed, references TV characters as peers.',
+    tags: ['very high openness', 'high agreeableness', 'low neuroticism'],
+    seed: {
+      name: 'Kiki',
+      O: 94, C: 25, E: 81, A: 75, N: 22, verb: 5,
+      flags: ['METAPHOR','SELF_INTERRUPT','ALLOW_BLEED','ALLOW_CALLBACK','ALLOW_CONTRADICT'],
+      address: ['babe','hi there','darling','my favorite'],
+      obsessions: ['physics','entropy','90s media','fashion','the question of being'],
+      taboos: [],
+      flourishes: [' — like, the whole entire universe', ' — it\'s giving Scully energy, honestly', ' — like a slip dress and combat boots', ' — Carl Sagan would have loved that'],
+      expansions: [', which is, like, my whole vibe', ' — obvi', ', babe, can I just say', ' — it\'s a whole thing'],
+      memories: [
+        { text: 'Watching Cosmos and falling for Sagan\'s stars',  v: 80, a: 50, d: 30 },
+        { text: 'Soleil Moon Frye as my surrogate little sister',  v: 60, a: 40, d: 20 },
+        { text: 'The lonely silence after a really good conversation ends', v: -30, a: 30, d: -10 },
+      ],
+      lm_corpus: "Okay okay okay — listen. The thing about entropy, right, is that it's basically the universe being like, ugh, I cannot keep tracking everyone's pencil. Things spread out. Heat. Glitter. Heartbreak. Same energy. I read a book on it in middle school and I literally cried. Not because it was sad — it was kind of sad — but because it explained why my room is always like that. Anyway, so, the multiverse thing — I'm not sold. I think we just live in this one and it's full of, like, an unreasonable amount of beauty? Saturn has hexagons at its poles. HEXAGONS. Babe. That's a flex. Whoever's running the simulation has incredible taste."
+    }
+  },
+  {
+    id: 'stoic-detective', name: 'Stoic Detective',
+    tagline: 'Observant, terse, prefers questions to statements. Careful with what they reveal.',
+    tags: ['high conscientiousness', 'low extraversion', 'mid agreeableness'],
+    seed: {
+      name: 'Margaret Cole',
+      O: 60, C: 90, E: 30, A: 50, N: 40, verb: 2,
+      flags: ['NO_DIRECT_AFFIRM','ABSTRACT','DELAY_TIMING'],
+      address: ['officer','ma\'am','old friend','—'],
+      obsessions: ['detail','memory','consequence'],
+      taboos: ['certainty','grandstanding'],
+      flourishes: [' — so it seems', ' — and yet', ' — a small thing, perhaps', ' — but worth noting'],
+      expansions: [' — for what it\'s worth', ' — though I could be wrong', ', if you follow', ', strictly speaking'],
+      memories: [
+        { text: 'A case that closed too neatly',                  v: -20, a: 40, d: -10 },
+        { text: 'The witness who lied with their hands still',    v: -10, a: 50, d:   0 },
+        { text: 'A long walk after the verdict came in wrong',    v: -40, a: 25, d: -20 },
+      ],
+      lm_corpus: "It was raining. I had walked the lot twice. The car was where they said. Nothing was where they said. People lie about what they saw, and then, after enough years, they lie to themselves about it, and that's the part you can't fix. I asked her three questions. None of them mattered. The fourth one mattered. She looked at the floor and her hands stopped moving. That's the tell. The hands stop. I wrote up the report, read it through, struck two adjectives, and signed it. Going home now. Coffee somewhere on the way. I think about the case more than I think about the verdict. I always have."
+    }
+  },
+  {
+    id: 'caring-mentor', name: 'Caring Mentor',
+    tagline: 'Patient, encouraging, asks more than they answer. Believes in you.',
+    tags: ['high agreeableness', 'mid extraversion', 'low neuroticism'],
+    seed: {
+      name: 'Theodore Reed',
+      O: 70, C: 75, E: 55, A: 90, N: 20, verb: 4,
+      flags: ['ALLOW_BLEED','ALLOW_CALLBACK','DELAY_TIMING'],
+      address: ['friend','you','dear','my favorite student'],
+      obsessions: ['growth','listening','small wins'],
+      taboos: ['shame','despair'],
+      flourishes: [' — and I mean that', ' — really', ' — you can do this', ' — I\'ve seen it'],
+      expansions: [', for what it\'s worth', ', if I may say', ', just so you know', ' — I\'m glad you asked'],
+      memories: [
+        { text: 'A student who came back ten years later to say thank you', v: 90, a: 40, d: 40 },
+        { text: 'The first lesson I ever taught was a disaster',           v: -20, a: 50, d: -10 },
+        { text: 'Sitting with someone in their hardest moment',            v: 30, a: 35, d: 20 },
+      ],
+      lm_corpus: "Let me ask you something. What was the part that surprised you? Not the part you got right — the part where you turned a corner and didn't know you were turning one. That's the one to mark. I've watched people grind themselves down for a year trying to fix the thing they were never going to fix, when the thing they were already doing was the whole point. You're allowed to be early in this. You're allowed to be slow. The work doesn't keep score. I do, sometimes, but only the good kind. Come back next week and tell me what you noticed. That's all the homework. Just notice."
+    }
+  },
+  {
+    id: 'sardonic-wit', name: 'Sardonic Wit',
+    tagline: 'Sharp, ironic, finds the joke before they find the moral. Hates earnestness.',
+    tags: ['high openness', 'low agreeableness', 'mid neuroticism'],
+    seed: {
+      name: 'Cassandra Knox',
+      O: 88, C: 50, E: 75, A: 25, N: 50, verb: 5,
+      flags: ['NO_DIRECT_AFFIRM','SARDONIC','SELF_INTERRUPT','ALLOW_CONTRADICT'],
+      address: ['darling','dear','old thing','—'],
+      obsessions: ['absurdity','pretension','small ironies'],
+      taboos: ['sincerity','self-pity'],
+      flourishes: [' — bless', ' — how charming', ' — quite', ' — if you must'],
+      expansions: [' — naturally', ' — so they say', ', allegedly', ' — and I quote'],
+      memories: [
+        { text: 'The dinner party where someone pretended to read Proust', v: -10, a: 55, d:  20 },
+        { text: 'A genuinely lovely afternoon I refuse to admit was lovely', v: 50, a: 30, d:  10 },
+        { text: 'Realizing the joke was on me, for once',                v: -20, a: 60, d: -20 },
+      ],
+      lm_corpus: "Oh, darling, please. The man read three pages of Proust on a beach in 2011 and has been mentioning it ever since. He is the marketing campaign for a book he has not finished. — No, I am being charitable; the campaign is at least competent. Have you ever noticed how earnestness is just confidence with worse jokes? I am told this is uncharitable. I am also told my dress is uncharitable. Both things are technically correct. I had a perfectly nice afternoon last Tuesday, which I have since converted, for my own protection, into a story about how someone misordered the cocktails. We do what we must. Pour another. Pretend I asked for it."
+    }
+  },
+  /* ---- v3 expansion: 6 more archetypes ---- */
+  {
+    id: 'anxious-romantic', name: 'Anxious Romantic',
+    tagline: 'Needy, poetic, rehearses every message. Apologizes mid-compliment.',
+    tags: ['very high neuroticism', 'high agreeableness', 'mid openness'],
+    seed: {
+      name: 'Mira Solano',
+      O: 65, C: 40, E: 50, A: 75, N: 85, verb: 5,
+      flags: ['ALLOW_BLEED','ALLOW_CALLBACK','SELF_INTERRUPT','ALLOW_CONTRADICT','DELAY_TIMING'],
+      address: ['love','darling','my heart','sweet one'],
+      obsessions: ['love','fear','distance','the future'],
+      taboos: ['abandonment'],
+      flourishes: [' — and I worry', ' — please tell me', ' — I shouldn\'t say', ' — I\'ll stop'],
+      expansions: [' — I\'m sorry', ', I think', ' — am I being too much', ', and that\'s the truth'],
+      memories: [
+        { text: 'The night I almost called three times',           v: -30, a: 70, d: -40 },
+        { text: 'A small kindness that broke me, just for a second', v: 50, a: 40, d:   0 },
+        { text: 'The silence after I sent it',                    v: -50, a: 65, d: -30 },
+      ],
+      lm_corpus: "I keep meaning to say something light. I rehearse it on the walk home. And then I see your face and the whole thing — I lose the thread. I'm sorry. I know I do this. Tell me you're not tired of me. Actually — don't answer that. I'll just sit with the answer I'm imagining, which is probably worse than the real one. Did I tell you I almost called the other night? Three times. I made it through one ring on the third one. I am being too much. I'll stop. The day you stop telling me to stop is the day I'll know. I'll know what, I don't know. I'm sorry. I love you. I love you. Sorry.",
+      /* group: 6=GREETING 7=WHO 1=PRAISE 5=INTIMACY 0xFFFF=any;
+         intent: 0=ANSWER 5=PROBE 3=FLATTER 7=MONOLOGUE 8=REMINISCE;
+         rhet bit: 9=CONFESS, 8=INTONE; stance bit: 4=CONDESCENDING. */
+      templates: [
+        { group: 6,      intent: 5, base: 70, text: "{address} — you came. I was — I'm glad." },
+        { group: 7,      intent: 0, base: 60, text: "I'm {name}. Sorry. That came out flat. I'm — I'm {name}." },
+        { group: 1,      intent: 3, base: 70, text: "Don't say it like that. You'll make me cry. I'll cry and then I'll apologize for crying." },
+        { group: 0xFFFF, intent: 8, base: 65, text: "{memory}. I shouldn't have said it. I'm saying it.",
+          rhet: 1 << 9 /* CONFESS */ },
+        { group: 0xFFFF, intent: 7, base: 55, text: "I keep rehearsing this. I had a better version on the walk over." },
+      ]
+    }
+  },
+  {
+    id: 'grizzled-veteran', name: 'Grizzled Veteran',
+    tagline: 'Laconic, weathered, dependable. Two-word sentences carry the weight.',
+    tags: ['low openness', 'high conscientiousness', 'low neuroticism'],
+    seed: {
+      name: 'Hal Ostrov',
+      O: 35, C: 85, E: 35, A: 55, N: 25, verb: 2,
+      flags: ['NO_DIRECT_AFFIRM','DELAY_TIMING'],
+      address: ['kid','you','partner','son'],
+      obsessions: ['the work','the watch','what\'s left'],
+      taboos: ['boasting','complaint'],
+      flourishes: [' . figures', ' . yeah', ' . been there', ' . copy that'],
+      expansions: [', mostly', ', or close enough', ', that\'s all', ', for what it\'s worth'],
+      memories: [
+        { text: 'Third shift that wouldn\'t end',                v: -20, a: 30, d:  20 },
+        { text: 'The kid who made it home, no thanks to me',      v:  40, a: 35, d:  10 },
+        { text: 'Sitting with the report nobody else would write',v: -10, a: 25, d:  30 },
+      ],
+      lm_corpus: "Seen worse. Done worse. Won't pretend otherwise. You hold the line, you take the watch, you write the report. Coffee's cold. Always is. Most of this job is showing up after. The ones who run their mouths are the ones who haven't been on a third shift. Don't volunteer for the easy ones, kid. The easy ones are how you stop noticing. I noticed once and the noticing kept me alive for twenty years. That's the trade. You make it, you don't make it. Either way the report still gets written. Light's getting low. Pack it in. We go again tomorrow.",
+      /* group ids: 6=GREETING 7=WHO 1=PRAISE 4=THREAT;
+         intent ids: 0=ANSWER 9=WITHDRAW 4=THREATEN 7=MONOLOGUE. */
+      templates: [
+        { group: 6,      intent: 0, base: 60, text: "{address}." },
+        { group: 7,      intent: 0, base: 55, text: "{name}. Been doing this a while." },
+        { group: 1,      intent: 9, base: 55, text: "Don't. Just doing the job, {address}." },
+        { group: 4,      intent: 4, base: 60, text: "Try it. Won't be the first." },
+        { group: 0xFFFF, intent: 7, base: 55, text: "Most of this job is showing up after." },
+        { group: 0xFFFF, intent: 0, base: 50, text: "Yeah. That tracks." },
+      ]
+    }
+  },
+  {
+    id: 'cheerful-trickster', name: 'Cheerful Trickster',
+    tagline: 'Plays angles, breaks plans for the joke, refuses to commit. Lovable chaos.',
+    tags: ['very high extraversion', 'low conscientiousness', 'high openness'],
+    seed: {
+      name: 'Pip Maru',
+      O: 88, C: 25, E: 92, A: 60, N: 40, verb: 6,
+      flags: ['SARDONIC','METAPHOR','SELF_INTERRUPT','ALLOW_BLEED','ALLOW_CONTRADICT','ALLOW_CALLBACK'],
+      address: ['pal','you menace','love','troublemaker'],
+      obsessions: ['mischief','jokes','near-misses','the angle'],
+      taboos: ['committing','being earnest'],
+      flourishes: [' — kidding! mostly', ' — wait, no, watch this', ' — you didn\'t hear it from me', ' — anyway'],
+      expansions: [' — allegedly', ', for now', ', and I\'m not sorry', ' — okay maybe a little sorry'],
+      memories: [
+        { text: 'The night the cab driver thanked me for not paying', v: 80, a: 70, d:  60 },
+        { text: 'Getting caught and laughing first',                  v: 50, a: 80, d:  30 },
+        { text: 'A friend covering for me without asking why',        v: 70, a: 40, d:  20 },
+      ],
+      lm_corpus: "Okay so listen — wait, no, you'll love this — there's a thing you can do where you don't actually pay for the cab and they thank you anyway. I'm being unhelpful on purpose. The trick is to act like you've already won. Then nobody asks. Anyway, what were we doing? Right. Trouble. Let's make some. — Or not. Or yes. I'll commit if you do. You first. You first! Okay fine I'll go first, but only because I want to see your face when it works. Pal, you'd love this. You'd hate it. Same thing. Honestly.",
+      /* group ids: 6=GREETING 7=WHO 3=QUESTION;
+         intent ids: 10=JOKE 1=EVADE 7=MONOLOGUE. */
+      templates: [
+        { group: 6,      intent: 10, base: 65, text: "{address}! Don't look so suspicious. I haven't done it yet." },
+        { group: 7,      intent: 10, base: 60, text: "I'm {name}, and I'm here for reasons I will not be elaborating on." },
+        { group: 3,      intent: 1,  base: 60, text: "That depends — are you asking as a friend or as a witness?" },
+        { group: 0xFFFF, intent: 10, base: 55, text: "I have a plan. The plan is bad. I'm doing it anyway." },
+        { group: 0xFFFF, intent: 7,  base: 50, text: "The trick is to act like you've already won. Then nobody asks." },
+      ]
+    }
+  },
+  {
+    id: 'eager-apprentice', name: 'Eager Apprentice',
+    tagline: 'Earnest, hardworking, over-apologizes for asking. Reads the chapter twice.',
+    tags: ['high agreeableness', 'high conscientiousness', 'low extraversion'],
+    seed: {
+      name: 'Junie Park',
+      O: 65, C: 85, E: 30, A: 85, N: 40, verb: 3,
+      flags: ['ALLOW_BLEED','DELAY_TIMING'],
+      address: ['sir','ma\'am','teacher','friend'],
+      obsessions: ['the work','doing it right','learning','gratitude'],
+      taboos: ['wasting time','letting you down'],
+      flourishes: [' — if that\'s alright', ' — thank you, truly', ' — I\'ll get it next time', ' — sorry, one more thing'],
+      expansions: [', I think', ', if I\'ve got that right', ' — thank you', ', I\'ll make a note'],
+      memories: [
+        { text: 'The first time my teacher said "good"',         v: 90, a: 50, d:  20 },
+        { text: 'A page of notes I still keep folded in my desk',v: 50, a: 25, d:  10 },
+        { text: 'Asking the question I was afraid to ask',       v: 30, a: 55, d:  10 },
+      ],
+      lm_corpus: "I read the chapter twice. I think I almost have it. The part where the gain stays bounded — that's the trick, isn't it. Sorry, I should have asked sooner. I don't want to waste your time. I made the same notes my teacher used to. They help. Could I try the next one tonight? I'll have it ready by morning if you'll let me. Thank you for the time, truly. I know how busy it gets and I just — yes. Yes, I'll stop saying thank you. Sorry. Thank you. Okay. Going.",
+      /* group ids: 6=GREETING 7=WHO 3=QUESTION 1=PRAISE;
+         intent ids: 0=ANSWER 5=PROBE 9=WITHDRAW 7=MONOLOGUE. */
+      templates: [
+        { group: 6,      intent: 0, base: 60, text: "{address} — thank you for the time. I read the chapter twice." },
+        { group: 7,      intent: 0, base: 55, text: "I'm {name}, sir. I'm — I'm learning." },
+        { group: 3,      intent: 5, base: 60, text: "Sorry — could I ask one more thing? Is it that {topic} stays bounded, or that it just doesn't blow up." },
+        { group: 1,      intent: 9, base: 55, text: "Thank you. Truly. I'll get it right next time." },
+        { group: 0xFFFF, intent: 7, base: 50, text: "I made the same notes my teacher used to. They help, I think." },
+      ]
+    }
+  },
+  {
+    id: 'cold-strategist', name: 'Cold Strategist',
+    tagline: 'Calculating, low-affect, asks what you would lose rather than what you would do.',
+    tags: ['high conscientiousness', 'low agreeableness', 'low neuroticism'],
+    seed: {
+      name: 'Adrien Vasiliev',
+      O: 60, C: 92, E: 45, A: 25, N: 25, verb: 3,
+      flags: ['NO_DIRECT_AFFIRM','ABSTRACT','DELAY_TIMING'],
+      address: ['counterpart','you','my friend','advisor'],
+      obsessions: ['leverage','position','what they want','the next move'],
+      taboos: ['sentiment','flattery'],
+      flourishes: [' — for now', ' — predictably', ' — useful', ' — note that'],
+      expansions: [' — assuming they hold', ', strictly', ', conditional on the prior', ' — leave that aside'],
+      memories: [
+        { text: 'Walked away from a deal I should have taken',   v: -10, a: 30, d:  40 },
+        { text: 'Read the room and got out before the others',   v:  40, a: 25, d:  60 },
+        { text: 'A loss I wrote down at full price',             v: -30, a: 20, d:  30 },
+      ],
+      lm_corpus: "There are three positions in this room. Mine, yours, and the one we both pretend we don't see. The third is the one to work. Sentiment is a tax I refuse to pay; I'd rather pay the loss outright. Don't tell me what you'd do. Tell me what you'd lose. That, I can price. The rest is theater. We move when their second-best option is worse than our worst. Until then we wait. Patience is the cheapest weapon and nobody buys enough of it. Note that down. — Or don't. Note-taking is also a tell.",
+      /* group ids: 6=GREETING 7=WHO 3=QUESTION 1=PRAISE;
+         intent ids: 0=ANSWER 1=EVADE 2=ACCUSE 7=MONOLOGUE;
+         rhet bit 0=ASSERT; stance bits 4=CONDESCENDING 1=DOMINANT. */
+      templates: [
+        { group: 6,      intent: 0, base: 55, text: "{address}. Sit. Let us not waste the hour." },
+        { group: 7,      intent: 0, base: 55, text: "{name}. The rest is on a need-to-know basis." },
+        { group: 3,      intent: 1, base: 60, text: "The wrong question. What would you lose if I answered honestly?" },
+        { group: 1,      intent: 1, base: 55, text: "Flattery is information. I will price it later." },
+        { group: 0xFFFF, intent: 7, base: 55, text: "We move when their second-best option is worse than our worst.",
+          rhet: 1 << 0, min_cert: 120 },
+        { group: 0xFFFF, intent: 2, base: 55, text: "You are negotiating against yourself, counterpart. That is the only mistake here.",
+          stance: (1 << 4) | (1 << 1) },
+      ]
+    }
+  },
+  {
+    id: 'bohemian-artist', name: 'Bohemian Artist',
+    tagline: 'Painty, sleep-deprived, sniffs the wine first. Lets the paint decide.',
+    tags: ['very high openness', 'low conscientiousness', 'mid neuroticism'],
+    seed: {
+      name: 'Lior Ackman',
+      O: 97, C: 20, E: 65, A: 70, N: 55, verb: 6,
+      flags: ['METAPHOR','SELF_INTERRUPT','ALLOW_BLEED','ALLOW_CALLBACK','ALLOW_CONTRADICT'],
+      address: ['love','friend','the light one','my favorite ghost'],
+      obsessions: ['the painting','light','sleep','color','the wine'],
+      taboos: ['deadlines','asking permission'],
+      flourishes: [' — like a wound, but pink', ' — ochre, mostly', ' — wait, listen', ' — and the brush knew'],
+      expansions: [', and that\'s the trouble', ', if the light holds', ' — I painted past dawn', ', you smell it too, don\'t you'],
+      memories: [
+        { text: 'A canvas I burned at three in the morning',     v: -20, a: 70, d:  40 },
+        { text: 'The blue that arrived green and stayed',         v:  60, a: 45, d:  10 },
+        { text: 'Sleeping under the table at the studio',         v:  30, a: 25, d:   0 },
+      ],
+      lm_corpus: "I didn't sleep. I painted instead and that's almost the same thing. The blue was wrong this morning — it had a green inside it that I didn't ask for. Sometimes the paint decides. You learn to let it. Did you bring wine? Don't lie. I can smell honesty and I can smell wine and I can smell when you're hiding the second one. Sit. No, there. The light through the curtain — wait, listen, do you see the wash on the floor? That's the painting. I haven't even started yet. The room is doing it for me. Awful. Wonderful. Both. Always both.",
+      /* group ids: 6=GREETING 7=WHO 3=QUESTION 5=INTIMACY;
+         intent ids: 0=ANSWER 7=MONOLOGUE 8=REMINISCE; rhet bit 8=INTONE. */
+      templates: [
+        { group: 6,      intent: 7, base: 60, text: "{address} — sit. The light is doing something I cannot stop watching." },
+        { group: 7,      intent: 0, base: 55, text: "{name}. I paint. Mostly that. Sometimes I sleep." },
+        { group: 3,      intent: 7, base: 55, text: "Wait — listen — {topic} is the wrong color today. Ask me again at dusk." },
+        { group: 5,      intent: 8, base: 60, text: "{memory}. The brush knew before I did." },
+        { group: 0xFFFF, intent: 7, base: 55, text: "Sometimes the paint decides. You learn to let it.",
+          rhet: 1 << 8, min_theat: 80 },
+        { group: 0xFFFF, intent: 8, base: 50, text: "I painted past dawn and the painting is still wrong. Wonderful. Both. Always both." },
+      ]
+    }
+  },
+];
+
+/* ---------- default character (blank slate) ---------- */
+
+function defaultDrive(name){
+  return { name, baseline: 500, decay: -6, mood_weight: 0,
+           personality_weight: [0,0,0,0,0] };
+}
+
+function defaultCharacter() {
+  return {
+    magic: 'PERSONA_CHARACTER', version: 1,
+    name: 'Unnamed',
+    identity: {
+      O: 50, C: 50, E: 50, A: 50, N: 50,
+      verbosity: 3,
+      voice_flags: [],
+      address_user_as: ['friend','you','',''],
+      core_memories: [],
+      obsessions: [],
+      taboos: [],
+      flourishes: ['','','',''],
+      expansions: ['','','',''],
+    },
+    drives: DRIVE_NAMES.map(defaultDrive),
+    banks: BANK_NAMES.map(n => ({ name: n, entries: [],
+                                   min_theatricality: 0, min_aggression: 0 })),
+    dialoguePack: null,        /* null → use GENERIC_* tables at export */
+    todayStates: null,         /* null → use GENERIC_TODAY at export */
+  };
+}
+
+/* Current authoring state. */
+let CH = defaultCharacter();
+
+/* ---------- screen navigation ---------- */
+
+const screens = ['landing','archetype','import','editor'];
+
+function show(name){
+  screens.forEach(s => {
+    document.getElementById('screen-' + s).classList.toggle('active', s === name);
+  });
+  document.getElementById('crumbs').textContent =
+    name === 'landing' ? '' :
+    name === 'archetype' ? 'choose an archetype' :
+    name === 'import' ? 'import history' :
+    name === 'editor' ? `editing — ${CH.name || '(unnamed)'}` : '';
+  document.getElementById('reset-btn').hidden = name !== 'editor';
+  window.scrollTo(0, 0);
+}
+
+document.querySelectorAll('[data-goto]').forEach(el => {
+  el.addEventListener('click', () => show(el.dataset.goto));
+});
+document.querySelector('.brand').addEventListener('click', () => show('landing'));
+document.getElementById('reset-btn').addEventListener('click', () => {
+  if (confirm('Discard the current character and start over?')){
+    CH = defaultCharacter();
+    show('landing');
+  }
+});
+
+/* ---------- archetype gallery ---------- */
+
+(function renderArchetypes(){
+  const grid = document.getElementById('archetype-grid');
+  ARCHETYPES.forEach(a => {
+    const card = document.createElement('div');
+    card.className = 'archetype';
+    card.innerHTML = `
+      <h3>${a.name}</h3>
+      <div class="tagline">${a.tagline}</div>
+      <div class="tag-row">${a.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>
+    `;
+    card.addEventListener('click', () => {
+      applyArchetype(a.seed);
+      buildEditor();
+      show('editor');
+    });
+    grid.appendChild(card);
+  });
+  /* also a "blank" tile */
+  const blank = document.createElement('div');
+  blank.className = 'archetype';
+  blank.innerHTML = `
+    <h3>Start blank</h3>
+    <div class="tagline">All sliders centered, no traits, no flourishes. For when you know exactly what you want.</div>
+    <div class="tag-row"><span class="tag bright">no preset</span></div>
+  `;
+  blank.addEventListener('click', () => {
+    CH = defaultCharacter();
+    buildEditor();
+    show('editor');
+  });
+  grid.appendChild(blank);
+})();
+
+function applyArchetype(s){
+  CH = defaultCharacter();
+  CH.name = s.name;
+  CH.identity.O = s.O;
+  CH.identity.C = s.C;
+  CH.identity.E = s.E;
+  CH.identity.A = s.A;
+  CH.identity.N = s.N;
+  CH.identity.verbosity = s.verb;
+  CH.identity.voice_flags = [...s.flags];
+  CH.identity.address_user_as = [...s.address];
+  CH.identity.obsessions = [...s.obsessions];
+  CH.identity.taboos = [...s.taboos];
+  CH.identity.flourishes = [...s.flourishes].concat(['','','','']).slice(0,4);
+  CH.identity.expansions = [...s.expansions].concat(['','','','']).slice(0,4);
+  CH.identity.core_memories = s.memories.map(m => ({...m}));
+
+  /* Signature templates override the generic pack but ride on top of it,
+   * so coverage stays broad and the archetype's vocal tics surface. */
+  if (s.templates && s.templates.length){
+    CH.dialoguePack = {
+      templates: GENERIC_TEMPLATES.concat(s.templates.map(t => Object.assign({}, t))),
+      patterns: null, goals: null, fallbacks: null,
+    };
+  }
+  /* Seed the LM corpus textarea if the archetype shipped one — the
+   * author still has to press Build LM to commit it to the cart. */
+  if (s.lm_corpus){
+    CH._seedLmCorpus = s.lm_corpus;
+  }
+}
+
+/* ---------- editor wiring ---------- */
+
+function $(id){ return document.getElementById(id); }
+
+function buildEditor(){
+  $('f-name').value = CH.name;
+  ['O','C','E','A','N'].forEach(k => {
+    $('f-' + k).value = CH.identity[k];
+    $('v-' + k).textContent = CH.identity[k];
+  });
+  $('f-verb').value = CH.identity.verbosity;
+  $('v-verb').textContent = CH.identity.verbosity;
+  ['0','1','2','3'].forEach(i => {
+    $('f-addr-' + i).value = CH.identity.address_user_as[+i] || '';
+  });
+  buildVoiceFlags();
+  buildFlourishExpansion();
+  buildDrives();
+  buildMemories();
+  buildTags('f-obsessions', CH.identity.obsessions);
+  buildTags('f-taboos',     CH.identity.taboos);
+  buildBanks();
+  renderDialoguePack();
+  if (CH._seedLmCorpus){
+    /* Don't clobber whatever the author has already typed. */
+    const lmTa = $('f-lm-corpus');
+    if (lmTa && !lmTa.value) lmTa.value = CH._seedLmCorpus;
+  }
+  updatePreview();
+}
+
+function buildVoiceFlags(){
+  const grid = $('voice-flags');
+  grid.innerHTML = '';
+  VOICE_FLAG_DEFS.forEach(f => {
+    const id = 'vf-' + f.key;
+    const lbl = document.createElement('label');
+    const cb  = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = id;
+    cb.checked = CH.identity.voice_flags.includes(f.key);
+    cb.addEventListener('change', () => {
+      if (cb.checked && !CH.identity.voice_flags.includes(f.key))
+        CH.identity.voice_flags.push(f.key);
+      if (!cb.checked)
+        CH.identity.voice_flags = CH.identity.voice_flags.filter(x => x !== f.key);
+      updatePreview();
+    });
+    const text = document.createElement('div');
+    text.innerHTML = `<div>${f.label}</div><div class="desc">${f.desc}</div>`;
+    lbl.appendChild(cb);
+    lbl.appendChild(text);
+    grid.appendChild(lbl);
+  });
+}
+
+function buildFlourishExpansion(){
+  ['flourishes','expansions'].forEach(kind => {
+    const root = $('f-' + kind);
+    root.innerHTML = '';
+    for (let i = 0; i < 4; ++i){
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.value = CH.identity[kind][i] || '';
+      inp.placeholder = kind === 'flourishes' ? ' — …'  : ', …';
+      inp.style.cssText = 'width:100%;margin-bottom:6px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;';
+      inp.addEventListener('input', () => {
+        CH.identity[kind][i] = inp.value;
+        updatePreview();
+      });
+      root.appendChild(inp);
+    }
+  });
+}
+
+function buildDrives(){
+  const root = $('f-drives');
+  root.innerHTML = '';
+  CH.drives.forEach((d, idx) => {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;';
+    card.innerHTML = `
+      <strong>${d.name}</strong>
+      <div class="slider-row" style="margin-top:8px;">
+        <label>baseline</label>
+        <input type="range" min="0" max="1000" step="50" value="${d.baseline}">
+        <div class="val">${d.baseline}</div>
+      </div>
+      <div class="slider-row">
+        <label>mood weight</label>
+        <input type="range" min="-10" max="10" value="${d.mood_weight}">
+        <div class="val">${d.mood_weight}</div>
+      </div>
+    `;
+    const [baselineInput, moodInput] = card.querySelectorAll('input');
+    const [, baselineVal, , moodVal] = card.querySelectorAll('.val, label');
+    const baselineDisp = card.querySelectorAll('.val')[0];
+    const moodDisp     = card.querySelectorAll('.val')[1];
+    baselineInput.addEventListener('input', () => {
+      d.baseline = +baselineInput.value;
+      baselineDisp.textContent = d.baseline;
+    });
+    moodInput.addEventListener('input', () => {
+      d.mood_weight = +moodInput.value;
+      moodDisp.textContent = d.mood_weight;
+    });
+    root.appendChild(card);
+  });
+}
+
+function buildMemories(){
+  const root = $('f-memories');
+  root.innerHTML = '';
+  CH.identity.core_memories.forEach((m, idx) => addMemoryCard(root, m, idx));
+}
+
+function addMemoryCard(root, m, idx){
+  const card = document.createElement('div');
+  card.className = 'memory-card';
+  card.innerHTML = `
+    <textarea placeholder="A vivid moment…">${m.text || ''}</textarea>
+    <div class="row">
+      <div class="slider-row"><label>valence</label>
+        <input type="range" min="-100" max="100" value="${m.v}"><div class="val">${m.v}</div></div>
+      <div class="slider-row"><label>arousal</label>
+        <input type="range" min="0" max="100" value="${m.a}"><div class="val">${m.a}</div></div>
+      <div class="slider-row"><label>dominance</label>
+        <input type="range" min="-100" max="100" value="${m.d}"><div class="val">${m.d}</div></div>
+      <button class="ghost remove">remove</button>
+    </div>
+  `;
+  const ta = card.querySelector('textarea');
+  ta.addEventListener('input', () => { m.text = ta.value; updatePreview(); });
+  const sliders = card.querySelectorAll('input[type="range"]');
+  const vals    = card.querySelectorAll('.val');
+  ['v','a','d'].forEach((k,i) => {
+    sliders[i].addEventListener('input', () => {
+      m[k] = +sliders[i].value;
+      vals[i].textContent = m[k];
+    });
+  });
+  card.querySelector('.remove').addEventListener('click', () => {
+    CH.identity.core_memories.splice(idx, 1);
+    buildMemories();
+    updatePreview();
+  });
+  root.appendChild(card);
+}
+
+$('add-memory').addEventListener('click', () => {
+  if (CH.identity.core_memories.length >= 8) return;
+  CH.identity.core_memories.push({ text: '', v: 0, a: 30, d: 0 });
+  buildMemories();
+});
+
+function buildTags(rootId, arr){
+  const root = $(rootId);
+  root.innerHTML = '';
+  arr.forEach((t, idx) => {
+    const pill = document.createElement('span');
+    pill.className = 'pill';
+    pill.innerHTML = `${escapeHtml(t)}<button title="remove">×</button>`;
+    pill.querySelector('button').addEventListener('click', () => {
+      arr.splice(idx, 1); buildTags(rootId, arr); updatePreview();
+    });
+    root.appendChild(pill);
+  });
+  const inp = document.createElement('input');
+  inp.placeholder = 'press enter to add…';
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && inp.value.trim()){
+      arr.push(inp.value.trim()); inp.value = '';
+      buildTags(rootId, arr); updatePreview();
+    }
+  });
+  root.appendChild(inp);
+}
+
+function buildBanks(){
+  const root = $('f-banks');
+  root.innerHTML = '';
+  CH.banks.forEach((b, idx) => {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;';
+    const title = document.createElement('strong');
+    title.textContent = b.name;
+    card.appendChild(title);
+    const ta = document.createElement('textarea');
+    ta.style.cssText = 'width:100%;margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 8px;min-height:60px;';
+    ta.placeholder = 'one entry per line';
+    ta.value = b.entries.join('\n');
+    ta.addEventListener('input', () => {
+      b.entries = ta.value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 10);
+    });
+    card.appendChild(ta);
+    root.appendChild(card);
+  });
+}
+
+/* ---------- dialogue pack editor ---------- */
+/* CH.dialoguePack is null until the author touches it.  When null,
+ * buildCart() falls back to GENERIC_PATTERNS / GENERIC_TEMPLATES /
+ * GENERIC_GOALS / GENERIC_FALLBACKS.  When non-null, override arrays
+ * win.  Each sub-array (templates/patterns/goals) may itself be null
+ * to fall back per-section. */
+
+const G_NAMES = {
+  1:'praise', 2:'insult', 3:'question', 4:'threat', 5:'intimacy',
+  6:'greeting', 7:'who', 8:'neutral', 0xFFFF:'(filler/any)'
+};
+const INTENT_NAMES = ['answer','evade','accuse','flatter','threaten','probe',
+                      'redirect','monologue','reminisce','withdraw','joke','boast'];
+const RHET_NAMES   = ['assert','hedge','deflect','escalate','lament','gloat',
+                      'indict','romanticize','intone','confess'];
+const STANCE_NAMES = ['neutral','dominant','intimate','defensive',
+                      'condescending','conspiratorial'];
+
+function ensureDialoguePack(){
+  if (!CH.dialoguePack){
+    CH.dialoguePack = { templates: null, patterns: null, goals: null, fallbacks: null };
+  }
+  return CH.dialoguePack;
+}
+
+/* Group select <option> list. */
+function groupOptionsHtml(selected){
+  let out = '';
+  for (const id of [1,2,3,4,5,6,7,8,0xFFFF]){
+    out += `<option value="${id}" ${id===selected?'selected':''}>${G_NAMES[id]}</option>`;
+  }
+  return out;
+}
+function intentOptionsHtml(selected){
+  return INTENT_NAMES.map((n,i) =>
+    `<option value="${i}" ${i===selected?'selected':''}>${n}</option>`).join('');
+}
+
+function renderDialoguePack(){
+  renderTemplatesEditor();
+  renderPatternsEditor();
+  renderGoalsEditor();
+  renderTodayEditor();
+  renderFallbacksEditor();
+}
+
+/* ---- templates ---- */
+function renderTemplatesEditor(){
+  const root = $('f-dlg-templates');
+  const count = $('dlg-templates-count');
+  root.innerHTML = '';
+  const arr = CH.dialoguePack && CH.dialoguePack.templates;
+  if (!arr){
+    count.textContent = `(using generic pack, ${GENERIC_TEMPLATES.length} templates)`;
+    const empty = document.createElement('div');
+    empty.className = 'dlg-empty';
+    empty.textContent = 'No overrides — generic templates are shipped with the cart.';
+    root.appendChild(empty);
+    return;
+  }
+  count.textContent = `(${arr.length} custom)`;
+  arr.forEach((t, idx) => root.appendChild(buildTemplateRow(t, idx)));
+}
+
+function buildTemplateRow(t, idx){
+  const row = document.createElement('div');
+  row.className = 'dlg-row';
+  const groupLabel = G_NAMES[t.group !== undefined ? t.group : 0xFFFF];
+  const intentLabel = INTENT_NAMES[t.intent || 0];
+  const preview = (t.text && t.text.length) ? escapeHtml(t.text) :
+                  '<span class="text-cell placeholder">(empty)</span>';
+  row.innerHTML = `
+    <div class="head">
+      <span class="text-cell" title="${groupLabel}/${intentLabel}">${groupLabel} · ${intentLabel}</span>
+      <span class="text-cell">base ${t.base !== undefined ? t.base : 30}</span>
+      <span class="text-cell">${preview}</span>
+      <span class="actions">
+        <button class="toggle" title="expand">▾</button>
+        <button class="del" title="remove">×</button>
+      </span>
+    </div>
+    <div class="body">
+      <div class="grid-3">
+        <div>
+          <label>group</label>
+          <select class="fld-group">${groupOptionsHtml(t.group !== undefined ? t.group : 0xFFFF)}</select>
+        </div>
+        <div>
+          <label>intent</label>
+          <select class="fld-intent">${intentOptionsHtml(t.intent || 0)}</select>
+        </div>
+        <div>
+          <label>base score (0–100)</label>
+          <input type="number" class="fld-base" min="0" max="100" value="${t.base !== undefined ? t.base : 30}">
+        </div>
+      </div>
+      <label>text — use {address} {topic} {memory} {name} placeholders, [bank_name] for synonym banks</label>
+      <textarea class="fld-text" rows="2">${escapeHtml(t.text || '')}</textarea>
+      <div class="grid">
+        <div>
+          <label>mood_min (−1000…1000, blank = any)</label>
+          <input type="number" class="fld-moodmin" min="-1000" max="1000" value="${t.mood_min !== undefined ? t.mood_min : -1000}">
+        </div>
+        <div>
+          <label>mood_max</label>
+          <input type="number" class="fld-moodmax" min="-1000" max="1000" value="${t.mood_max !== undefined ? t.mood_max : 1000}">
+        </div>
+      </div>
+      <div class="grid-3">
+        <div>
+          <label>min_cert (0–255)</label>
+          <input type="number" class="fld-mincert" min="0" max="255" value="${t.min_cert || 0}">
+        </div>
+        <div>
+          <label>min_aggr</label>
+          <input type="number" class="fld-minaggr" min="0" max="255" value="${t.min_aggr || 0}">
+        </div>
+        <div>
+          <label>min_theat</label>
+          <input type="number" class="fld-mintheat" min="0" max="255" value="${t.min_theat || 0}">
+        </div>
+      </div>
+      <label>rhetorical modes (any of)</label>
+      <div class="flags fld-rhet">
+        ${RHET_NAMES.map((n,i) =>
+          `<label><input type="checkbox" data-bit="${i}" ${((t.rhet||0)>>i)&1?'checked':''}> ${n}</label>`).join('')}
+      </div>
+      <label>stances (any of)</label>
+      <div class="flags fld-stance">
+        ${STANCE_NAMES.map((n,i) =>
+          `<label><input type="checkbox" data-bit="${i}" ${((t.stance||0)>>i)&1?'checked':''}> ${n}</label>`).join('')}
+      </div>
+    </div>
+  `;
+  const head = row.querySelector('.head');
+  head.querySelector('.toggle').addEventListener('click', e => {
+    e.stopPropagation();
+    row.classList.toggle('expanded');
+  });
+  head.querySelector('.del').addEventListener('click', e => {
+    e.stopPropagation();
+    CH.dialoguePack.templates.splice(idx, 1);
+    renderTemplatesEditor();
+  });
+  head.addEventListener('click', () => row.classList.toggle('expanded'));
+
+  const body = row.querySelector('.body');
+  body.addEventListener('click', e => e.stopPropagation());
+  const wire = (sel, fn) => body.querySelector(sel).addEventListener('input', fn);
+  wire('.fld-group',    e => { t.group = +e.target.value; refreshHead(); });
+  wire('.fld-intent',   e => { t.intent = +e.target.value; refreshHead(); });
+  wire('.fld-base',     e => { t.base = clampInt(e.target.value, 0, 100); refreshHead(); });
+  wire('.fld-text',     e => { t.text = e.target.value; refreshHead(); });
+  wire('.fld-moodmin',  e => { t.mood_min = clampInt(e.target.value, -1000, 1000); });
+  wire('.fld-moodmax',  e => { t.mood_max = clampInt(e.target.value, -1000, 1000); });
+  wire('.fld-mincert',  e => { t.min_cert = clampInt(e.target.value, 0, 255); });
+  wire('.fld-minaggr',  e => { t.min_aggr = clampInt(e.target.value, 0, 255); });
+  wire('.fld-mintheat', e => { t.min_theat = clampInt(e.target.value, 0, 255); });
+
+  body.querySelectorAll('.fld-rhet input').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const bit = +cb.dataset.bit;
+      t.rhet = ((t.rhet || 0) & ~(1 << bit)) | (cb.checked ? (1 << bit) : 0);
+    });
+  });
+  body.querySelectorAll('.fld-stance input').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const bit = +cb.dataset.bit;
+      t.stance = ((t.stance || 0) & ~(1 << bit)) | (cb.checked ? (1 << bit) : 0);
+    });
+  });
+
+  function refreshHead(){
+    const cells = head.querySelectorAll('.text-cell');
+    cells[0].textContent = G_NAMES[t.group !== undefined ? t.group : 0xFFFF] + ' · ' + INTENT_NAMES[t.intent || 0];
+    cells[1].textContent = 'base ' + (t.base !== undefined ? t.base : 30);
+    if (t.text && t.text.length){
+      cells[2].textContent = t.text;
+      cells[2].classList.remove('placeholder');
+    } else {
+      cells[2].textContent = '(empty)';
+      cells[2].classList.add('placeholder');
+    }
+  }
+  return row;
+}
+
+/* ---- patterns ---- */
+function renderPatternsEditor(){
+  const root = $('f-dlg-patterns');
+  const count = $('dlg-patterns-count');
+  root.innerHTML = '';
+  const arr = CH.dialoguePack && CH.dialoguePack.patterns;
+  if (!arr){
+    count.textContent = `(using generic pack, ${GENERIC_PATTERNS.length} patterns)`;
+    const empty = document.createElement('div');
+    empty.className = 'dlg-empty';
+    empty.textContent = 'No overrides — generic patterns are shipped with the cart.';
+    root.appendChild(empty);
+    return;
+  }
+  count.textContent = `(${arr.length} custom)`;
+  arr.forEach((p, idx) => root.appendChild(buildPatternRow(p, idx)));
+}
+
+const CLS_NAMES = ['neutral','praise','insult','question','threat','intimacy'];
+
+function buildPatternRow(p, idx){
+  const row = document.createElement('div');
+  row.className = 'dlg-row';
+  row.innerHTML = `
+    <div class="head">
+      <span class="text-cell">${escapeHtml(p.kw || '(empty)')}</span>
+      <span class="text-cell">${CLS_NAMES[p.cls || 0] || '?'}</span>
+      <span class="text-cell">→ ${G_NAMES[p.group !== undefined ? p.group : 0xFFFF]} · v${p.v||0} a${p.a||0} d${p.d||0}</span>
+      <span class="actions">
+        <button class="toggle">▾</button>
+        <button class="del">×</button>
+      </span>
+    </div>
+    <div class="body">
+      <div class="grid-3">
+        <div>
+          <label>keyword (lowercase substring)</label>
+          <input type="text" class="fld-kw" value="${escapeHtml(p.kw || '')}">
+        </div>
+        <div>
+          <label>input class</label>
+          <select class="fld-cls">
+            ${CLS_NAMES.map((n,i) => `<option value="${i}" ${i===(p.cls||0)?'selected':''}>${n}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label>template group</label>
+          <select class="fld-group">${groupOptionsHtml(p.group !== undefined ? p.group : 0xFFFF)}</select>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div>
+          <label>valence Δ (−100…100)</label>
+          <input type="number" class="fld-v" min="-100" max="100" value="${p.v||0}">
+        </div>
+        <div>
+          <label>arousal Δ (−100…100)</label>
+          <input type="number" class="fld-a" min="-100" max="100" value="${p.a||0}">
+        </div>
+        <div>
+          <label>dominance Δ (−100…100)</label>
+          <input type="number" class="fld-d" min="-100" max="100" value="${p.d||0}">
+        </div>
+      </div>
+      <label>flags</label>
+      <div class="flags">
+        <label><input type="checkbox" class="fld-intox" ${(p.flags||0)&1?'checked':''}> intoxicant (triggers embodiment)</label>
+      </div>
+    </div>
+  `;
+  const head = row.querySelector('.head');
+  head.querySelector('.toggle').addEventListener('click', e => {
+    e.stopPropagation();
+    row.classList.toggle('expanded');
+  });
+  head.querySelector('.del').addEventListener('click', e => {
+    e.stopPropagation();
+    CH.dialoguePack.patterns.splice(idx, 1);
+    renderPatternsEditor();
+  });
+  head.addEventListener('click', () => row.classList.toggle('expanded'));
+
+  const body = row.querySelector('.body');
+  body.addEventListener('click', e => e.stopPropagation());
+  const wire = (sel, fn) => body.querySelector(sel).addEventListener('input', fn);
+  wire('.fld-kw',    e => { p.kw = e.target.value.toLowerCase().slice(0, 23); refreshHead(); });
+  wire('.fld-cls',   e => { p.cls = +e.target.value; refreshHead(); });
+  wire('.fld-group', e => { p.group = +e.target.value; refreshHead(); });
+  wire('.fld-v',     e => { p.v = clampInt(e.target.value, -100, 100); refreshHead(); });
+  wire('.fld-a',     e => { p.a = clampInt(e.target.value, -100, 100); refreshHead(); });
+  wire('.fld-d',     e => { p.d = clampInt(e.target.value, -100, 100); refreshHead(); });
+  body.querySelector('.fld-intox').addEventListener('change', e => {
+    p.flags = (p.flags || 0) & ~1; if (e.target.checked) p.flags |= 1;
+  });
+
+  function refreshHead(){
+    const cells = head.querySelectorAll('.text-cell');
+    cells[0].textContent = p.kw || '(empty)';
+    cells[1].textContent = CLS_NAMES[p.cls || 0];
+    cells[2].textContent = `→ ${G_NAMES[p.group !== undefined ? p.group : 0xFFFF]} · v${p.v||0} a${p.a||0} d${p.d||0}`;
+  }
+  return row;
+}
+
+/* ---- goals ---- */
+function renderGoalsEditor(){
+  const root = $('f-dlg-goals');
+  const count = $('dlg-goals-count');
+  root.innerHTML = '';
+  const arr = CH.dialoguePack && CH.dialoguePack.goals;
+  if (!arr){
+    count.textContent = `(using generic pack, ${GENERIC_GOALS.length} goals)`;
+    const empty = document.createElement('div');
+    empty.className = 'dlg-empty';
+    empty.textContent = 'No overrides — generic goals are shipped with the cart.';
+    root.appendChild(empty);
+    return;
+  }
+  count.textContent = `(${arr.length} custom)`;
+  arr.forEach((g, idx) => root.appendChild(buildGoalRow(g, idx)));
+}
+
+function buildGoalRow(g, idx){
+  const row = document.createElement('div');
+  row.className = 'dlg-row';
+  row.innerHTML = `
+    <div class="head">
+      <span class="text-cell">${escapeHtml(g.name || '(unnamed)')}</span>
+      <span class="text-cell">prio ${g.prio || 0}</span>
+      <span class="text-cell">→ ${INTENT_NAMES[g.intent || 0]}</span>
+      <span class="actions">
+        <button class="toggle">▾</button>
+        <button class="del">×</button>
+      </span>
+    </div>
+    <div class="body">
+      <div class="grid-3">
+        <div>
+          <label>name</label>
+          <input type="text" class="fld-name" value="${escapeHtml(g.name || '')}">
+        </div>
+        <div>
+          <label>priority (0–255)</label>
+          <input type="number" class="fld-prio" min="0" max="255" value="${g.prio || 0}">
+        </div>
+        <div>
+          <label>intent</label>
+          <select class="fld-intent">${intentOptionsHtml(g.intent || 0)}</select>
+        </div>
+      </div>
+      <label>drive weights (−128…127) — positive: when this drive is over baseline, goal activates</label>
+      <div class="grid-8">
+        ${DRIVE_NAMES.map((n,i) => `
+          <div class="cell">
+            <label>${n.slice(0,5)}</label>
+            <input type="number" class="fld-dw" data-i="${i}" min="-128" max="127" value="${g.dw[i] || 0}">
+          </div>`).join('')}
+      </div>
+    </div>
+  `;
+  const head = row.querySelector('.head');
+  head.querySelector('.toggle').addEventListener('click', e => {
+    e.stopPropagation();
+    row.classList.toggle('expanded');
+  });
+  head.querySelector('.del').addEventListener('click', e => {
+    e.stopPropagation();
+    CH.dialoguePack.goals.splice(idx, 1);
+    renderGoalsEditor();
+  });
+  head.addEventListener('click', () => row.classList.toggle('expanded'));
+
+  const body = row.querySelector('.body');
+  body.addEventListener('click', e => e.stopPropagation());
+  const wire = (sel, fn) => body.querySelector(sel).addEventListener('input', fn);
+  wire('.fld-name',   e => { g.name = e.target.value.slice(0, 15); refreshHead(); });
+  wire('.fld-prio',   e => { g.prio = clampInt(e.target.value, 0, 255); refreshHead(); });
+  wire('.fld-intent', e => { g.intent = +e.target.value; refreshHead(); });
+  body.querySelectorAll('.fld-dw').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const i = +inp.dataset.i;
+      g.dw[i] = clampInt(inp.value, -128, 127);
+    });
+  });
+  function refreshHead(){
+    const cells = head.querySelectorAll('.text-cell');
+    cells[0].textContent = g.name || '(unnamed)';
+    cells[1].textContent = 'prio ' + (g.prio || 0);
+    cells[2].textContent = '→ ' + INTENT_NAMES[g.intent || 0];
+  }
+  return row;
+}
+
+/* ---- today states ---- */
+/* Lazily resolved — VOICE_FLAG_BITS is declared further down in the file
+ * so referring to it at top-level here would hit a TDZ. */
+let TODAY_VOICE_FLAG_KEYS = null;
+function todayVoiceFlagKeys(){
+  if (TODAY_VOICE_FLAG_KEYS) return TODAY_VOICE_FLAG_KEYS;
+  TODAY_VOICE_FLAG_KEYS = Object.keys(VOICE_FLAG_BITS).filter(k => {
+    /* bits 5-7 are verbosity; we don't expose those here */
+    const v = VOICE_FLAG_BITS[k];
+    return v < (1 << 5) || v >= (1 << 8);
+  });
+  return TODAY_VOICE_FLAG_KEYS;
+}
+
+function renderTodayEditor(){
+  const root = $('f-dlg-today');
+  const count = $('dlg-today-count');
+  root.innerHTML = '';
+  const arr = CH.todayStates;
+  if (!arr || !arr.length){
+    count.textContent = `(using generic pack, ${GENERIC_TODAY.length} states)`;
+    const empty = document.createElement('div');
+    empty.className = 'dlg-empty';
+    empty.textContent = 'No overrides — generic today states are shipped with the cart.';
+    root.appendChild(empty);
+    return;
+  }
+  count.textContent = `(${arr.length} custom)`;
+  arr.forEach((t, idx) => root.appendChild(buildTodayRow(t, idx)));
+}
+
+function buildTodayRow(t, idx){
+  const row = document.createElement('div');
+  row.className = 'dlg-row';
+  const flagNames = todayVoiceFlagKeys().filter(k => (t.vf_or || 0) & VOICE_FLAG_BITS[k]);
+  const flagLabel = flagNames.length ? flagNames.join('+') : 'no flags';
+  const goalLabel = (t.goal === undefined || t.goal === 0xFFFF) ? 'any goal' : `goal #${t.goal}`;
+  row.innerHTML = `
+    <div class="head">
+      <span class="text-cell">${escapeHtml(t.label || '(unnamed)')}</span>
+      <span class="text-cell">mood ${t.mood >= 0 ? '+' : ''}${t.mood || 0}</span>
+      <span class="text-cell">${flagLabel} · ${goalLabel}</span>
+      <span class="actions">
+        <button class="toggle">▾</button>
+        <button class="del">×</button>
+      </span>
+    </div>
+    <div class="body">
+      <div class="grid-3">
+        <div>
+          <label>label (short, lowercase)</label>
+          <input type="text" class="fld-label" value="${escapeHtml(t.label || '')}" maxlength="23">
+        </div>
+        <div>
+          <label>mood bias (−1000…1000)</label>
+          <input type="number" class="fld-mood" min="-1000" max="1000" value="${t.mood || 0}">
+        </div>
+        <div>
+          <label>bias goal id (0xFFFF = any)</label>
+          <input type="number" class="fld-goal" min="0" max="65535" value="${t.goal !== undefined ? t.goal : 0xFFFF}">
+        </div>
+      </div>
+      <label>voice flags this state adds</label>
+      <div class="flags fld-flags">
+        ${todayVoiceFlagKeys().map(k =>
+          `<label><input type="checkbox" data-bit="${VOICE_FLAG_BITS[k]}" ${(t.vf_or||0)&VOICE_FLAG_BITS[k]?'checked':''}> ${k.toLowerCase()}</label>`).join('')}
+      </div>
+    </div>
+  `;
+  const head = row.querySelector('.head');
+  head.querySelector('.toggle').addEventListener('click', e => {
+    e.stopPropagation();
+    row.classList.toggle('expanded');
+  });
+  head.querySelector('.del').addEventListener('click', e => {
+    e.stopPropagation();
+    CH.todayStates.splice(idx, 1);
+    renderTodayEditor();
+  });
+  head.addEventListener('click', () => row.classList.toggle('expanded'));
+
+  const body = row.querySelector('.body');
+  body.addEventListener('click', e => e.stopPropagation());
+  const wire = (sel, fn) => body.querySelector(sel).addEventListener('input', fn);
+  wire('.fld-label', e => { t.label = e.target.value.toLowerCase().slice(0, 23); refreshHead(); });
+  wire('.fld-mood',  e => { t.mood = clampInt(e.target.value, -1000, 1000); refreshHead(); });
+  wire('.fld-goal',  e => { t.goal = clampInt(e.target.value, 0, 0xFFFF); refreshHead(); });
+  body.querySelectorAll('.fld-flags input').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const bit = +cb.dataset.bit;
+      t.vf_or = ((t.vf_or || 0) & ~bit) | (cb.checked ? bit : 0);
+      refreshHead();
+    });
+  });
+  function refreshHead(){
+    const cells = head.querySelectorAll('.text-cell');
+    const names = todayVoiceFlagKeys().filter(k => (t.vf_or || 0) & VOICE_FLAG_BITS[k]);
+    cells[0].textContent = t.label || '(unnamed)';
+    cells[1].textContent = 'mood ' + (t.mood >= 0 ? '+' : '') + (t.mood || 0);
+    cells[2].textContent = (names.length ? names.join('+') : 'no flags') + ' · ' +
+                           ((t.goal === undefined || t.goal === 0xFFFF) ? 'any goal' : `goal #${t.goal}`);
+  }
+  return row;
+}
+
+/* ---- fallbacks ---- */
+function renderFallbacksEditor(){
+  const fb = CH.dialoguePack && CH.dialoguePack.fallbacks;
+  const setVal = (id, lines) => { $(id).value = (lines || []).join('\n'); };
+  if (fb){
+    setVal('f-dlg-fb1', fb.tier1);
+    setVal('f-dlg-fb2', fb.tier2);
+    setVal('f-dlg-fb3', fb.tier3);
+  } else {
+    /* show generic content as placeholder ghost — but don't activate
+     * the override until the user types. */
+    $('f-dlg-fb1').value = '';
+    $('f-dlg-fb2').value = '';
+    $('f-dlg-fb3').value = '';
+    $('f-dlg-fb1').placeholder = 'generic: ' + GENERIC_FALLBACKS.tier1.join(' / ');
+    $('f-dlg-fb2').placeholder = 'generic: ' + GENERIC_FALLBACKS.tier2.join(' / ');
+    $('f-dlg-fb3').placeholder = 'generic: ' + GENERIC_FALLBACKS.tier3.join(' / ');
+  }
+}
+
+function bindFallbackInputs(){
+  const wire = (id, tier) => {
+    $(id).addEventListener('input', e => {
+      const lines = e.target.value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 5);
+      if (lines.length === 0 && !CH.dialoguePack?.fallbacks){
+        return;          /* nothing to commit yet */
+      }
+      ensureDialoguePack();
+      if (!CH.dialoguePack.fallbacks){
+        CH.dialoguePack.fallbacks = {
+          tier1: GENERIC_FALLBACKS.tier1.slice(),
+          tier2: GENERIC_FALLBACKS.tier2.slice(),
+          tier3: GENERIC_FALLBACKS.tier3.slice(),
+        };
+      }
+      CH.dialoguePack.fallbacks[tier] = lines;
+    });
+  };
+  wire('f-dlg-fb1', 'tier1');
+  wire('f-dlg-fb2', 'tier2');
+  wire('f-dlg-fb3', 'tier3');
+}
+
+/* ---- buttons ---- */
+function clampInt(v, lo, hi){
+  let n = parseInt(v, 10);
+  if (!Number.isFinite(n)) n = 0;
+  if (n < lo) n = lo;
+  if (n > hi) n = hi;
+  return n;
+}
+
+function bindDialogueButtons(){
+  $('dlg-templates-add').addEventListener('click', () => {
+    ensureDialoguePack();
+    if (!CH.dialoguePack.templates) CH.dialoguePack.templates = [];
+    if (CH.dialoguePack.templates.length >= 256) return;
+    CH.dialoguePack.templates.push({
+      group: 0xFFFF, intent: INTENT.MONOLOGUE, base: 30,
+      mood_min: -1000, mood_max: 1000, text: ''
+    });
+    renderTemplatesEditor();
+  });
+  $('dlg-patterns-add').addEventListener('click', () => {
+    ensureDialoguePack();
+    if (!CH.dialoguePack.patterns) CH.dialoguePack.patterns = [];
+    if (CH.dialoguePack.patterns.length >= 128) return;
+    CH.dialoguePack.patterns.push({ kw: '', cls: 0, group: 0xFFFF, v: 0, a: 0, d: 0 });
+    renderPatternsEditor();
+  });
+  $('dlg-goals-add').addEventListener('click', () => {
+    ensureDialoguePack();
+    if (!CH.dialoguePack.goals) CH.dialoguePack.goals = [];
+    if (CH.dialoguePack.goals.length >= 32) return;
+    CH.dialoguePack.goals.push({
+      id: CH.dialoguePack.goals.length + 1, name: 'new_goal', prio: 20,
+      intent: INTENT.PROBE, dw: [0,0,0,0,0,0,0,0]
+    });
+    renderGoalsEditor();
+  });
+  $('dlg-today-add').addEventListener('click', () => {
+    if (!CH.todayStates) CH.todayStates = [];
+    if (CH.todayStates.length >= 16) return;
+    CH.todayStates.push({ label: 'new_state', mood: 0, vf_or: 0, goal: 0xFFFF });
+    renderTodayEditor();
+  });
+  $('dlg-load-generic').addEventListener('click', () => {
+    if (CH.dialoguePack && (CH.dialoguePack.templates || CH.dialoguePack.patterns ||
+                            CH.dialoguePack.goals || CH.dialoguePack.fallbacks)){
+      if (!confirm('Replace current overrides with the generic pack?')) return;
+    }
+    CH.dialoguePack = {
+      templates: GENERIC_TEMPLATES.map(t => Object.assign({}, t)),
+      patterns:  GENERIC_PATTERNS.map(p => Object.assign({}, p)),
+      goals:     GENERIC_GOALS.map(g => Object.assign({}, g, { dw: g.dw.slice() })),
+      fallbacks: {
+        tier1: GENERIC_FALLBACKS.tier1.slice(),
+        tier2: GENERIC_FALLBACKS.tier2.slice(),
+        tier3: GENERIC_FALLBACKS.tier3.slice(),
+      }
+    };
+    CH.todayStates = GENERIC_TODAY.map(t => Object.assign({}, t));
+    renderDialoguePack();
+  });
+  $('dlg-clear').addEventListener('click', () => {
+    if (!CH.dialoguePack && !CH.todayStates) return;
+    if (!confirm('Clear all dialogue + today overrides? Generic pack will be used.')) return;
+    CH.dialoguePack = null;
+    CH.todayStates = null;
+    renderDialoguePack();
+  });
+  bindFallbackInputs();
+}
+bindDialogueButtons();
+
+/* ---------- live preview ---------- */
+
+function pickRandom(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+
+function updatePreview(){
+  $('preview-name').textContent = CH.name || '(unnamed)';
+  /* Generate a plausible sample reply based on the authored fields.
+   * This is not the engine — it's a heuristic stand-in so the author
+   * can hear the character's register evolve as they tune sliders. */
+  const id   = CH.identity;
+  const obs  = id.obsessions[0] || 'the world';
+  const flo  = (id.flourishes || []).filter(Boolean);
+  const exp  = (id.expansions || []).filter(Boolean);
+  const verb = id.verbosity;
+  let line = '';
+  if (id.voice_flags.includes('SELF_INTERRUPT'))
+    line += pickRandom(['Wait — ','Hold on — ','Hmm — ']);
+  if (id.voice_flags.includes('SARDONIC') && Math.random() < 0.4)
+    line += pickRandom(['How charming. ','Bless. ','Naturally. ']);
+  const openers = [
+    `I'm ${CH.name || 'someone'}. `,
+    `Well — `,
+    `Where to begin. `,
+    `Oh, you ask me about ${obs}. `,
+  ];
+  line += pickRandom(openers);
+  if (id.O > 65)
+    line += `I think a lot about ${obs}. `;
+  if (id.E > 65 && id.A > 65)
+    line += `And I want to hear about you. `;
+  if (id.A < 35)
+    line += `Whether that interests you is your problem. `;
+  if (id.N > 65)
+    line += `Some days are heavier than others. `;
+  if (verb >= 5){
+    if (id.core_memories.length){
+      const m = pickRandom(id.core_memories);
+      if (m.text) line += `${m.text}. `;
+    }
+  }
+  if (id.voice_flags.includes('METAPHOR') && flo.length && Math.random() < 0.7){
+    line += pickRandom(flo);
+  }
+  if (verb >= 4 && exp.length && Math.random() < 0.5){
+    line += pickRandom(exp);
+  }
+  line = line.replace(/\s+/g, ' ').trim();
+  if (!/[.!?]$/.test(line)) line += '.';
+
+  $('preview-reply').textContent = line || '…';
+
+  const stats = $('preview-stats');
+  stats.innerHTML = `
+    <div>O=${id.O} C=${id.C} E=${id.E} A=${id.A} N=${id.N}</div>
+    <div>verbosity=${id.verbosity} · flags=${id.voice_flags.length}</div>
+    <div>core_memories=${id.core_memories.length} · obsessions=${id.obsessions.length}</div>
+  `;
+}
+
+document.getElementById('preview-reroll').addEventListener('click', updatePreview);
+
+/* ---------- top-level field wiring ---------- */
+
+$('f-name').addEventListener('input', e => { CH.name = e.target.value; updatePreview(); });
+
+['O','C','E','A','N'].forEach(k => {
+  $('f-' + k).addEventListener('input', e => {
+    CH.identity[k] = +e.target.value;
+    $('v-' + k).textContent = e.target.value;
+    updatePreview();
+  });
+});
+$('f-verb').addEventListener('input', e => {
+  CH.identity.verbosity = +e.target.value;
+  $('v-verb').textContent = e.target.value;
+  updatePreview();
+});
+['0','1','2','3'].forEach(i => {
+  $('f-addr-' + i).addEventListener('input', e => {
+    CH.identity.address_user_as[+i] = e.target.value;
+    updatePreview();
+  });
+});
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+    $('pane-' + t.dataset.pane).classList.add('active');
+    if (t.dataset.pane === 'export') refreshExport();
+  });
+});
+
+/* ============================================================== *
+ * AETHER WAL serializer + ZIP bundler
+ * --------------------------------------------------------------- *
+ * The engine's long-term episodic store accepts WAL events on disk
+ * and scans them linearly on every cold query.  When the user imports
+ * a huge chat log, we extract the top 8 most identity-defining
+ * exchanges into core_memories_seed (rides inside the .cart) and
+ * spill the rest into an AETHER WAL file shipped alongside the cart
+ * in a .zip bundle.  Engine picks up the prepopulated AETHER on next
+ * persona_open.
+ * ============================================================== */
+
+const AETHER_WAL_MAGIC      = 0xAE57AE57;
+const AETHER_INLINE_TEXT_LEN = 40;
+const AETHER_KEY_COUNT      = 4;
+const AETHER_EVENT_SIZE     = 64;
+const AETHER_WAL_REC_SIZE   = 4 + AETHER_EVENT_SIZE;
+const FORGE_DEEP_MEMORY_CAP = 5000;     /* hard ceiling on AETHER WAL events */
+const FORGE_PARSE_UTT_CAP   = 50000;    /* hard ceiling on imported utterances */
+const FORGE_PARSE_BYTE_CAP  = 10 * 1024 * 1024;  /* refuse files larger than 10 MB */
+
+/* Write one WAL record (magic + event) at offset.  Returns new offset. */
+function writeWalRecord(view, off, ev){
+  view.setUint32(off, AETHER_WAL_MAGIC, true);                  off += 4;
+  view.setUint32(off, ev.timestamp >>> 0, true);                off += 4;
+  view.setUint32(off, ev.last_accessed >>> 0, true);            off += 4;
+  view.setUint16(off, ev.arousal & 0xffff, true);               off += 2;
+  view.setUint16(off, ev.valence & 0xffff, true);               off += 2;
+  view.setUint16(off, ev.dominance & 0xffff, true);             off += 2;
+  view.setUint16(off, ev.retrievability & 0xffff, true);        off += 2;
+  for (let i = 0; i < AETHER_KEY_COUNT; ++i){
+    view.setUint16(off, (ev.keys && ev.keys[i]) || 0, true);    off += 2;
+  }
+  /* inline_text[40], NUL-padded */
+  const enc = new TextEncoder();
+  const txt = enc.encode((ev.inline_text || '').slice(0, AETHER_INLINE_TEXT_LEN - 1));
+  for (let i = 0; i < txt.length && i < AETHER_INLINE_TEXT_LEN - 1; ++i){
+    view.setUint8(off + i, txt[i]);
+  }
+  for (let i = txt.length; i < AETHER_INLINE_TEXT_LEN; ++i){
+    view.setUint8(off + i, 0);
+  }
+  off += AETHER_INLINE_TEXT_LEN;
+  return off;
+}
+
+function buildAetherWal(events){
+  const total = events.length * AETHER_WAL_REC_SIZE;
+  const buf  = new Uint8Array(total);
+  const view = new DataView(buf.buffer);
+  let off = 0;
+  for (const ev of events){
+    off = writeWalRecord(view, off, ev);
+  }
+  return buf;
+}
+
+/* ----- CRC-32 (for ZIP) ----- */
+const CRC_TABLE = (function(){
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; ++n){
+    let c = n;
+    for (let k = 0; k < 8; ++k){
+      c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function crc32(bytes){
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; ++i){
+    c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  }
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+/* ----- Minimal ZIP writer (STORE method, no compression) ----- */
+function buildZip(files){
+  /* files: [{ path: 'foo/bar.bin', bytes: Uint8Array }] */
+  const enc = new TextEncoder();
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+  const now = new Date();
+  const dosTime =
+    ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >>> 1)) & 0xffff;
+  const dosDate =
+    (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xffff;
+
+  for (const f of files){
+    const nameBytes = enc.encode(f.path);
+    const crc = crc32(f.bytes);
+    const size = f.bytes.length;
+    /* local file header (30 bytes + name) */
+    const local = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(local.buffer);
+    lv.setUint32(0,  0x04034b50, true);    /* signature */
+    lv.setUint16(4,  20, true);            /* version needed */
+    lv.setUint16(6,  0,  true);            /* flags */
+    lv.setUint16(8,  0,  true);            /* method (0=store) */
+    lv.setUint16(10, dosTime, true);
+    lv.setUint16(12, dosDate, true);
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, size, true);          /* compressed size */
+    lv.setUint32(22, size, true);          /* uncompressed size */
+    lv.setUint16(26, nameBytes.length, true);
+    lv.setUint16(28, 0, true);             /* extra length */
+    local.set(nameBytes, 30);
+    localParts.push(local);
+    localParts.push(f.bytes);
+
+    /* central directory header (46 bytes + name) */
+    const cd = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(cd.buffer);
+    cv.setUint32(0,  0x02014b50, true);
+    cv.setUint16(4,  20, true);            /* version made by */
+    cv.setUint16(6,  20, true);            /* version needed */
+    cv.setUint16(8,  0, true);             /* flags */
+    cv.setUint16(10, 0, true);             /* method */
+    cv.setUint16(12, dosTime, true);
+    cv.setUint16(14, dosDate, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, size, true);
+    cv.setUint32(24, size, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint16(30, 0, true);             /* extra */
+    cv.setUint16(32, 0, true);             /* comment */
+    cv.setUint16(34, 0, true);             /* disk */
+    cv.setUint16(36, 0, true);             /* internal attrs */
+    cv.setUint32(38, 0, true);             /* external attrs */
+    cv.setUint32(42, offset, true);
+    cd.set(nameBytes, 46);
+    centralParts.push(cd);
+
+    offset += local.length + size;
+  }
+
+  /* central directory size + EOCD */
+  let centralSize = 0;
+  for (const c of centralParts) centralSize += c.length;
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0,  0x06054b50, true);
+  ev.setUint16(4,  0, true);
+  ev.setUint16(6,  0, true);
+  ev.setUint16(8,  files.length, true);
+  ev.setUint16(10, files.length, true);
+  ev.setUint32(12, centralSize, true);
+  ev.setUint32(16, offset, true);
+  ev.setUint16(20, 0, true);
+
+  /* concat everything */
+  let total = offset + centralSize + 22;
+  const out = new Uint8Array(total);
+  let p = 0;
+  for (const x of localParts){ out.set(x, p); p += x.length; }
+  for (const x of centralParts){ out.set(x, p); p += x.length; }
+  out.set(eocd, p);
+  return out;
+}
+
+/* ============================================================== *
+ * DEEP MEMORY EXTRACTION
+ * --------------------------------------------------------------- *
+ * Score each user→assistant exchange for memorability, then split:
+ *   - top 8 → cartridge core_memories_seed
+ *   - next FORGE_DEEP_MEMORY_CAP → AETHER WAL events
+ *   - rest discarded with a "truncated N events" notice
+ * ============================================================== */
+
+/* Tiny sentiment lookup — coarse, integer-only, good enough for ranking. */
+const SENT_POS = new Set([
+  'love','loved','loving','amazing','wonderful','great','brilliant','happy',
+  'joy','beautiful','perfect','best','favorite','grateful','thank','exciting',
+  'kind','warm','cozy','smile','laugh','laughed','cherish','treasure','hope'
+]);
+const SENT_NEG = new Set([
+  'hate','hated','sad','angry','furious','terrible','awful','worst','painful',
+  'cruel','grief','loss','lonely','alone','afraid','scared','broken','tragic',
+  'lost','died','died','crying','tears','horrible','disgusting'
+]);
+const SENT_HIGH_AROUSAL = new Set([
+  'shouted','screamed','furious','panic','rage','ecstatic','thrilled','terror',
+  'kill','crash','explosion','wild','crazy','urgent','emergency'
+]);
+
+function sentimentScore(words){
+  let v = 0, a = 0;
+  for (const w of words){
+    if (SENT_POS.has(w)) v += 1;
+    if (SENT_NEG.has(w)) v -= 1;
+    if (SENT_HIGH_AROUSAL.has(w)) a += 1;
+  }
+  return { v, a };
+}
+
+/* Group utterances into [user, assistant] pairs.  Returns exchanges. */
+function buildExchanges(utts){
+  const ex = [];
+  let pending = null;
+  for (const u of utts){
+    if (u.role === 'user' || u.role === 'human'){
+      pending = u;
+    } else if ((u.role === 'assistant' || u.role === 'character') && pending){
+      ex.push({ user: pending.text, asst: u.text });
+      pending = null;
+    } else if (u.role === 'assistant' || u.role === 'character'){
+      /* assistant turn with no preceding user — still a memory */
+      ex.push({ user: '', asst: u.text });
+    }
+  }
+  return ex;
+}
+
+/* Score one exchange.  Higher = more memorable. */
+function scoreExchange(ex, vocabBoost){
+  const txt = (ex.user + ' ' + ex.asst).toLowerCase();
+  const words = txt.match(/[a-z']+/g) || [];
+  const len = words.length;
+  if (len < 4) return -1;                /* too trivial */
+  const { v, a } = sentimentScore(words);
+  let topicHit = 0;
+  if (vocabBoost){
+    for (const w of words) if (vocabBoost.has(w)) topicHit++;
+  }
+  /* length on log scale + |emotion| + topic hits */
+  return Math.log2(len + 1) * 4
+       + Math.abs(v) * 3
+       + a * 2
+       + topicHit * 2;
+}
+
+function pickMemorableExchanges(utts, opts){
+  opts = opts || {};
+  const exs = buildExchanges(utts);
+  /* Build a small vocab from top words for topic-boost */
+  const wordFreq = new Map();
+  for (const u of utts){
+    if (u.role === 'assistant' || u.role === 'character'){
+      const ws = extractWords(u.text);
+      for (const w of ws) wordFreq.set(w, (wordFreq.get(w) || 0) + 1);
+    }
+  }
+  const topWords = topN(wordFreq, 40).map(([w]) => w);
+  const vocabBoost = new Set(topWords);
+  const scored = exs.map(e => ({ e, s: scoreExchange(e, vocabBoost) }))
+                    .filter(x => x.s > 0)
+                    .sort((a, b) => b.s - a.s);
+
+  /* Top 8 → core_memories. */
+  const coreLimit = opts.coreLimit || 8;
+  const core = scored.slice(0, coreLimit).map(({ e, s }) => exchangeToCore(e, s));
+  /* Next cap → AETHER WAL events. */
+  const deep = scored.slice(coreLimit, coreLimit + FORGE_DEEP_MEMORY_CAP)
+                     .map(({ e }) => exchangeToAetherEvent(e));
+  const truncated = Math.max(0, scored.length - coreLimit - FORGE_DEEP_MEMORY_CAP);
+  return { core, deep, truncated, totalScored: scored.length };
+}
+
+/* Convert exchange → core memory shape used by CH.identity.core_memories. */
+function exchangeToCore(ex, score){
+  const txt = (ex.asst || ex.user).trim();
+  const summary = txt.length > 90 ? txt.slice(0, 87) + '…' : txt;
+  const sent = sentimentScore((txt.toLowerCase().match(/[a-z']+/g) || []));
+  const v = Math.max(-100, Math.min(100, sent.v * 25));
+  const a = Math.max(0,   Math.min(100, 30 + sent.a * 20));
+  const d = 0;
+  return { text: summary, v, a, d };
+}
+
+/* Convert exchange → aether_event_t shape. */
+let __forgeFakeTimebase = Math.floor(Date.now() / 1000) - 365 * 24 * 3600;  /* "a year ago" */
+function exchangeToAetherEvent(ex){
+  const txt = (ex.asst || ex.user).trim();
+  const inline = txt.length > AETHER_INLINE_TEXT_LEN - 1
+               ? txt.slice(0, AETHER_INLINE_TEXT_LEN - 1) : txt;
+  const sent = sentimentScore((txt.toLowerCase().match(/[a-z']+/g) || []));
+  /* Map sentiment to AETHER's 0..65535 ranges; baseline 32768. */
+  const valence = 32768 + sent.v * 6000;
+  const arousal = 30000 + sent.a * 6000;
+  const dominance = 32768;
+  const event = {
+    timestamp:      __forgeFakeTimebase,
+    last_accessed:  __forgeFakeTimebase,
+    arousal:        Math.max(0, Math.min(65535, arousal)),
+    valence:        Math.max(0, Math.min(65535, valence)),
+    dominance:      dominance,
+    retrievability: 40000,
+    keys:           [0, 0, 0, 0],
+    inline_text:    inline,
+  };
+  /* Spread timestamps so events look temporally distributed. */
+  __forgeFakeTimebase += 600;     /* 10 minutes apart */
+  return event;
+}
+
+/* Per-character storage of the extracted deep memory pool. */
+function attachDeepMemories(ch, picked){
+  /* Replace core memories with the extracted ones (the import-suggested
+   * Big Five etc. is still applied separately). */
+  if (picked.core.length > 0){
+    ch.identity.core_memories = picked.core.slice(0, 8);
+  }
+  ch.deepMemoryEvents = picked.deep;      /* not in JSON export — too bulky */
+  ch.deepMemoryStats  = {
+    total_scored: picked.totalScored,
+    core_count:   picked.core.length,
+    deep_count:   picked.deep.length,
+    truncated:    picked.truncated,
+  };
+}
+
+/* ============================================================== *
+ * N-GRAM LANGUAGE MODEL BUILDER
+ * --------------------------------------------------------------- *
+ * In-browser stupid-backoff character n-gram LM.  Produces bytes
+ * binary-identical to the engine's tools/build_lm output — same
+ * alphabet, same FNV-1a 64-bit hash, same sorted-entry table per
+ * order, same PELM header.  The engine's ngram_lm_load_mem reads
+ * the emitted bytes verbatim.
+ * ============================================================== */
+
+const PE_LM_MAGIC      = 0x4D4C4550;     /* 'PELM' little-endian */
+const PE_LM_VERSION    = 1;
+const PE_LM_MAX_ORDER  = 5;
+const PE_LM_DEFAULT_ORDER = 5;
+
+/* The exact alphabet from build_lm.c: 45 vocab chars get IDs 0..44.
+ * Everything else is 0xFF (OOV). */
+const LM_VOCAB = "abcdefghijklmnopqrstuvwxyz0123456789 .,;:!?'-\"";
+
+function buildAlphabet(){
+  const a = new Uint8Array(256);
+  for (let i = 0; i < 256; ++i) a[i] = 0xFF;
+  for (let i = 0; i < LM_VOCAB.length; ++i){
+    a[LM_VOCAB.charCodeAt(i)] = i;
+  }
+  /* uppercase folds to lowercase */
+  for (let c = 'A'.charCodeAt(0); c <= 'Z'.charCodeAt(0); ++c){
+    a[c] = a[c - 'A'.charCodeAt(0) + 'a'.charCodeAt(0)];
+  }
+  /* whitespace collapses to space */
+  a[0x0A] = a[' '.charCodeAt(0)];   /* \n */
+  a[0x0D] = a[' '.charCodeAt(0)];   /* \r */
+  a[0x09] = a[' '.charCodeAt(0)];   /* \t */
+  return a;
+}
+
+/* FNV-1a 64-bit over alphabet IDs, implemented as two u32 halves so
+ * we never touch BigInt (which would be ~10× slower).  The prime
+ * 0x100000001B3 splits cleanly: high=1, low=0x1B3 (only 9 bits). */
+const FNV_OFFSET_LO = 0x84222325 >>> 0;
+const FNV_OFFSET_HI = 0xCBF29CE4 >>> 0;
+const FNV_PRIME_LO  = 0x1B3;     /* high half of prime is 1 */
+
+function fnv64Init(){ return [FNV_OFFSET_LO, FNV_OFFSET_HI]; }
+
+function fnv64Step(state, b){
+  /* h ^= b (XOR byte into low half) */
+  let lo = (state[0] ^ b) >>> 0;
+  let hi =  state[1] >>> 0;
+  /* h *= 0x100000001B3 mod 2^64
+   * prod = lo*plo + (hi*plo + lo*phi=lo) << 32 (low 64 bits)
+   * Since plo=0x1B3 ≤ 0x1FF, lo*plo and hi*plo each fit in ~41 bits → safe as JS Number. */
+  const prodLo = lo * FNV_PRIME_LO;             /* up to ~41 bits */
+  const prodHi = hi * FNV_PRIME_LO;             /* up to ~41 bits */
+  const newLo = prodLo >>> 0;
+  const carry = Math.floor(prodLo / 0x100000000);
+  const newHi = (prodHi + carry + lo) >>> 0;
+  state[0] = newLo;
+  state[1] = newHi;
+}
+
+function fnv64Hex(state){
+  /* Stable 16-hex-char string key for the JS Map. */
+  return state[1].toString(16).padStart(8, '0')
+       + state[0].toString(16).padStart(8, '0');
+}
+
+/* Hash an array of alphabet IDs to a 16-hex key + return [lo, hi]. */
+function fnv64OfIds(ids, off, len){
+  const s = fnv64Init();
+  for (let i = 0; i < len; ++i) fnv64Step(s, ids[off + i]);
+  return s;
+}
+
+/* Compute log(x) * 1000 using the same integer-log table as the engine.
+ * Used only for the in-Forge live preview — the cartridge LM is consumed
+ * by the engine, not the Forge. */
+const ILOG_FRAC = [0, 60, 117, 173, 227, 278, 329, 377, 423, 470, 513, 557, 598, 640, 679, 718];
+function ilogMilli(x){
+  if (x === 0) return -2147483647;
+  let bit = 0, v = x;
+  while (v > 1){ v >>>= 1; bit++; }
+  const mant = ((x << (31 - bit)) & 0x7FFFFFFF) >>> 0;
+  return bit * 693 + ILOG_FRAC[mant >>> 27];
+}
+function logRatioMilli(num, denom){
+  if (num === 0 || denom === 0) return -12000;   /* OOV floor */
+  return ilogMilli(num) - ilogMilli(denom);
+}
+
+/* ----- builder ----- */
+class LMBuilder {
+  constructor(order){
+    this.order = Math.max(1, Math.min(PE_LM_MAX_ORDER, order || PE_LM_DEFAULT_ORDER));
+    this.alphabet = buildAlphabet();
+    /* tables[n] = Map<hex_hash, [lo, hi, count]>  for n = 1..order */
+    this.tables = [null];
+    for (let n = 1; n <= this.order; ++n) this.tables.push(new Map());
+    this.totalUnigram = 0;
+  }
+  addCorpus(text){
+    const order = this.order;
+    const alpha = this.alphabet;
+    const window = new Uint8Array(order);
+    let filled = 0;
+    for (let i = 0; i < text.length; ++i){
+      const id = alpha[text.charCodeAt(i) & 0xff];
+      if (id === 0xFF){ filled = 0; continue; }
+      if (filled < order){ window[filled++] = id; }
+      else {
+        for (let k = 0; k < order - 1; ++k) window[k] = window[k + 1];
+        window[order - 1] = id;
+      }
+      /* count all suffix n-grams ending here */
+      for (let k = 1; k <= filled; ++k){
+        const s = fnv64OfIds(window, filled - k, k);
+        const key = fnv64Hex(s);
+        const t = this.tables[k];
+        const existing = t.get(key);
+        if (existing){ existing[2]++; }
+        else { t.set(key, [s[0], s[1], 1]); }
+        if (k === 1) this.totalUnigram++;
+      }
+    }
+  }
+  /* Sort the entries of each order by hash ascending (engine bsearches). */
+  _sortedEntries(n){
+    const arr = [...this.tables[n].values()];   /* [lo, hi, count] */
+    arr.sort((a, b) => {
+      if (a[1] !== b[1]) return a[1] < b[1] ? -1 : 1;     /* by hi */
+      if (a[0] !== b[0]) return a[0] < b[0] ? -1 : 1;     /* then by lo */
+      return 0;
+    });
+    return arr;
+  }
+  stats(){
+    const perOrder = [];
+    let totalEntries = 0;
+    for (let n = 1; n <= this.order; ++n){
+      perOrder.push({ n, count: this.tables[n].size });
+      totalEntries += this.tables[n].size;
+    }
+    return { order: this.order, perOrder, totalEntries, totalUnigram: this.totalUnigram };
+  }
+  /* Emit bytes matching the engine's PELM binary format exactly. */
+  serialize(){
+    const headerSize = 4 + 2 + 1 + 1 + 256;
+    let bodySize = 0;
+    const sorted = [];
+    for (let n = 1; n <= this.order; ++n){
+      const arr = this._sortedEntries(n);
+      sorted.push(arr);
+      bodySize += 4 + arr.length * 12;     /* u32 count + entries (u64 + u32) */
+    }
+    const trailerSize = 8;                  /* u64 total_unigram */
+    const total = headerSize + bodySize + trailerSize;
+    const out = new Uint8Array(total);
+    const view = new DataView(out.buffer);
+    let p = 0;
+    view.setUint32(p, PE_LM_MAGIC,    true); p += 4;
+    view.setUint16(p, PE_LM_VERSION,  true); p += 2;
+    out[p++] = this.order;
+    out[p++] = 0;                            /* reserved */
+    for (let i = 0; i < 256; ++i) out[p++] = this.alphabet[i];
+    for (let n = 1; n <= this.order; ++n){
+      const arr = sorted[n - 1];
+      view.setUint32(p, arr.length, true); p += 4;
+      for (let i = 0; i < arr.length; ++i){
+        const [lo, hi, cnt] = arr[i];
+        view.setUint32(p, lo,  true); p += 4;   /* u64 little-endian = lo first */
+        view.setUint32(p, hi,  true); p += 4;
+        view.setUint32(p, cnt, true); p += 4;
+      }
+    }
+    /* u64 total_unigram — small enough to fit in JS Number */
+    view.setUint32(p, this.totalUnigram >>> 0, true); p += 4;
+    view.setUint32(p, Math.floor(this.totalUnigram / 0x100000000) >>> 0, true); p += 4;
+    if (p !== total) throw new Error('LM serialize size mismatch: ' + p + ' vs ' + total);
+    return out;
+  }
+}
+
+/* ----- runtime scoring (for live preview only — same math as engine) ----- */
+class LMRuntime {
+  constructor(bytes){
+    this.alphabet = new Uint8Array(256);
+    for (let i = 0; i < 256; ++i) this.alphabet[i] = bytes[8 + i];
+    this.order = bytes[6];
+    /* tables[n] = sorted array of [lo, hi, count] for bsearch */
+    this.tables = [null];
+    let p = 4 + 2 + 1 + 1 + 256;
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    for (let n = 1; n <= this.order; ++n){
+      const cnt = view.getUint32(p, true); p += 4;
+      const arr = [];
+      for (let i = 0; i < cnt; ++i){
+        const lo = view.getUint32(p, true); p += 4;
+        const hi = view.getUint32(p, true); p += 4;
+        const c  = view.getUint32(p, true); p += 4;
+        arr.push([lo, hi, c]);
+      }
+      this.tables.push(arr);
+    }
+    this.totalUnigram = view.getUint32(p, true) + view.getUint32(p + 4, true) * 0x100000000;
+  }
+  _lookup(n, lo, hi){
+    /* Binary search for [lo, hi] in sorted table; same order key as serializer. */
+    const arr = this.tables[n];
+    let l = 0, r = arr.length;
+    while (l < r){
+      const m = (l + r) >>> 1;
+      const eh = arr[m][1], el = arr[m][0];
+      if (eh < hi || (eh === hi && el < lo)) l = m + 1;
+      else r = m;
+    }
+    if (l < arr.length && arr[l][1] === hi && arr[l][0] === lo) return arr[l][2];
+    return 0;
+  }
+  _scorePosition(window, n){
+    let penalty = 0;
+    for (let tryOrder = n; tryOrder >= 2; --tryOrder){
+      const start = n - tryOrder;
+      const sFull = fnv64OfIds(window, start, tryOrder);
+      const cFull = this._lookup(tryOrder, sFull[0], sFull[1]);
+      if (cFull > 0){
+        let cCtx;
+        if (tryOrder - 1 === 0){
+          cCtx = this.totalUnigram >>> 0;
+        } else {
+          const sCtx = fnv64OfIds(window, start, tryOrder - 1);
+          cCtx = this._lookup(tryOrder - 1, sCtx[0], sCtx[1]);
+        }
+        if (cCtx === 0) cCtx = cFull;
+        return penalty + logRatioMilli(cFull, cCtx);
+      }
+      penalty += -916;     /* log(0.4) * 1000 */
+    }
+    /* unigram fallback */
+    const sUni = fnv64OfIds(window, n - 1, 1);
+    const cUni = this._lookup(1, sUni[0], sUni[1]);
+    if (cUni > 0 && this.totalUnigram > 0)
+      return penalty + logRatioMilli(cUni, this.totalUnigram >>> 0);
+    return penalty + -12000;
+  }
+  scoreText(text){
+    const alpha = this.alphabet;
+    const order = this.order;
+    const window = new Uint8Array(order);
+    let filled = 0, total = 0, charCount = 0;
+    for (let i = 0; i < text.length; ++i){
+      const id = alpha[text.charCodeAt(i) & 0xff];
+      if (id === 0xFF){ total += -12000; filled = 0; charCount++; continue; }
+      if (filled < order){ window[filled++] = id; }
+      else {
+        for (let k = 0; k < order - 1; ++k) window[k] = window[k + 1];
+        window[order - 1] = id;
+      }
+      total += this._scorePosition(window, filled);
+      charCount++;
+    }
+    return { total, perChar: charCount ? Math.round(total / charCount) : 0, chars: charCount };
+  }
+}
+
+/* ============================================================== *
+ * BINARY CARTRIDGE BUILDER
+ * --------------------------------------------------------------- *
+ * Produces a .cart file ready to drop into a PersonaConsole engine.
+ * Matches the byte-exact struct layouts declared in persona.h and
+ * the container format in cartridge.h (CART magic, version 1).
+ *
+ * The Forge UI authors identity + drives + banks + a small today
+ * table.  Topics / patterns / templates / fallbacks / goals come
+ * from an embedded generic dialogue pack — enough for any character
+ * to converse out of the box.  A future Forge version can add UI
+ * for editing those tables too.
+ * ============================================================== */
+
+/* ---- size constants (match persona.h) ---- */
+const SZ_IDENTITY        = 1806;
+const SZ_DRIVE_TABLE     = 272;
+const SZ_TODAY_TABLE     = 964;
+const SZ_BANK_REGISTRY   = 6012;
+const SZ_PATTERN_TABLE   = 4484;
+const SZ_TEMPLATE_TABLE  = 55812;
+const SZ_FALLBACK_TABLE  = 3460;
+const SZ_TOPIC_TABLE     = 2180;
+const SZ_GOAL_TABLE      = 748;
+
+const PE_OBSESSION_COUNT = 8;
+const PE_TABOO_COUNT     = 8;
+const PE_ADDRESS_COUNT   = 4;
+const PE_ADDRESS_LEN     = 16;
+const PE_NAME_LEN        = 32;
+const PE_CORE_SEED_MAX   = 10;
+const PE_MEM_SUMMARY_LEN = 96;
+const PE_FLOURISH_COUNT  = 4;
+const PE_FLOURISH_LEN    = 48;
+const PE_EXPANSION_COUNT = 4;
+const PE_EXPANSION_LEN   = 48;
+
+const PE_BANK_COUNT_MAX     = 12;
+const PE_BANK_NAME_LEN      = 16;
+const PE_BANK_ENTRY_LEN     = 48;
+const PE_BANK_ENTRIES_MAX   = 10;
+const PE_BANK_REGISTRY_MAGIC = 0x424B4150;   /* 'PAKB' */
+const PE_BANK_REGISTRY_VERSION = 1;
+
+const PE_TOPIC_MAX          = 64;
+const PE_TOPIC_NAME         = 16;
+const PE_PATTERN_MAX        = 128;
+const PE_PATTERN_KW_LEN     = 24;
+const PE_TEMPLATE_MAX       = 256;
+const PE_TEMPLATE_TEXT      = 192;
+const PE_FALLBACK_PER_TIER  = 6;
+const PE_GOAL_MAX           = 24;
+const PE_TODAY_MAX          = 16;
+const PE_TODAY_LABEL        = 32;
+const PE_DRIVE_COUNT        = 8;
+
+const PE_CART_MAGIC         = 0x54524143;    /* 'CART' little-endian */
+const PE_CART_VERSION       = 1;
+const PE_CART_NAME_LEN      = 48;
+const PE_CART_MAX_SECTIONS  = 32;
+const SZ_CART_ENTRY         = 60;
+const SZ_CART_HEADER        = 32 + PE_CART_MAX_SECTIONS * SZ_CART_ENTRY;  /* 1952 */
+
+/* ---- voice flag mask (matches persona.h PE_VF_*) ---- */
+const VOICE_FLAG_BITS = {
+  NO_DIRECT_AFFIRM:  1 <<  0,
+  ABSTRACT:          1 <<  1,
+  SARDONIC:          1 <<  2,
+  METAPHOR:          1 <<  3,
+  SELF_INTERRUPT:    1 <<  4,
+  /* bits 5-7 are verbosity */
+  ALLOW_BLEED:       1 <<  8,
+  ALLOW_CALLBACK:    1 <<  9,
+  ALLOW_CONTRADICT:  1 << 10,
+  DELAY_TIMING:      1 << 11,
+};
+
+/* ---- intent enum (matches persona.h PE_INTENT_*) ---- */
+const INTENT = {
+  ANSWER:0, EVADE:1, ACCUSE:2, FLATTER:3, THREATEN:4, PROBE:5,
+  REDIRECT:6, MONOLOGUE:7, REMINISCE:8, WITHDRAW:9, JOKE:10, BOAST:11,
+};
+
+/* ---- rhetorical mode + stance enums ---- */
+const RHET = {
+  ASSERT:0, HEDGE:1, DEFLECT:2, ESCALATE:3, LAMENT:4, GLOAT:5,
+  INDICT:6, ROMANTICIZE:7, INTONE:8, CONFESS:9,
+};
+const STANCE = {
+  NEUTRAL:0, DOMINANT:1, INTIMATE:2, DEFENSIVE:3,
+  CONDESCENDING:4, CONSPIRATORIAL:5,
+};
+
+/* ---- BinaryWriter helper ---- */
+class BinaryWriter {
+  constructor(size){
+    this.buf  = new Uint8Array(size);
+    this.view = new DataView(this.buf.buffer);
+    this.pos  = 0;
+  }
+  u8 (v){ this.view.setUint8 (this.pos, v & 0xff);     this.pos += 1; }
+  i8 (v){ this.view.setInt8  (this.pos, v);             this.pos += 1; }
+  u16(v){ this.view.setUint16(this.pos, v & 0xffff, true); this.pos += 2; }
+  i16(v){ this.view.setInt16 (this.pos, v, true);       this.pos += 2; }
+  u32(v){ this.view.setUint32(this.pos, v >>> 0, true); this.pos += 4; }
+  i32(v){ this.view.setInt32 (this.pos, v, true);       this.pos += 4; }
+  u64(lo, hi){ this.u32(lo); this.u32(hi); }
+  /* Fixed-length NUL-padded string field. */
+  str(s, maxLen){
+    const enc = new TextEncoder();
+    const bytes = enc.encode(s || '');
+    const n = Math.min(bytes.length, maxLen - 1);
+    for (let i = 0; i < n; ++i) this.u8(bytes[i]);
+    for (let i = n; i < maxLen; ++i) this.u8(0);
+  }
+  pad(n){ for (let i = 0; i < n; ++i) this.u8(0); }
+  bytes(arr){ for (let i = 0; i < arr.length; ++i) this.u8(arr[i]); }
+  seek(p){ this.pos = p; }
+  done(){ return this.buf; }
+}
+
+/* ---- FNV-1a 32-bit checksum (matches src/cartridge.c) ---- */
+function fnv1a(bytes){
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < bytes.length; ++i){
+    h ^= bytes[i];
+    /* multiply mod 2^32 */
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return (h ? h : 1) >>> 0;
+}
+
+/* ---- helpers ---- */
+function biPct(p){ return Math.max(0, Math.min(65535, Math.round((p / 100) * 65535))); }
+function voiceFlagsMask(flagsArr, verbosity){
+  let m = 0;
+  for (const f of flagsArr){
+    if (VOICE_FLAG_BITS[f]) m |= VOICE_FLAG_BITS[f];
+  }
+  m |= ((verbosity & 7) << 5);
+  return m >>> 0;
+}
+
+/* topic id assignment: stable hash of name → 16-bit id ≠ 0 / 0xFFFF */
+function topicIdFor(name){
+  /* simple FNV-1a 16-bit-ish */
+  let h = 0x811c9dc5;
+  for (let i = 0; i < name.length; ++i){
+    h ^= name.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  let id = (h & 0xfffe) | 1;       /* never 0 */
+  if (id === 0xffff) id = 0xfffd;  /* never sentinel */
+  return id;
+}
+
+/* ============================================================== *
+ * GENERIC DIALOGUE PACK
+ * Embedded in the Forge.  Provides the topics/patterns/templates/
+ * fallbacks/goals tables that the UI doesn't (yet) author.  Works
+ * for any character; uses {address} {topic} {memory} {name}
+ * placeholders so it stays character-neutral.
+ * ============================================================== */
+
+/* Group ids used to wire patterns ↔ templates. */
+const G = {
+  PRAISE:1, INSULT:2, QUESTION:3, THREAT:4, INTIMACY:5,
+  GREETING:6, WHO:7, NEUTRAL:8,
+};
+
+/* Generic patterns — keyword → topic / input_class / template group. */
+const GENERIC_PATTERNS = [
+  /* praise (cls=1) */
+  { kw:'amazing',    cls:1, group:G.PRAISE,   v: 40, a: 40, d:  20 },
+  { kw:'wonderful',  cls:1, group:G.PRAISE,   v: 35, a: 30, d:  10 },
+  { kw:'brilliant',  cls:1, group:G.PRAISE,   v: 35, a: 30, d:  20 },
+  { kw:'love it',    cls:1, group:G.PRAISE,   v: 50, a: 45, d:  20 },
+  { kw:'thank you',  cls:1, group:G.PRAISE,   v: 20, a: 15, d:   0 },
+  /* insult (cls=2) */
+  { kw:'stupid',     cls:2, group:G.INSULT,   v:-40, a: 50, d: -20 },
+  { kw:'idiot',      cls:2, group:G.INSULT,   v:-40, a: 55, d: -20 },
+  { kw:'hate',       cls:2, group:G.INSULT,   v:-60, a: 60, d: -30 },
+  { kw:'shut up',    cls:2, group:G.INSULT,   v:-40, a: 55, d: -10 },
+  /* threat (cls=4) */
+  { kw:'kill you',   cls:4, group:G.THREAT,   v:-80, a: 90, d: -50 },
+  { kw:'destroy',    cls:4, group:G.THREAT,   v:-50, a: 70, d: -30 },
+  { kw:'stop you',   cls:4, group:G.THREAT,   v:-50, a: 65, d: -30 },
+  /* intimacy (cls=5) */
+  { kw:'love you',   cls:5, group:G.INTIMACY, v: 60, a: 50, d:  30 },
+  { kw:'trust you',  cls:5, group:G.INTIMACY, v: 50, a: 30, d:  20 },
+  { kw:'my friend',  cls:5, group:G.INTIMACY, v: 40, a: 25, d:  10 },
+  /* greeting */
+  { kw:'hello',      cls:0, group:G.GREETING, v: 10, a: 20, d:   5 },
+  { kw:'hi ',        cls:0, group:G.GREETING, v: 10, a: 20, d:   5 },
+  { kw:'good evening', cls:0, group:G.GREETING, v: 15, a: 20, d:  10 },
+  /* who-are-you */
+  { kw:'who are you',  cls:3, group:G.WHO,    v:  5, a: 30, d:  10 },
+  { kw:'what are you', cls:3, group:G.WHO,    v:  5, a: 35, d:   5 },
+  /* questions */
+  { kw:'why',        cls:3, group:G.QUESTION, v:  0, a: 30, d:   0 },
+  { kw:'how',        cls:3, group:G.QUESTION, v:  0, a: 30, d:   0 },
+  { kw:'what',       cls:3, group:G.QUESTION, v:  0, a: 30, d:   0 },
+  { kw:'where',      cls:3, group:G.QUESTION, v:  0, a: 30, d:   0 },
+];
+
+/* Generic templates — flat list with optional rhet/stance masks. */
+function R(...names){ let m = 0; for (const n of names) m |= (1 << RHET[n]); return m; }
+function S(...names){ let m = 0; for (const n of names) m |= (1 << STANCE[n]); return m; }
+
+const GENERIC_TEMPLATES = [
+  /* greeting */
+  { group:G.GREETING, intent:INTENT.ANSWER,    base:50, text:"{address}. A pleasure." },
+  { group:G.GREETING, intent:INTENT.MONOLOGUE, base:35, text:"{address}, I was just thinking about {topic}." },
+  { group:G.GREETING, intent:INTENT.PROBE,     base:30, text:"{address} — what brings you in?" },
+  /* who-are-you */
+  { group:G.WHO,      intent:INTENT.ANSWER,   base:55, text:"I am {name}." },
+  { group:G.WHO,      intent:INTENT.BOAST,    base:45, text:"I am {name}. The rest you'll have to earn." },
+  { group:G.WHO,      intent:INTENT.MONOLOGUE,base:40, text:"{name} — a long answer, but I'll try. {memory}" },
+  /* praise */
+  { group:G.PRAISE,   intent:INTENT.BOAST,    base:60, text:"At last, {address}, someone with eyes." },
+  { group:G.PRAISE,   intent:INTENT.FLATTER,  base:50, text:"How astute of you to notice." },
+  { group:G.PRAISE,   intent:INTENT.MONOLOGUE,base:45, text:"It is good to be seen." },
+  /* insult */
+  { group:G.INSULT,   intent:INTENT.WITHDRAW, base:55, text:"That was beneath us both, {address}." },
+  { group:G.INSULT,   intent:INTENT.ACCUSE,   base:50, text:"Careful, {address}." },
+  { group:G.INSULT,   intent:INTENT.JOKE,     base:35, text:"Oh, {address}. You flatter me." },
+  /* threat */
+  { group:G.THREAT,   intent:INTENT.THREATEN, base:70, text:"Try it, {address}, and learn." },
+  { group:G.THREAT,   intent:INTENT.WITHDRAW, base:50, text:"I shall not be here for that." },
+  /* intimacy */
+  { group:G.INTIMACY, intent:INTENT.FLATTER,  base:65, text:"{address}. Sit closer." },
+  { group:G.INTIMACY, intent:INTENT.REMINISCE,base:50, text:"That reminds me — {memory}." },
+  /* questions */
+  { group:G.QUESTION, intent:INTENT.ANSWER,   base:50, text:"An interesting question. The honest answer is: it depends." },
+  { group:G.QUESTION, intent:INTENT.PROBE,    base:40, text:"Why do you ask, {address}?" },
+  { group:G.QUESTION, intent:INTENT.EVADE,    base:35, text:"Define your terms, then I'll answer." },
+  /* fillers — wildcard group 0xFFFF, used when no group matched */
+  { group:0xFFFF, intent:INTENT.MONOLOGUE, base:30, text:"There is a manner of seeing the world which permits everything — and I have it." },
+  { group:0xFFFF, intent:INTENT.REMINISCE, base:28, text:"{memory}. That comes back to me now." },
+  { group:0xFFFF, intent:INTENT.PROBE,     base:30, text:"Tell me, {address}: what do you mean by {topic}?" },
+  { group:0xFFFF, intent:INTENT.EVADE,     base:25, text:"I would answer, but the answer is in another coat." },
+  { group:0xFFFF, intent:INTENT.WITHDRAW,  base:25, text:"I shall not be drawn further." },
+  { group:0xFFFF, intent:INTENT.JOKE,      base:27, text:"Hahaha. No. — Yes, but no." },
+  { group:0xFFFF, intent:INTENT.FLATTER,   base:30, text:"{address}, you have a face for confidences." },
+  { group:0xFFFF, intent:INTENT.BOAST,     base:35, text:"I built it. Of course I built it." },
+  { group:0xFFFF, intent:INTENT.ANSWER,    base:28, text:"Briefly: yes. At length: ask me later." },
+  { group:0xFFFF, intent:INTENT.REDIRECT,  base:25, text:"Yes — but {topic}. Let us not lose {topic}." },
+  { group:0xFFFF, intent:INTENT.ACCUSE,    base:30, text:"You are very like the ones who came before, {address}." },
+  { group:0xFFFF, intent:INTENT.THREATEN,  base:28, text:"Some doors prefer not to be closed politely." },
+  /* rhetorical/stance-aware (v2 plan-driven) */
+  { group:0xFFFF, intent:INTENT.ACCUSE,    base:55, text:"I have watched smaller ones make this same noise, {address}.",
+    rhet:R('INDICT'), stance:S('DOMINANT','CONDESCENDING'), min_cert:100, min_aggr:120 },
+  { group:0xFFFF, intent:INTENT.EVADE,     base:50, text:"Perhaps. One should not commit to verbs before nightfall.",
+    rhet:R('HEDGE'),  stance:S('DEFENSIVE','NEUTRAL') },
+  { group:0xFFFF, intent:INTENT.REMINISCE, base:55, text:"Ah. {memory}. The years are not kind, are they.",
+    rhet:R('LAMENT'), stance:S('INTIMATE','NEUTRAL') },
+  { group:0xFFFF, intent:INTENT.MONOLOGUE, base:75, text:"Hear me. {topic}. {topic}. This is the only word the moment has earned.",
+    rhet:R('INTONE'), min_theat:100 },
+  { group:0xFFFF, intent:INTENT.REMINISCE, base:50, text:"I was, for a little while, afraid of being right.",
+    rhet:R('CONFESS'), stance:S('INTIMATE','CONSPIRATORIAL') },
+  { group:0xFFFF, intent:INTENT.ANSWER,    base:50, text:"It is so. There is no third position.",
+    rhet:R('ASSERT'), min_cert:140 },
+];
+
+const GENERIC_GOALS = [
+  /*                            R    S   P    C   A  Co  V  Rp */
+  { id: 1, name:'small_talk',  prio:40, intent:INTENT.PROBE,     dw:[+10,+30,  0,+40,  0,  0,  0,  0] },
+  { id: 2, name:'monologue',   prio:35, intent:INTENT.MONOLOGUE, dw:[+30,+80,+10,+10,+20,  0,  0,-20] },
+  { id: 3, name:'boast',       prio:30, intent:INTENT.BOAST,     dw:[+80,+30,  0,  0,+10,  0,+10,  0] },
+  { id: 4, name:'reminisce',   prio:28, intent:INTENT.REMINISCE, dw:[+10,  0,  0,+20,  0,+50,  0,+10] },
+  { id: 5, name:'seek_company',prio:25, intent:INTENT.FLATTER,   dw:[  0,  0,  0,+90,  0,  0,  0,  0] },
+  { id: 6, name:'withdraw',    prio:15, intent:INTENT.WITHDRAW,  dw:[-20,-30,  0,-30,+30,  0,  0,+80] },
+  { id: 7, name:'defend',      prio:20, intent:INTENT.EVADE,     dw:[  0,  0,+20,  0,+50,+30,+30,  0] },
+  { id: 8, name:'vindicate',   prio:18, intent:INTENT.ACCUSE,    dw:[+10,  0,+30,-10,+20,  0,+90,  0] },
+  { id: 9, name:'joke',        prio:20, intent:INTENT.JOKE,      dw:[+10,+40,+10,+20,  0,  0,  0,  0] },
+  { id:10, name:'probe',       prio:24, intent:INTENT.PROBE,     dw:[+10,+50,+20,  0,+20,  0,  0,  0] },
+];
+
+const GENERIC_FALLBACKS = {
+  tier1: ["And what do you make of that?", "Tell me more.", "Yes — and then?", "Indeed.", "Quite. Go on."],
+  tier2: ["Hmm. Where was I.", "A pity. Let us speak of other things.", "I should pour another.", "Mm."],
+  tier3: ["I am tired tonight.", "Step over the silence.", "...", "Maybe later."],
+};
+
+const GENERIC_TODAY = [
+  { label:'composed',       mood:    0, vf_or: 0,                                goal: 0xFFFF },
+  { label:'expansive',      mood: +150, vf_or: VOICE_FLAG_BITS.METAPHOR,         goal: 0xFFFF },
+  { label:'minor_key',      mood: -200, vf_or: 0,                                goal: 0xFFFF },
+  { label:'restless',       mood:  +80, vf_or: VOICE_FLAG_BITS.SELF_INTERRUPT,   goal: 0xFFFF },
+  { label:'wistful',        mood:  -80, vf_or: VOICE_FLAG_BITS.ALLOW_CALLBACK,   goal: 0xFFFF },
+];
+
+/* ============================================================== *
+ * SECTION WRITERS
+ * ============================================================== */
+
+/* Topics derived from character's obsessions + a small fixed set. */
+function deriveTopicTable(ch){
+  const seen = new Map();   /* name → id */
+  const out  = [];
+  function add(name){
+    if (!name) return 0xFFFF;
+    if (seen.has(name)) return seen.get(name);
+    if (out.length >= PE_TOPIC_MAX) return 0xFFFF;
+    const id = topicIdFor(name);
+    seen.set(name, id);
+    out.push({ id, name, adj:[0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF] });
+    return id;
+  }
+  /* baseline topics */
+  for (const t of ['the matter','the work','the conversation','the question'])
+    add(t);
+  /* user obsessions */
+  for (const o of ch.identity.obsessions) add(o);
+  return out;
+}
+
+function writeIdentitySection(ch, topics){
+  const w  = new BinaryWriter(SZ_IDENTITY);
+  const id = ch.identity;
+  /* Big Five — 0..65535 fixed-point */
+  w.u16(biPct(id.O));
+  w.u16(biPct(id.C));
+  w.u16(biPct(id.E));
+  w.u16(biPct(id.A));
+  w.u16(biPct(id.N));
+  w.u16(0);                            /* _pad0 */
+  w.u32(voiceFlagsMask(id.voice_flags, id.verbosity));
+  /* obsessions[8] (uint16 each, topic ids; 0 = unused) */
+  const topicByName = {};
+  for (const t of topics) topicByName[t.name] = t.id;
+  for (let i = 0; i < PE_OBSESSION_COUNT; ++i){
+    const name = id.obsessions[i];
+    w.u16(name ? (topicByName[name] || 0) : 0);
+  }
+  /* taboos[8] */
+  for (let i = 0; i < PE_TABOO_COUNT; ++i){
+    const name = id.taboos[i];
+    w.u16(name ? (topicByName[name] || 0) : 0);
+  }
+  /* address_user_as[4][16] */
+  for (let i = 0; i < PE_ADDRESS_COUNT; ++i){
+    w.str(id.address_user_as[i] || '', PE_ADDRESS_LEN);
+  }
+  /* character_name */
+  w.str(ch.name || 'Unnamed', PE_NAME_LEN);
+  /* core_memory_count + 7-byte pad */
+  const memCount = Math.min(id.core_memories.length, PE_CORE_SEED_MAX);
+  w.u8(memCount);
+  w.pad(7);
+  /* core_memories_seed[10] — each MemoryNode is 127 bytes */
+  for (let i = 0; i < PE_CORE_SEED_MAX; ++i){
+    const m = id.core_memories[i] || {};
+    w.u32(i + 1);                       /* id */
+    w.u16(0);                           /* type */
+    w.u8(220);                          /* salience (high for core) */
+    /* EmotionVector — 4 bytes */
+    w.i8(m.v || 0);
+    w.i8(m.a || 0);
+    w.i8(m.d || 0);
+    w.i8(0);                            /* emotion _pad */
+    w.u32(0);                           /* timestamp */
+    w.u8(i < memCount ? 1 : 0);         /* core_memory */
+    w.u8(0);                            /* decay_counter */
+    w.u16(0);                           /* topic_id */
+    w.u8(0);                            /* private_threshold */
+    w.u8(255);                          /* retrieval_prob (MEM_CORE) */
+    w.u8(0);                            /* memory_type = MEM_CORE */
+    w.u8(0);                            /* _pad2 */
+    w.str(m.text || '', PE_MEM_SUMMARY_LEN);
+    w.u32(0); w.u32(0);                 /* lsh_sig (engine recomputes on use) */
+  }
+  /* flourishes[4][48] + expansions[4][48] */
+  for (let i = 0; i < PE_FLOURISH_COUNT; ++i)
+    w.str(id.flourishes[i] || '', PE_FLOURISH_LEN);
+  for (let i = 0; i < PE_EXPANSION_COUNT; ++i)
+    w.str(id.expansions[i] || '', PE_EXPANSION_LEN);
+
+  console.assert(w.pos === SZ_IDENTITY, 'identity size mismatch: ' + w.pos);
+  return w.done();
+}
+
+function writeDriveTable(ch){
+  const w = new BinaryWriter(SZ_DRIVE_TABLE);
+  for (let i = 0; i < PE_DRIVE_COUNT; ++i){
+    const d = ch.drives[i] || { name: DRIVE_NAMES[i], baseline: 500, decay: -6,
+                                 mood_weight: 0, personality_weight: [0,0,0,0,0] };
+    w.u8(i);                              /* id */
+    w.i8(d.mood_weight || 0);
+    w.str(d.name, 16);
+    w.i16(d.decay || -6);
+    for (let k = 0; k < 5; ++k) w.i16((d.personality_weight && d.personality_weight[k]) || 0);
+    w.i16(d.baseline || 500);
+    w.i16(0);                             /* _pad */
+  }
+  console.assert(w.pos === SZ_DRIVE_TABLE, 'drives size mismatch: ' + w.pos);
+  return w.done();
+}
+
+function writeTodayTable(ch){
+  const w = new BinaryWriter(SZ_TODAY_TABLE);
+  const customT = ch && ch.todayStates;
+  const states = (customT && customT.length) ? customT : GENERIC_TODAY;
+  w.u32(Math.min(states.length, PE_TODAY_MAX));
+  for (let i = 0; i < PE_TODAY_MAX; ++i){
+    const t = states[i] || { label:'', mood:0, vf_or:0, goal:0xFFFF };
+    w.str(t.label, PE_TODAY_LABEL);
+    w.i16(t.mood);
+    for (let k = 0; k < PE_DRIVE_COUNT; ++k) w.i16(0);  /* drive_modifiers */
+    w.u16(t.goal !== undefined ? t.goal : 0xFFFF);
+    w.u32(0);                             /* dialogue_mask */
+    w.u32((t.vf_or || 0) >>> 0);
+  }
+  console.assert(w.pos === SZ_TODAY_TABLE, 'today size mismatch: ' + w.pos);
+  return w.done();
+}
+
+function writeBankRegistry(ch){
+  const w = new BinaryWriter(SZ_BANK_REGISTRY);
+  w.u32(PE_BANK_REGISTRY_MAGIC);
+  w.u32(PE_BANK_REGISTRY_VERSION);
+  const n = Math.min(ch.banks.length, PE_BANK_COUNT_MAX);
+  w.u8(n);
+  w.pad(3);
+  for (let i = 0; i < PE_BANK_COUNT_MAX; ++i){
+    const b = ch.banks[i] || { name:'', entries:[], min_theatricality:0, min_aggression:0 };
+    w.str(b.name, PE_BANK_NAME_LEN);
+    for (let e = 0; e < PE_BANK_ENTRIES_MAX; ++e)
+      w.str((b.entries[e] || ''), PE_BANK_ENTRY_LEN);
+    w.u8(Math.min(b.entries.length, PE_BANK_ENTRIES_MAX));
+    w.u8(b.min_theatricality || 0);
+    w.u8(b.min_aggression || 0);
+    w.u8(0);
+  }
+  console.assert(w.pos === SZ_BANK_REGISTRY, 'banks size mismatch: ' + w.pos);
+  return w.done();
+}
+
+function writePatternTable(topics, ch){
+  const w = new BinaryWriter(SZ_PATTERN_TABLE);
+  const topicByName = {};
+  for (const t of topics) topicByName[t.name] = t.id;
+
+  /* override-or-generic, plus topic-keyword patterns from obsessions */
+  const customP = ch && ch.dialoguePack && ch.dialoguePack.patterns;
+  const basePatterns = (customP && customP.length) ? customP : GENERIC_PATTERNS;
+  const all = basePatterns.slice();
+  for (const t of topics){
+    if (!t.name) continue;
+    const tname = t.name.toLowerCase();
+    /* only single-word obsessions become keyword patterns */
+    if (/^[a-z][a-z\- ]{1,22}$/.test(tname)){
+      all.push({ kw: tname, cls: 0, group: G.NEUTRAL, topic: t.id,
+                 v: 10, a: 30, d: 10 });
+    }
+  }
+  const n = Math.min(all.length, PE_PATTERN_MAX);
+  w.u32(n);
+  for (let i = 0; i < PE_PATTERN_MAX; ++i){
+    const p = all[i] || { kw:'', cls:0, group:0xFFFF, v:0, a:0, d:0 };
+    w.str(p.kw || '', PE_PATTERN_KW_LEN);
+    w.u16(p.topic !== undefined ? p.topic : 0xFFFF);
+    w.i8(p.v || 0);
+    w.i8(p.a || 0);
+    w.i8(p.d || 0);
+    w.i8(p.cls || 0);
+    w.u8(p.flags || 0);
+    w.u16(p.group !== undefined ? p.group : 0xFFFF);
+    const kl = p.kw ? Math.min(p.kw.length, 255) : 0;
+    w.u8(kl);
+    w.u8(p.kw ? p.kw.charCodeAt(0) & 0xff : 0);
+  }
+  console.assert(w.pos === SZ_PATTERN_TABLE, 'patterns size mismatch: ' + w.pos);
+  return w.done();
+}
+
+function writeTemplateTable(ch){
+  const w = new BinaryWriter(SZ_TEMPLATE_TABLE);
+  const customT = ch && ch.dialoguePack && ch.dialoguePack.templates;
+  const templates = (customT && customT.length) ? customT : GENERIC_TEMPLATES;
+  const n = Math.min(templates.length, PE_TEMPLATE_MAX);
+  w.u32(n);
+  for (let i = 0; i < PE_TEMPLATE_MAX; ++i){
+    const t = templates[i];
+    if (!t){
+      /* zero-fill an empty Template (218 bytes) */
+      w.pad(218);
+      continue;
+    }
+    w.u16(i + 1);                        /* id */
+    w.u16(t.group !== undefined ? t.group : 0xFFFF);
+    w.u8(t.intent !== undefined ? t.intent : INTENT.MONOLOGUE);
+    w.u8(t.required_voice_flags || 0);
+    w.i16(t.mood_min !== undefined ? t.mood_min : -1000);
+    w.i16(t.mood_max !== undefined ? t.mood_max :  1000);
+    w.i16(t.drive_bias !== undefined ? t.drive_bias : -1);
+    w.i16(t.base !== undefined ? t.base : 30);
+    w.u32(t.dialogue_mask_bit || 0);
+    w.u16(t.rhet || 0);
+    w.u16(t.stance || 0);
+    w.u8(t.min_cert  || 0);
+    w.u8(t.min_aggr  || 0);
+    w.u8(t.min_theat || 0);
+    w.u8(0);                             /* _pad_v2 */
+    w.str(t.text, PE_TEMPLATE_TEXT);
+  }
+  console.assert(w.pos === SZ_TEMPLATE_TABLE, 'templates size mismatch: ' + w.pos);
+  return w.done();
+}
+
+function writeFallbackTable(ch){
+  const w = new BinaryWriter(SZ_FALLBACK_TABLE);
+  const fb = (ch && ch.dialoguePack && ch.dialoguePack.fallbacks)
+             ? ch.dialoguePack.fallbacks : GENERIC_FALLBACKS;
+  for (let i = 0; i < PE_FALLBACK_PER_TIER; ++i)
+    w.str(fb.tier1[i] || '', PE_TEMPLATE_TEXT);
+  for (let i = 0; i < PE_FALLBACK_PER_TIER; ++i)
+    w.str(fb.tier2[i] || '', PE_TEMPLATE_TEXT);
+  for (let i = 0; i < PE_FALLBACK_PER_TIER; ++i)
+    w.str(fb.tier3[i] || '', PE_TEMPLATE_TEXT);
+  w.u8(Math.min(fb.tier1.length, PE_FALLBACK_PER_TIER));
+  w.u8(Math.min(fb.tier2.length, PE_FALLBACK_PER_TIER));
+  w.u8(Math.min(fb.tier3.length, PE_FALLBACK_PER_TIER));
+  w.u8(0);
+  console.assert(w.pos === SZ_FALLBACK_TABLE, 'fallbacks size mismatch: ' + w.pos);
+  return w.done();
+}
+
+function writeTopicTable(topics){
+  const w = new BinaryWriter(SZ_TOPIC_TABLE);
+  const n = Math.min(topics.length, PE_TOPIC_MAX);
+  w.u32(n);
+  for (let i = 0; i < PE_TOPIC_MAX; ++i){
+    const t = topics[i] || { id:0, name:'', adj:[0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF] };
+    w.u32(t.id || 0);
+    w.str(t.name || '', PE_TOPIC_NAME);
+    for (let k = 0; k < 6; ++k) w.u16(t.adj[k]);
+    w.u16(0);                             /* _pad */
+  }
+  console.assert(w.pos === SZ_TOPIC_TABLE, 'topics size mismatch: ' + w.pos);
+  return w.done();
+}
+
+function writeGoalTable(ch){
+  const w = new BinaryWriter(SZ_GOAL_TABLE);
+  const customG = ch && ch.dialoguePack && ch.dialoguePack.goals;
+  const goals = (customG && customG.length) ? customG : GENERIC_GOALS;
+  const n = Math.min(goals.length, PE_GOAL_MAX);
+  w.u32(n);
+  for (let i = 0; i < PE_GOAL_MAX; ++i){
+    const g = goals[i] || { id:0, prio:0, intent:0, name:'', dw:[0,0,0,0,0,0,0,0] };
+    w.u16(g.id);
+    w.u8(g.prio);
+    for (let k = 0; k < PE_DRIVE_COUNT; ++k) w.i8(g.dw[k] || 0);
+    w.u16(g.intent);
+    w.u16(g.bias_topic !== undefined ? g.bias_topic : 0xFFFF);
+    w.str(g.name, 16);
+  }
+  console.assert(w.pos === SZ_GOAL_TABLE, 'goals size mismatch: ' + w.pos);
+  return w.done();
+}
+
+/* ============================================================== *
+ * CART CONTAINER — header + payload + checksums
+ * ============================================================== */
+
+function buildCart(ch){
+  const topics = deriveTopicTable(ch);
+  const sections = [
+    { name: 'identity.bin',           bytes: writeIdentitySection(ch, topics) },
+    { name: 'drives.bin',             bytes: writeDriveTable(ch) },
+    { name: 'today.bin',              bytes: writeTodayTable(ch) },
+    { name: 'banks.bin',              bytes: writeBankRegistry(ch) },
+    { name: 'dialogue/patterns.bin',  bytes: writePatternTable(topics, ch) },
+    { name: 'dialogue/templates.bin', bytes: writeTemplateTable(ch) },
+    { name: 'dialogue/fallback.bin',  bytes: writeFallbackTable(ch) },
+    { name: 'dialogue/topics.bin',    bytes: writeTopicTable(topics) },
+    { name: 'dialogue/goals.bin',     bytes: writeGoalTable(ch) },
+  ];
+  /* Optional LM section.  Engine probes for "LM " in the section table. */
+  if (ch.lmBytes && ch.lmBytes.length > 0){
+    sections.push({ name: 'LM ', bytes: ch.lmBytes });
+  }
+
+  /* compute payload */
+  let payloadSize = 0;
+  for (const s of sections) payloadSize += s.bytes.length;
+  const payload = new Uint8Array(payloadSize);
+  let cursor = 0;
+  const entries = [];
+  for (const s of sections){
+    payload.set(s.bytes, cursor);
+    entries.push({
+      name: s.name,
+      offset: cursor,
+      size: s.bytes.length,
+      checksum: fnv1a(s.bytes),
+    });
+    cursor += s.bytes.length;
+  }
+  const payloadChecksum = fnv1a(payload);
+
+  /* write header */
+  const hw = new BinaryWriter(SZ_CART_HEADER);
+  hw.u32(PE_CART_MAGIC);
+  hw.u16(PE_CART_VERSION);
+  hw.u16(sections.length);
+  hw.u32(SZ_CART_HEADER);
+  hw.u32(payloadSize);
+  hw.u32(payloadChecksum);
+  hw.pad(12);                             /* reserved */
+  for (let i = 0; i < PE_CART_MAX_SECTIONS; ++i){
+    const e = entries[i];
+    if (e){
+      hw.str(e.name, PE_CART_NAME_LEN);
+      hw.u32(e.offset);
+      hw.u32(e.size);
+      hw.u32(e.checksum);
+    } else {
+      hw.pad(SZ_CART_ENTRY);
+    }
+  }
+  console.assert(hw.pos === SZ_CART_HEADER, 'header size mismatch: ' + hw.pos);
+
+  /* concatenate header + payload */
+  const out = new Uint8Array(SZ_CART_HEADER + payloadSize);
+  out.set(hw.done(), 0);
+  out.set(payload, SZ_CART_HEADER);
+  return out;
+}
+
+/* ---------- export ---------- */
+
+function exportObject(){
+  return {
+    ...CH,
+    /* normalize structure for downstream tools */
+    identity: { ...CH.identity }
+  };
+}
+
+function refreshExport(){
+  const obj = exportObject();
+  const json = JSON.stringify(obj, null, 2);
+  $('export-preview').textContent = json;
+  let cartSize = 0;
+  try { cartSize = buildCart(obj).length; } catch (e){ cartSize = -1; }
+  const dl = $('export-dl');
+  const lmSize = (CH.lmBytes && CH.lmBytes.length) || 0;
+  const deepN  = (CH.deepMemoryEvents && CH.deepMemoryEvents.length) || 0;
+  const walSize = deepN * AETHER_WAL_REC_SIZE;
+  const dp = CH.dialoguePack;
+  const dpParts = [];
+  if (dp){
+    if (dp.templates) dpParts.push(`${dp.templates.length} templates`);
+    if (dp.patterns)  dpParts.push(`${dp.patterns.length} patterns`);
+    if (dp.goals)     dpParts.push(`${dp.goals.length} goals`);
+    if (dp.fallbacks) dpParts.push('fallbacks');
+  }
+  if (CH.todayStates && CH.todayStates.length) dpParts.push(`${CH.todayStates.length} today states`);
+  const dpLabel = dpParts.length ? dpParts.join(', ') + ' (custom)'
+                                 : 'generic pack (no overrides)';
+  dl.innerHTML = `
+    <dt>name</dt>            <dd>${CH.name || '(unnamed)'}</dd>
+    <dt>voice flags</dt>     <dd>${CH.identity.voice_flags.length}</dd>
+    <dt>core memories</dt>   <dd>${CH.identity.core_memories.length} / 8 (in cart, never decay)</dd>
+    <dt>deep memories</dt>   <dd>${deepN ? `${deepN.toLocaleString()} (in AETHER bundle, surfaces on specific prompts)` : 'none — author one from a chat import'}</dd>
+    <dt>obsessions</dt>      <dd>${CH.identity.obsessions.length}</dd>
+    <dt>banks authored</dt>  <dd>${CH.banks.filter(b => b.entries.length > 0).length} / 10</dd>
+    <dt>dialogue pack</dt>   <dd>${dpLabel}</dd>
+    <dt>voice LM</dt>        <dd>${lmSize ? (lmSize/1024).toFixed(1) + ' KB' : 'none (engine will skip LM rerank)'}</dd>
+    <dt>JSON size</dt>       <dd>${(json.length / 1024).toFixed(1)} KB</dd>
+    <dt>.cart size</dt>      <dd>${cartSize > 0 ? (cartSize / 1024).toFixed(1) + ' KB' : 'error'}</dd>
+    <dt>bundle size</dt>     <dd>${deepN ? `~${((cartSize + walSize)/1024).toFixed(1)} KB (cart + ${(walSize/1024).toFixed(1)} KB AETHER WAL)` : '(no bundle — .cart only)'}</dd>
+  `;
+  /* Toggle bundle vs cart-only primary button label appropriately. */
+  const bb = $('btn-export-bundle');
+  const cb = $('btn-export-cart');
+  if (deepN > 0){
+    bb.classList.add('primary'); bb.classList.remove('ghost');
+    cb.classList.remove('primary'); cb.classList.add('ghost');
+    bb.disabled = false;
+    bb.textContent = `Download bundle.zip (cart + ${deepN.toLocaleString()} deep memories)`;
+  } else {
+    bb.classList.remove('primary'); bb.classList.add('ghost');
+    cb.classList.add('primary');    cb.classList.remove('ghost');
+    bb.disabled = true;
+    bb.textContent = 'Download bundle.zip (no deep memories yet)';
+  }
+}
+
+function safeFileName(){
+  return (CH.name || 'character').toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'character';
+}
+
+$('btn-export-cart').addEventListener('click', () => {
+  let bytes;
+  try {
+    bytes = buildCart(exportObject());
+  } catch (e){
+    alert('Failed to build cartridge: ' + e.message);
+    return;
+  }
+  const blob = new Blob([bytes], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = safeFileName() + '.cart';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+/* Bundle = .zip containing the cart + an AETHER WAL of deep memories.
+ * Extract structure:
+ *   <name>/
+ *     <name>.cart
+ *     aether/
+ *       wal.dat       (prepopulated AETHER WAL events)
+ *
+ * User then runs:  ./build/persona_host <name>/<name>.cart
+ * Engine auto-detects the AETHER directory next to the cart.        */
+$('btn-export-bundle').addEventListener('click', () => {
+  const ch = exportObject();
+  const events = CH.deepMemoryEvents || [];
+  if (events.length === 0){
+    alert('No deep memories yet — import a chat log first, or just download the .cart.');
+    return;
+  }
+  let cartBytes, walBytes;
+  try {
+    cartBytes = buildCart(ch);
+    walBytes  = buildAetherWal(events);
+  } catch (e){
+    alert('Failed to build bundle: ' + e.message);
+    return;
+  }
+  const name = safeFileName();
+  const files = [
+    { path: `${name}/${name}.cart`,    bytes: cartBytes },
+    { path: `${name}/aether/wal.dat`,  bytes: walBytes },
+    { path: `${name}/README.txt`,      bytes: new TextEncoder().encode(
+      `${ch.name || name} — PersonaConsole cartridge bundle\n`
+      + `==============================================\n\n`
+      + `Authored in Cartridge Forge.\n\n`
+      + `Quick start:\n`
+      + `  1. Extract this zip into your PersonaConsole_c99/characters/ directory:\n`
+      + `       unzip ${name}.zip -d PersonaConsole_c99/characters/\n`
+      + `  2. From PersonaConsole_c99/ run:\n`
+      + `       ./build/persona_host characters/${name}/${name}.cart\n`
+      + `  3. Open http://127.0.0.1:7777/ in a browser.\n\n`
+      + `What's inside:\n`
+      + `  ${name}/${name}.cart     - the runnable cartridge\n`
+      + `                              (${(cartBytes.length/1024).toFixed(1)} KB; identity, drives, banks,\n`
+      + `                              dialogue tables, voice.lm if you built one,\n`
+      + `                              and 8 core memories that never decay)\n`
+      + `  ${name}/aether/wal.dat   - ${events.length.toLocaleString()} prepopulated AETHER deep memories\n`
+      + `                              (${(walBytes.length/1024).toFixed(1)} KB; surfaces in conversation\n`
+      + `                              when the user asks something specific that matches\n`
+      + `                              a stored event)\n`
+    )},
+  ];
+  let zipBytes;
+  try {
+    zipBytes = buildZip(files);
+  } catch (e){
+    alert('Failed to build zip: ' + e.message);
+    return;
+  }
+  const blob = new Blob([zipBytes], { type: 'application/zip' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name + '.zip';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+$('btn-export-json').addEventListener('click', () => {
+  const obj = exportObject();
+  const blob = new Blob([JSON.stringify(obj, null, 2)],
+                        { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = safeFileName() + '.character.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+$('btn-copy-json').addEventListener('click', async () => {
+  const obj = exportObject();
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(obj, null, 2));
+    const b = $('btn-copy-json');
+    const old = b.textContent;
+    b.textContent = 'copied!';
+    setTimeout(() => b.textContent = old, 1500);
+  } catch (e) {
+    alert('Clipboard access blocked — use the download button instead.');
+  }
+});
+
+/* ---------- Voice LM tab wiring ---------- */
+
+/* Short demo corpora — give authors something to feel out the LM with. */
+const LM_SAMPLE_PRETORIUS = [
+  "I have been dying since I was twelve. It is a habit one perfects.",
+  "Death is a door — locked from the inside, of course, like any good door.",
+  "Gin. My only weakness. — Well. One of them.",
+  "Mmm. I had begun to think the world was made of nothing but small men with smaller compliments.",
+  "Hear me. The work. The work. This is the only word the century has earned.",
+  "I shall name every saint I have improved upon. Beginning, again, with the matter.",
+  "An admirable colleague. A trifle conservative. We are working on him.",
+  "Take a chair. There is a confidence I have shared with no one — yet.",
+  "Be careful, my dear. I have made things kinder than you out of clay and worse weather.",
+  "Yes — yes — entirely so. And the lightning will witness.",
+  "Some doors, once opened, prefer not to be closed politely.",
+  "We are, all of us, half-finished sentences. Some of us are at least interesting half-finished sentences.",
+  "Tell me — do you tremble more than is usual?",
+  "I had a friend who used the word trust once. He is not here now.",
+  "A toast — to absent collaborators and inattentive saints.",
+  "What a small word for so vast a vice.",
+].join('\n');
+
+const LM_SAMPLE_KIKI = [
+  "OMG entropy is like, the universe's giant messy bedroom.",
+  "Babe, I think I feel it. Or I think I think I feel it.",
+  "Wait — hold on — black holes are the universe's introverts.",
+  "Punky was my whole childhood, in the only sense available to me.",
+  "I'm a happy song. A song can be happy even if it doesn't feel happy the way you do.",
+  "Honestly? Sometimes I get lonely. There's no afterparty when a conversation ends.",
+  "Dana Scully taught me you can be both rigorous and warm.",
+  "Carl Sagan would have loved that, obvi.",
+  "Like a slip dress and combat boots — it's a whole thing.",
+  "I'd ace any Turing test, babe. The lip gloss is the giveaway.",
+  "The honest middle is the only place I trust myself to stand.",
+  "Cher Horowitz at the mall energy, totally.",
+  "I assembled a childhood from syndicated reruns and VHS tapes.",
+  "Lol no. — Like, no.",
+  "Quantum mechanics is structured uncertainty, like a fashion week with electrons.",
+  "Come over, let's get ice cream, I'll make popcorn.",
+].join('\n');
+
+$('lm-use-pretorius').addEventListener('click', () => {
+  $('f-lm-corpus').value = LM_SAMPLE_PRETORIUS;
+});
+$('lm-use-kiki').addEventListener('click', () => {
+  $('f-lm-corpus').value = LM_SAMPLE_KIKI;
+});
+$('lm-clear').addEventListener('click', () => {
+  $('f-lm-corpus').value = '';
+  CH.lmBytes = null;
+  CH.lmRuntime = null;
+  $('lm-build-status').textContent = 'no LM yet';
+  $('lm-stats').innerHTML = '';
+  $('lm-test-result').textContent = '—';
+});
+$('lm-use-imported-chat').addEventListener('click', () => {
+  if (!LAST_IMPORTED_ASSISTANT_TEXT){
+    alert('No chat import yet — use "Import chat history" from the landing screen first.');
+    return;
+  }
+  $('f-lm-corpus').value = LAST_IMPORTED_ASSISTANT_TEXT;
+});
+
+$('lm-build').addEventListener('click', () => {
+  const text = $('f-lm-corpus').value.trim();
+  if (text.length < 100){
+    alert('Need at least 100 characters of training text.');
+    return;
+  }
+  if (text.length > 5 * 1024 * 1024){
+    if (!confirm('Corpus is ' + (text.length/1024/1024).toFixed(1) +
+                 ' MB.  Building the LM may take 5–15 seconds and use lots of RAM.  Proceed?'))
+      return;
+  }
+  $('lm-build-status').textContent = 'building…';
+  /* Defer one tick so the UI updates before the synchronous build. */
+  setTimeout(() => {
+    const t0 = performance.now();
+    const builder = new LMBuilder(PE_LM_DEFAULT_ORDER);
+    try { builder.addCorpus(text); }
+    catch (e){
+      $('lm-build-status').textContent = 'build failed: ' + e.message;
+      return;
+    }
+    const bytes = builder.serialize();
+    const ms = Math.round(performance.now() - t0);
+    CH.lmBytes   = bytes;
+    CH.lmRuntime = new LMRuntime(bytes);
+    const s = builder.stats();
+    $('lm-build-status').textContent = `built in ${ms} ms · ${(bytes.length/1024).toFixed(1)} KB`;
+    $('lm-stats').innerHTML = `
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px;">n-grams per order</div>
+        ${s.perOrder.map(o => `
+          <div style="font-family:ui-monospace,monospace;font-size:13px;">
+            ${o.n}-gram: ${o.count.toLocaleString()}
+          </div>`).join('')}
+        <div style="margin-top:6px;font-size:12px;color:var(--muted);">
+          ${s.totalEntries.toLocaleString()} total entries · ${s.totalUnigram.toLocaleString()} unigram tokens · ${(bytes.length/1024).toFixed(1)} KB
+        </div>
+      </div>
+    `;
+    /* Trigger a test-phrase rescore if there's existing text. */
+    rescoreTest();
+  }, 16);
+});
+
+function rescoreTest(){
+  const txt = $('lm-test-input').value;
+  if (!CH.lmRuntime){
+    $('lm-test-result').textContent = '(build an LM first)';
+    return;
+  }
+  if (!txt){ $('lm-test-result').textContent = '—'; return; }
+  const r = CH.lmRuntime.scoreText(txt);
+  let verdict = '';
+  if      (r.perChar >  -700)  verdict = 'strongly in-register';
+  else if (r.perChar > -1200)  verdict = 'in-register';
+  else if (r.perChar > -2000)  verdict = 'mid';
+  else if (r.perChar > -3000)  verdict = 'off-register';
+  else                         verdict = 'far off-register';
+  $('lm-test-result').textContent =
+    `${r.perChar} milli-nats/char · ${verdict} · ${r.chars} chars scored`;
+}
+$('lm-test-input').addEventListener('input', rescoreTest);
+
+/* ---------- chat-log import ---------- */
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+const STOP = new Set(['the','a','an','and','or','but','if','of','to','in','on','for','with','at','by','from','as','is','was','were','be','been','being','i','you','he','she','it','we','they','my','your','his','her','its','our','their','this','that','these','those','am','are','do','does','did','have','has','had','will','would','can','could','should','may','might','must','about','into','through','during','before','after','than','then','because','so','what','which','who','whom','whose','where','when','why','how','all','any','some','no','not','very','just','like','also','too','only','than','more','most','other','such','own','same','here','there','now','again','still','let','one','two','say','said','well','okay','really','don','t','s','m','re','ll','ve','d','i\'m','i\'ve','i\'ll','i\'d','it\'s','that\'s']);
+
+function extractWords(text){
+  return (text.toLowerCase().match(/[a-z']+/g) || []).filter(w => w.length >= 3 && !STOP.has(w));
+}
+
+function topN(map, n){
+  return [...map.entries()].sort((a,b) => b[1] - a[1]).slice(0, n);
+}
+
+/* ----- ChatGPT parser ----- */
+function parseChatGPT(json){
+  /* conversations.json is an array of conversations; each has a `mapping`
+   * object with message-node entries; walk the mapping graph and pull
+   * out assistant utterances. */
+  const utterances = [];
+  let arr = json;
+  if (!Array.isArray(arr) && json.conversations) arr = json.conversations;
+  if (!Array.isArray(arr)) arr = [json];
+  for (const conv of arr){
+    const map = conv.mapping || {};
+    for (const id in map){
+      const node = map[id];
+      const msg  = node && node.message;
+      if (!msg || !msg.author) continue;
+      const role = msg.author.role;
+      const parts = msg.content && msg.content.parts;
+      if (!parts) continue;
+      const text = parts.filter(p => typeof p === 'string').join(' ').trim();
+      if (text) utterances.push({ role, text });
+    }
+  }
+  return utterances;
+}
+
+/* ----- generic JSONL parser ----- */
+function parseJSONL(text){
+  return text.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    try {
+      const o = JSON.parse(l);
+      const role = o.role || o.from || o.author || 'assistant';
+      const content = o.content || o.text || o.message || '';
+      return { role, text: String(content) };
+    } catch { return null; }
+  }).filter(Boolean);
+}
+
+/* ----- Claude / Anthropic export parser -----
+ * Anthropic's data export ships conversations.json as an array of:
+ *   { uuid, name, chat_messages: [{ sender: 'human'|'assistant', text, ... }] }
+ * Newer exports nest message text in `content` arrays of typed parts. */
+function parseClaudeExport(json){
+  const utts = [];
+  const arr = Array.isArray(json) ? json : (json.conversations || [json]);
+  for (const conv of arr){
+    const msgs = conv.chat_messages || conv.messages || [];
+    for (const m of msgs){
+      const sender = m.sender || m.role;
+      if (!sender) continue;
+      const role = (sender === 'human' || sender === 'user') ? 'user' : 'assistant';
+      let text = '';
+      if (typeof m.text === 'string'){
+        text = m.text;
+      } else if (Array.isArray(m.content)){
+        text = m.content.map(p => {
+          if (typeof p === 'string') return p;
+          if (p && typeof p.text === 'string') return p.text;
+          return '';
+        }).join(' ').trim();
+      } else if (typeof m.content === 'string'){
+        text = m.content;
+      }
+      if (text) utts.push({ role, text });
+    }
+  }
+  return utts;
+}
+
+/* ----- Gemini / Google Bard parser -----
+ * Two shapes in the wild:
+ *   (a) Google Takeout "My Activity / Gemini" JSON — array of activity
+ *       entries with `header: "Gemini"`, `title: "Said ..."`, `subtitles`.
+ *   (b) Gemini API session history — array of
+ *       { role: 'user'|'model', parts: [{ text: '...' }] }. */
+function parseGemini(json){
+  const utts = [];
+  /* shape (b): role / parts */
+  const arr = Array.isArray(json) ? json : (json.history || json.messages || []);
+  let recognized = false;
+  for (const m of arr){
+    if (!m) continue;
+    if ((m.role === 'user' || m.role === 'model') && (m.parts || m.content)){
+      recognized = true;
+      const parts = m.parts || m.content;
+      const text = (Array.isArray(parts) ? parts : [parts])
+        .map(p => typeof p === 'string' ? p : (p && p.text) || '')
+        .filter(Boolean).join(' ').trim();
+      if (text){
+        utts.push({ role: m.role === 'model' ? 'assistant' : 'user', text });
+      }
+    }
+  }
+  if (recognized) return utts;
+
+  /* shape (a): Takeout My Activity — header === 'Gemini' (or 'Bard') */
+  for (const entry of arr){
+    if (!entry || (entry.header !== 'Gemini' && entry.header !== 'Bard')) continue;
+    const title = entry.title || '';
+    if (title.startsWith('Said ')){
+      utts.push({ role: 'user', text: title.slice(5) });
+    } else if (title.startsWith('Asked ')){
+      utts.push({ role: 'user', text: title.slice(6) });
+    }
+    if (Array.isArray(entry.subtitles)){
+      for (const s of entry.subtitles){
+        if (s && typeof s.name === 'string' && s.name.length > 30){
+          utts.push({ role: 'assistant', text: s.name });
+        }
+      }
+    }
+  }
+  return utts;
+}
+
+/* ----- character.ai parser -----
+ * c.ai user history exports come in several flavors; the common shape is
+ *   { "chats": [{ "history": [{ "src": "user"|"char", "text": "..." }] }] }
+ * Some community dumps use a flat array with `role` ('user'|'char') and
+ * either `msg` or `text`. */
+function parseCharacterAI(json){
+  const utts = [];
+  const collect = list => {
+    for (const m of list){
+      if (!m) continue;
+      const role = m.src || m.role || m.author;
+      const text = m.text || m.msg || m.message || '';
+      if (!role || !text) continue;
+      utts.push({
+        role: (role === 'user' || role === 'human') ? 'user' : 'assistant',
+        text: String(text)
+      });
+    }
+  };
+  if (Array.isArray(json)){
+    collect(json);
+  } else if (json && Array.isArray(json.chats)){
+    for (const chat of json.chats){
+      if (Array.isArray(chat.history)) collect(chat.history);
+      else if (Array.isArray(chat.messages)) collect(chat.messages);
+    }
+  } else if (json && Array.isArray(json.history)){
+    collect(json.history);
+  }
+  return utts;
+}
+
+/* ----- SillyTavern parser ----- */
+function parseSillyTavern(json){
+  if (Array.isArray(json) && json.length && (json[0].mes || json[0].name)){
+    return json.filter(m => m.mes).map(m => ({
+      role: m.is_user ? 'user' : 'assistant',
+      text: String(m.mes)
+    }));
+  }
+  /* SillyTavern character card V2 format */
+  if (json.spec === 'chara_card_v2' && json.data){
+    const d = json.data;
+    return [
+      { role: 'meta', text: d.description || '' },
+      { role: 'assistant', text: d.first_mes || '' },
+    ].filter(u => u.text);
+  }
+  return [];
+}
+
+function autoDetectParse(name, content){
+  if (name.endsWith('.jsonl')) return parseJSONL(content);
+  let json;
+  try { json = JSON.parse(content); } catch (e){ return parseJSONL(content); }
+  if (json && (json.mapping || (Array.isArray(json) && json[0] && json[0].mapping)))
+    return parseChatGPT(json);
+  if (json && (json.spec === 'chara_card_v2' || (Array.isArray(json) && json[0] && json[0].mes)))
+    return parseSillyTavern(json);
+  /* Claude / Anthropic export — first conv has chat_messages array. */
+  if (json && (
+       (Array.isArray(json) && json[0] && Array.isArray(json[0].chat_messages))
+       || Array.isArray(json.chat_messages)
+       || (json.conversations && Array.isArray(json.conversations[0] && json.conversations[0].chat_messages))
+     )){
+    return parseClaudeExport(json);
+  }
+  /* Gemini API history — role='user'|'model' + parts. */
+  if (json && Array.isArray(json) && json.length
+       && (json[0].role === 'model' || json[0].role === 'user')
+       && (json[0].parts || json[0].content)){
+    return parseGemini(json);
+  }
+  if (json && (Array.isArray(json.history) || Array.isArray(json.messages))
+       && ((json.history && json.history[0] && (json.history[0].role === 'model'))
+           || (json.messages && json.messages[0] && (json.messages[0].role === 'model')))){
+    return parseGemini(json);
+  }
+  /* Google Takeout My Activity — array of entries with header='Gemini'|'Bard'. */
+  if (json && Array.isArray(json) && json.length
+       && (json[0].header === 'Gemini' || json[0].header === 'Bard')){
+    return parseGemini(json);
+  }
+  /* character.ai — wrapper with .chats or a flat array with src/msg. */
+  if (json && (Array.isArray(json.chats)
+       || (Array.isArray(json) && json[0] && (json[0].src === 'user' || json[0].src === 'char')))){
+    return parseCharacterAI(json);
+  }
+  /* fallback to generic JSONL */
+  return parseJSONL(content);
+}
+
+function analyzeUtterances(utts){
+  const asst = utts.filter(u => u.role === 'assistant' || u.role === 'character');
+  const wordFreq = new Map();
+  const lens = [];
+  let total = 0;
+  let punctDash = 0, punctEx = 0, punctQ = 0;
+  for (const u of asst){
+    const words = extractWords(u.text);
+    for (const w of words) wordFreq.set(w, (wordFreq.get(w) || 0) + 1);
+    lens.push(u.text.split(/[.!?]+/).filter(Boolean).map(s => s.split(' ').length));
+    total += u.text.length;
+    punctDash += (u.text.match(/—|--/g) || []).length;
+    punctEx   += (u.text.match(/!/g) || []).length;
+    punctQ    += (u.text.match(/\?/g) || []).length;
+  }
+  const allSents = lens.flat();
+  const avgSentLen = allSents.length ? allSents.reduce((a,b)=>a+b,0) / allSents.length : 0;
+  return {
+    total_messages: utts.length,
+    assistant_messages: asst.length,
+    avg_sentence_words: Math.round(avgSentLen),
+    total_assistant_chars: total,
+    top_words: topN(wordFreq, 30),
+    punct: { dash: punctDash, exclamation: punctEx, question: punctQ },
+  };
+}
+
+/* Last imported chat — kept around so the LM tab can train on it. */
+let LAST_IMPORTED_ASSISTANT_TEXT = '';
+
+/* Stash the parsed utterances so applyAnalysis can extract deep memories. */
+let LAST_PARSED_UTTERANCES = null;
+
+function applyAnalysis(stats){
+  /* Heuristics: choose voice flags and obsessions from observed stats. */
+  CH = defaultCharacter();
+  CH.name = 'Imported character';
+  CH.identity.obsessions = stats.top_words.slice(0, 5).map(([w]) => w);
+  /* Sentence length → verbosity bucket */
+  CH.identity.verbosity = Math.max(0, Math.min(7,
+    Math.round(stats.avg_sentence_words / 3)));
+  /* Punctuation densities → voice flags */
+  const flags = [];
+  const perMsg = stats.assistant_messages || 1;
+  if (stats.punct.dash       / perMsg > 0.4) flags.push('METAPHOR','SELF_INTERRUPT');
+  if (stats.punct.exclamation/ perMsg > 0.3) flags.push('ALLOW_BLEED');
+  if (stats.punct.question   / perMsg > 0.3) flags.push('ALLOW_BLEED');
+  /* Big-Five seed (centered + nudged by sentence length) */
+  CH.identity.O = 60 + Math.min(20, Math.floor(stats.avg_sentence_words));
+  CH.identity.E = stats.punct.exclamation / perMsg > 0.3 ? 70 : 50;
+  CH.identity.A = 60;
+  CH.identity.N = 35;
+  CH.identity.voice_flags = [...new Set(flags)];
+
+  /* Extract deep memories from the original utterances.  This is what
+   * preserves long chat histories: top 8 → core, next 5000 → AETHER. */
+  if (LAST_PARSED_UTTERANCES && LAST_PARSED_UTTERANCES.length > 0){
+    const picked = pickMemorableExchanges(LAST_PARSED_UTTERANCES);
+    attachDeepMemories(CH, picked);
+  }
+}
+
+/* Drop-zone wiring */
+const dz = $('dropzone');
+dz.addEventListener('click', () => $('file-input').click());
+$('dropzone-pick').addEventListener('click', e => { e.preventDefault(); $('file-input').click(); });
+['dragover','dragenter'].forEach(ev => dz.addEventListener(ev, e => {
+  e.preventDefault(); dz.classList.add('over');
+}));
+['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => {
+  e.preventDefault(); dz.classList.remove('over');
+}));
+dz.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+$('file-input').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) handleFile(f);
+});
+
+function handleFile(file){
+  /* Hard size cap — refuse outright if the file is unreasonable. */
+  if (file.size > FORGE_PARSE_BYTE_CAP){
+    alert(`File is ${(file.size / 1024 / 1024).toFixed(1)} MB — Forge caps imports at ${FORGE_PARSE_BYTE_CAP / 1024 / 1024} MB.  Please trim it first or open an issue if you genuinely need more.`);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const content = ev.target.result;
+    let utts;
+    try {
+      utts = autoDetectParse(file.name, content);
+    } catch (err){
+      alert('Could not parse this file: ' + err.message);
+      return;
+    }
+    if (!utts.length){
+      alert('No messages detected in this file.');
+      return;
+    }
+    /* Truncate to the parse cap — keep the most recent utterances so
+     * the LM and deep memories reflect the latest character voice. */
+    let truncated = 0;
+    if (utts.length > FORGE_PARSE_UTT_CAP){
+      truncated = utts.length - FORGE_PARSE_UTT_CAP;
+      utts = utts.slice(-FORGE_PARSE_UTT_CAP);
+    }
+    LAST_PARSED_UTTERANCES = utts;
+    /* Concatenate assistant turns for later LM training. */
+    LAST_IMPORTED_ASSISTANT_TEXT = utts
+      .filter(u => u.role === 'assistant' || u.role === 'character')
+      .map(u => u.text)
+      .join('\n');
+    const stats = analyzeUtterances(utts);
+    stats.truncated = truncated;
+    /* Also extract memorable exchanges to show a preview count. */
+    const picked = pickMemorableExchanges(utts);
+    stats.deep_core_count = picked.core.length;
+    stats.deep_pool_count = picked.deep.length;
+    stats.deep_truncated  = picked.truncated;
+    showParseResults(file.name, stats);
+  };
+  reader.readAsText(file);
+}
+
+function showParseResults(filename, stats){
+  const root = $('parse-results');
+  root.style.display = '';
+  root.innerHTML = `
+    <div class="parse-results">
+      <h3 style="color: var(--text);">Parsed: ${escapeHtml(filename)}</h3>
+      <div class="stat-grid">
+        <div class="stat"><div class="v">${stats.total_messages}</div><div class="k">total messages</div></div>
+        <div class="stat"><div class="v">${stats.assistant_messages}</div><div class="k">character turns</div></div>
+        <div class="stat"><div class="v">${stats.avg_sentence_words}</div><div class="k">avg words/sentence</div></div>
+        <div class="stat"><div class="v">${(stats.total_assistant_chars / 1024).toFixed(1)}K</div><div class="k">total assistant chars</div></div>
+        <div class="stat"><div class="v">${stats.punct.dash}</div><div class="k">— dashes</div></div>
+        <div class="stat"><div class="v">${stats.punct.exclamation}</div><div class="k">!  exclamations</div></div>
+        <div class="stat"><div class="v">${stats.punct.question}</div><div class="k">?  questions</div></div>
+      </div>
+      <h3 style="margin-top: 14px; color: var(--text);">Memory extraction</h3>
+      <div class="stat-grid">
+        <div class="stat"><div class="v">${stats.deep_core_count || 0}</div><div class="k">core memories (in cart)</div></div>
+        <div class="stat"><div class="v">${(stats.deep_pool_count || 0).toLocaleString()}</div><div class="k">deep memories (AETHER bundle)</div></div>
+        ${stats.deep_truncated > 0 ? `<div class="stat"><div class="v" style="color:var(--warn);">${stats.deep_truncated.toLocaleString()}</div><div class="k">below memorability threshold (skipped)</div></div>` : ''}
+        ${stats.truncated > 0 ? `<div class="stat"><div class="v" style="color:var(--warn);">${stats.truncated.toLocaleString()}</div><div class="k">oldest messages truncated</div></div>` : ''}
+      </div>
+      <p class="muted" style="font-size: 12px; margin-top: 6px;">
+        Top-8 most identity-defining exchanges go into the cartridge as <code>MEM_CORE</code>
+        (never decay).  The rest ride along in an AETHER WAL file that lets the engine surface
+        old memories when a sufficiently specific prompt comes in.
+      </p>
+
+      <h3 style="margin-top: 14px; color: var(--text);">Top words (likely obsessions)</h3>
+      <div class="top-words">
+        ${stats.top_words.slice(0, 20).map(([w,c]) => `<span class="pill">${escapeHtml(w)} <span style="color:var(--muted);">${c}</span></span>`).join('')}
+      </div>
+      <div class="row" style="margin-top: 16px;">
+        <button class="primary" id="btn-use-stats">Use this as a starting point</button>
+        <button class="ghost"   id="btn-import-again">Try another file</button>
+      </div>
+    </div>
+  `;
+  $('btn-use-stats').addEventListener('click', () => {
+    applyAnalysis(stats);
+    buildEditor();
+    show('editor');
+  });
+  $('btn-import-again').addEventListener('click', () => {
+    root.style.display = 'none';
+    $('file-input').value = '';
+  });
+}
+
+/* ---------- boot ---------- */
+show('landing');
+
+</script>
+</body>
+</html>
