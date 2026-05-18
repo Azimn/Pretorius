@@ -315,7 +315,19 @@ v4_continuity_kiki: build/persona_host
 	CART_OBSESSIONS="physics,entropy,Sagan,Scully,babe,cosmos" \
 	  node tests/continuity/continuity_benchmark.js profiles/kiki/kiki.cart
 
-v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run v4_instr_run v4_continuity_run
+# Behavioral Drift Index — measures identity divergence between renderers.
+v4_drift_run: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/behavioral_drift.js
+
+# Hallucination firewall — operationally proves renderer output cannot
+# contaminate Layer 1 state, even under adversarial SLM injection.
+v4_firewall_run: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/hallucination_firewall_test.js
+
+v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
+              v4_instr_run v4_continuity_run v4_drift_run v4_firewall_run
 	@echo "--- V4 tests: green ---"
 
 # ----- profile sanity drivers -----

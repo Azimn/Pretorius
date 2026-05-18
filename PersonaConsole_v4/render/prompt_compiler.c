@@ -1,8 +1,13 @@
 /* prompt_compiler.c — V4 deterministic-state → semantic-constraints (impl).
  *
- * Projects Layer 1 state into a structured constraint block.  No lore
- * dumps.  No roleplay prompting.  This is what the SLM backend feeds
+ * Projects Layer 1 state into a tagged constraint block.  NOT a lore
+ * dump.  NOT a roleplay prompt.  This is what the SLM backend feeds
  * into the model.  Identical RenderContext → byte-identical output.
+ *
+ * Format is rigid and bracketed because small instruct models obey
+ * structured constraints better than natural-language scenes.  We are
+ * CONSTRAINING the model, not immersing it.  Sections:
+ *   [IDENTITY] [AFFECT] [STANCE] [MEMORY] [INTENT] [VOICE] [USER] [TASK]
  */
 #include "prompt_compiler.h"
 #include "../core/persona.h"
@@ -34,20 +39,11 @@ static int append(char *buf, int cap, int *pos, const char *fmt, ...){
     return 1;
 }
 
-/* Voice-flag bit → short token suitable for a constraint block. */
+/* Voice-flag bit → short token. */
 static const char *VOICE_TOKEN[] = {
-    /* matches persona.h PE_VOICE_FLAG_* bit positions */
-    "no-direct-affirm",
-    "abstract",
-    "sardonic",
-    "metaphorical",
-    "self-interrupt",
-    /* bits 5-7 reserved for verbosity */
-    NULL, NULL, NULL,
-    "mood-bleed",
-    "callback-prone",
-    "self-contradict",
-    "delayed",
+    "no-direct-affirm", "abstract", "sardonic", "metaphorical", "self-interrupt",
+    NULL, NULL, NULL,     /* bits 5-7 reserved for verbosity */
+    "mood-bleed", "callback-prone", "self-contradict", "delayed",
 };
 
 static const char *intent_token(int intent){
@@ -70,33 +66,23 @@ static const char *intent_token(int intent){
 
 static const char *rhet_token(int rhet){
     switch (rhet){
-    case 0: return "assert";
-    case 1: return "hedge";
-    case 2: return "deflect";
-    case 3: return "escalate";
-    case 4: return "lament";
-    case 5: return "gloat";
-    case 6: return "indict";
-    case 7: return "romanticize";
-    case 8: return "intone";
-    case 9: return "confess";
+    case 0: return "assert";     case 1: return "hedge";    case 2: return "deflect";
+    case 3: return "escalate";   case 4: return "lament";   case 5: return "gloat";
+    case 6: return "indict";     case 7: return "romanticize";
+    case 8: return "intone";     case 9: return "confess";
     }
     return "neutral";
 }
 
 static const char *stance_token(int stance){
     switch (stance){
-    case 0: return "neutral";
-    case 1: return "dominant";
-    case 2: return "intimate";
-    case 3: return "defensive";
-    case 4: return "condescending";
+    case 0: return "neutral";    case 1: return "dominant";   case 2: return "intimate";
+    case 3: return "defensive";  case 4: return "condescending";
     case 5: return "conspiratorial";
     }
     return "neutral";
 }
 
-/* Public entry point. */
 int prompt_compile(const RenderContext *ctx,
                    const PromptCompilerConfig *cfg,
                    char *out_buf, int out_cap){
@@ -115,88 +101,116 @@ int prompt_compile_with_input(const RenderContext *ctx,
     int pos = 0;
 
     const Engine *eng = ctx->npc;
+    const char *who = (eng && eng->identity.character_name[0])
+                    ? eng->identity.character_name : "the character";
 
-    /* ---- IDENTITY (compact, not lore) ---- */
-    append(out_buf, cap, &pos, "IDENTITY:\n  name: %s\n",
-           (eng && eng->identity.character_name[0]) ? eng->identity.character_name : "unknown");
+    /* ----- [IDENTITY] ----- */
+    append(out_buf, cap, &pos, "[IDENTITY]\n");
+    append(out_buf, cap, &pos, "name=%s\n", who);
     if (eng){
-        append(out_buf, cap, &pos, "  big5: O=%u C=%u E=%u A=%u N=%u\n",
-               eng->identity.openness, eng->identity.conscientiousness,
-               eng->identity.extraversion, eng->identity.agreeableness,
-               eng->identity.neuroticism);
+        /* Big Five are stored as 0.16 fixed-point; render as 0..100 percent
+         * for SLM legibility.  Math is integer-only. */
+        append(out_buf, cap, &pos, "big5=O%u C%u E%u A%u N%u\n",
+               (unsigned)((eng->identity.openness          * 100u) >> 16),
+               (unsigned)((eng->identity.conscientiousness * 100u) >> 16),
+               (unsigned)((eng->identity.extraversion      * 100u) >> 16),
+               (unsigned)((eng->identity.agreeableness     * 100u) >> 16),
+               (unsigned)((eng->identity.neuroticism       * 100u) >> 16));
     }
 
-    /* ---- CURRENT AFFECT ---- */
+    /* ----- [AFFECT] ----- */
     if (eng){
-        append(out_buf, cap, &pos, "CURRENT_AFFECT:\n");
-        append(out_buf, cap, &pos, "  mood:        %d\n", eng->state.mood);
-        append(out_buf, cap, &pos, "  arousal_acute_spike: %d\n", eng->state.acute_spike);
-        append(out_buf, cap, &pos, "  obsession_pressure:  %d\n", eng->state.obsession_pressure);
-        append(out_buf, cap, &pos, "  exhaustion:  %d\n", eng->state.exhaustion);
+        append(out_buf, cap, &pos, "\n[AFFECT]\n");
+        append(out_buf, cap, &pos, "mood=%d\n", eng->state.mood);
+        append(out_buf, cap, &pos, "acute_spike=%d\n", eng->state.acute_spike);
+        append(out_buf, cap, &pos, "obsession_pressure=%d\n", eng->state.obsession_pressure);
+        append(out_buf, cap, &pos, "exhaustion=%d\n", eng->state.exhaustion);
         if (eng->state.intoxication > 0)
-            append(out_buf, cap, &pos, "  intoxication: %d\n", eng->state.intoxication);
+            append(out_buf, cap, &pos, "intoxication=%d\n", eng->state.intoxication);
     }
 
-    /* ---- SCHEMA (relational stance) ---- */
+    /* ----- [STANCE] (compressed beliefs) ----- */
     if (cfg->include_schema && ctx->schema){
-        char sbuf[512];
-        int n = schema_format(ctx->schema, sbuf, sizeof(sbuf));
-        if (n > 0) append(out_buf, cap, &pos, "RELATIONAL_STANCE:\n  %s\n", sbuf);
+        append(out_buf, cap, &pos, "\n[STANCE]\n");
+        static const char *NAMES[SCHEMA_SLOT_COUNT] = {
+            "user_trustworthy","user_hostile","user_intimate","user_competent",
+            "user_deceptive","relationship_owed","relationship_owes","self_dignity"
+        };
+        const SchemaState *s = ctx->schema;
+        int wrote = 0;
+        for (int i = 0; i < SCHEMA_SLOT_COUNT; ++i){
+            if (s->slot[i] == 0 && s->evidence[i] == 0) continue;
+            append(out_buf, cap, &pos, "%s=%d\n", NAMES[i], (int)s->slot[i]);
+            ++wrote;
+        }
+        if (!wrote) append(out_buf, cap, &pos, "neutral=1\n");
     }
 
-    /* ---- ACTIVE MEMORY HOOKS ---- */
+    /* ----- [MEMORY] ----- */
     if (cfg->include_memory_hooks && ctx->memories && eng){
-        int wrote_header = 0;
+        int header = 0;
         for (int i = 0; i < ctx->memories->episodic_count && i < 4; ++i){
             int idx = ctx->memories->episodic_idx[i];
             if (idx < 0 || idx >= PE_EPISODIC_MAX) continue;
             const MemoryNode *m = &eng->memory.episodic[idx];
             if (!m->summary[0]) continue;
-            if (!wrote_header){ append(out_buf, cap, &pos, "ACTIVE_MEMORY_HOOKS:\n"); wrote_header = 1; }
-            append(out_buf, cap, &pos, "  - %.96s\n", m->summary);
+            if (!header){ append(out_buf, cap, &pos, "\n[MEMORY]\n"); header = 1; }
+            append(out_buf, cap, &pos, "recent=%.96s\n", m->summary);
         }
         for (int i = 0; i < ctx->memories->core_count && i < 4; ++i){
             int idx = ctx->memories->core_idx[i];
             if (idx < 0 || idx >= PE_CORE_SEED_MAX) continue;
             const MemoryNode *m = &eng->identity.core_memories_seed[idx];
             if (!m->summary[0]) continue;
-            if (!wrote_header){ append(out_buf, cap, &pos, "ACTIVE_MEMORY_HOOKS:\n"); wrote_header = 1; }
-            append(out_buf, cap, &pos, "  - (core) %.86s\n", m->summary);
+            if (!header){ append(out_buf, cap, &pos, "\n[MEMORY]\n"); header = 1; }
+            append(out_buf, cap, &pos, "core=%.86s\n", m->summary);
         }
     }
 
-    /* ---- VOICE MASK ---- */
-    if (cfg->include_voice_mask && eng){
-        append(out_buf, cap, &pos, "VOICE_MASK:\n");
-        uint32_t vf = eng->identity.voice_flags;
-        for (int b = 0; b < 12; ++b){
-            if (!VOICE_TOKEN[b]) continue;
-            if (vf & (1u << b))
-                append(out_buf, cap, &pos, "  - %s\n", VOICE_TOKEN[b]);
-        }
-        /* signature flourishes — let the renderer see them, not just emit them */
-        for (int i = 0; i < 4; ++i){
-            if (eng->identity.flourishes[i][0])
-                append(out_buf, cap, &pos, "  - flourish: %.40s\n", eng->identity.flourishes[i]);
-        }
-    }
-
-    /* ---- INTENT + PLAN ---- */
+    /* ----- [INTENT] ----- */
     if (cfg->include_intent && ctx->plan && eng){
         const UtterancePlan *p = ctx->plan;
-        append(out_buf, cap, &pos, "INTENT:\n  primary: %s\n  rhetorical: %s\n  stance: %s\n",
-               intent_token(eng->state.current_intent),
-               rhet_token(p->rhetorical_mode),
-               stance_token(p->stance));
-        append(out_buf, cap, &pos, "  certainty=%d aggression=%d theatricality=%d hedging=%d\n",
+        append(out_buf, cap, &pos, "\n[INTENT]\n");
+        append(out_buf, cap, &pos, "intent=%s\n", intent_token(eng->state.current_intent));
+        append(out_buf, cap, &pos, "rhet=%s\n",   rhet_token(p->rhetorical_mode));
+        append(out_buf, cap, &pos, "stance=%s\n", stance_token(p->stance));
+        append(out_buf, cap, &pos, "cert=%d aggr=%d theat=%d hedge=%d\n",
                (int)p->certainty, (int)p->aggression,
                (int)p->theatricality, (int)p->hedging);
     }
 
-    /* ---- USER INPUT (only when explicitly requested) ---- */
-    if (cfg->include_current_input && user_input && user_input[0]){
-        append(out_buf, cap, &pos, "USER_INPUT:\n  %.256s\n", user_input);
+    /* ----- [VOICE] ----- */
+    if (cfg->include_voice_mask && eng){
+        append(out_buf, cap, &pos, "\n[VOICE]\n");
+        append(out_buf, cap, &pos, "flags=");
+        uint32_t vf = eng->identity.voice_flags;
+        int first = 1;
+        for (int b = 0; b < 12; ++b){
+            if (!VOICE_TOKEN[b]) continue;
+            if (vf & (1u << b)){
+                append(out_buf, cap, &pos, "%s%s", first ? "" : " ", VOICE_TOKEN[b]);
+                first = 0;
+            }
+        }
+        if (first) append(out_buf, cap, &pos, "neutral");
+        append(out_buf, cap, &pos, "\n");
+        for (int i = 0; i < 4; ++i){
+            if (eng->identity.flourishes[i][0])
+                append(out_buf, cap, &pos, "flourish=%.40s\n", eng->identity.flourishes[i]);
+        }
     }
+
+    /* ----- [USER] ----- */
+    if (cfg->include_current_input && user_input && user_input[0]){
+        append(out_buf, cap, &pos, "\n[USER]\n%.256s\n", user_input);
+    }
+
+    /* ----- [TASK] — instruction; rigid + short ----- */
+    append(out_buf, cap, &pos, "\n[TASK]\n");
+    append(out_buf, cap, &pos, "Reply as %s. One short turn, <=40 words.\n", who);
+    append(out_buf, cap, &pos, "Obey [AFFECT] [STANCE] [INTENT] [VOICE] as constraints.\n");
+    append(out_buf, cap, &pos, "Do NOT invent people, places, events, family, or memories not listed in [MEMORY].\n");
+    append(out_buf, cap, &pos, "Do NOT use the bracket tags in your reply.\n");
 
     return pos;
 }

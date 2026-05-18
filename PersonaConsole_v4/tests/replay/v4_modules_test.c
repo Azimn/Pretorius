@@ -154,12 +154,14 @@ static void test_prompt_compiler(void){
     char buf[1024];
     int n = prompt_compile(&ctx, NULL, buf, sizeof(buf));
     CHECK(n > 0, "prompt_compile: emits output for empty context");
-    CHECK(strstr(buf, "IDENTITY:") != NULL,
-          "prompt_compile: starts with IDENTITY: header");
+    CHECK(strstr(buf, "[IDENTITY]") != NULL,
+          "prompt_compile: starts with [IDENTITY] tag");
     /* Should NOT contain lore-style prose */
     CHECK(strstr(buf, "You are a ") == NULL &&
           strstr(buf, "Roleplay as") == NULL,
           "prompt_compile: not a lore dump / roleplay prompt");
+    CHECK(strstr(buf, "[TASK]") != NULL,
+          "prompt_compile: emits [TASK] instruction block");
 }
 
 int main(void){
