@@ -1,0 +1,15 @@
+{
+  "output": "profiles/kiki/kiki.cart",
+  "lm_file": "profiles/kiki/voice.lm",
+  "sections": [
+    {"name": "identity.bin", "path": "profiles/kiki/identity.bin"},
+    {"name": "drives.bin", "path": "profiles/kiki/drives.bin"},
+    {"name": "today.bin", "path": "profiles/kiki/today.bin"},
+    {"name": "banks.bin", "path": "profiles/kiki/banks.bin"},
+    {"name": "dialogue/patterns.bin", "path": "profiles/kiki/dialogue/patterns.bin"},
+    {"name": "dialogue/templates.bin", "path": "profiles/kiki/dialogue/templates.bin"},
+    {"name": "dialogue/fallback.bin", "path": "profiles/kiki/dialogue/fallback.bin"},
+    {"name": "dialogue/topics.bin", "path": "profiles/kiki/dialogue/topics.bin"},
+    {"name": "dialogue/goals.bin", "path": "profiles/kiki/dialogue/goals.bin"}
+  ]
+}
