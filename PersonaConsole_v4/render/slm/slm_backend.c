@@ -27,6 +27,7 @@
  */
 #include "../render_backend.h"
 #include "../prompt_compiler.h"
+#include "../providers/ollama_provider.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,6 +36,7 @@ typedef struct {
     char model_name[64];
     char provider[32];
     int  available;
+    OllamaConfig ollama;
 } SlmPriv;
 
 static SlmPriv g_slm_priv;
@@ -42,14 +44,16 @@ static SlmPriv g_slm_priv;
 static int slm_init(RenderBackend *self){
     SlmPriv *p = (SlmPriv*)self->priv;
     if (!p) return -1;
-    const char *prov = getenv("PE_SLM_PROVIDER");
+    const char *prov  = getenv("PE_SLM_PROVIDER");
     const char *model = getenv("PE_SLM_MODEL");
-    if (prov)  snprintf(p->provider,   sizeof(p->provider),   "%s", prov);
-    else       snprintf(p->provider,   sizeof(p->provider),   "none");
-    if (model) snprintf(p->model_name, sizeof(p->model_name), "%s", model);
-    else       snprintf(p->model_name, sizeof(p->model_name), "unset");
+    snprintf(p->provider,   sizeof(p->provider),   "%s", prov  ? prov  : "none");
+    snprintf(p->model_name, sizeof(p->model_name), "%s", model ? model : "unset");
+    /* For Ollama: pull host/port/model/timeout/temp from env so the
+     * runtime can be pointed at any local instance without rebuilds. */
+    ollama_load_config(&p->ollama);
+    if (model) snprintf(p->ollama.model, sizeof(p->ollama.model), "%s", model);
     /* availability check is delegated to the provider at first render */
-    p->available = (prov != NULL);
+    p->available = (prov && !strcmp(prov, "ollama"));
     return 0;
 }
 
@@ -68,20 +72,37 @@ static int slm_render(RenderBackend *self,
     if (!p || !p->available){
         /* No provider configured.  Signal "unavailable" so the host can
          * fall back to the template backend without policy drift. */
-        out->confidence = 0;
-        out->output_len = 0;
         out->flags = 2u;   /* bit 1 = unavailable, please fall back */
         return 0;
     }
 
-    /* Provider dispatch happens here in a future commit.  For now this
-     * backend is a registered stub: visible to the host, selectable
-     * via PE_RENDER_BACKEND=slm, but indicating unavailability so the
-     * host falls back to templates.  This is intentional — V4 ships
-     * the renderer ABSTRACTION first; actual SLM provider wiring is a
-     * separate, optional integration. */
-    out->confidence = 0;
-    out->output_len = 0;
+    /* 1. Compile a structured constraint block from Layer 1 state.
+     *    This is what the project calls a "behavioral topology
+     *    projection" — not a lore dump, not roleplay prompting. */
+    char prompt[PE_PROMPT_MAX_BYTES];
+    int pn = prompt_compile(ctx, NULL, prompt, (int)sizeof(prompt));
+    if (pn <= 0){
+        out->flags = 2u;
+        return 0;
+    }
+
+    /* 2. Ship to the configured provider.  Currently: Ollama.
+     *    More providers slot in here behind the same dispatch. */
+    if (!strcmp(p->provider, "ollama")){
+        int n = ollama_generate(&p->ollama, prompt, ctx->seed,
+                                out->output, (int)sizeof(out->output));
+        if (n > 0){
+            out->output_len = n;
+            out->confidence = 750;   /* placeholder until logprob-based */
+            out->flags = 0;
+            return 0;
+        }
+        /* network / protocol / timeout failure → fall back to template */
+        out->flags = 2u;
+        return 0;
+    }
+
+    /* Unknown provider — fall back. */
     out->flags = 2u;
     return 0;
 }

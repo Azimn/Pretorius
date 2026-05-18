@@ -66,7 +66,8 @@ RENDER_TEMPLATES_SRC := \
 RENDER_CORE_SRC := \
     render/render_backend.c \
     render/prompt_compiler.c \
-    render/slm/slm_backend.c
+    render/slm/slm_backend.c \
+    render/providers/ollama_provider.c
 
 ENGINE_SRC := $(CORE_SRC) $(MEMORY_SRC) $(SCHEMA_SRC) \
               $(RENDER_TEMPLATES_SRC) $(RENDER_CORE_SRC)
@@ -140,7 +141,9 @@ build/%.o: render/%.c $(CORE_HEADERS) $(MEMORY_HEADERS) $(RENDER_HEADERS) render
 	$(CC) $(CFLAGS) -c $< -o $@
 build/%.o: render/templates/%.c $(CORE_HEADERS) $(MEMORY_HEADERS) $(RENDER_HEADERS) render/render_backend.h | build
 	$(CC) $(CFLAGS) -c $< -o $@
-build/%.o: render/slm/%.c render/render_backend.h render/prompt_compiler.h | build
+build/%.o: render/slm/%.c render/render_backend.h render/prompt_compiler.h render/providers/ollama_provider.h | build
+	$(CC) $(CFLAGS) -c $< -o $@
+build/%.o: render/providers/%.c render/providers/ollama_provider.h | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # PersonaHost objects — same include set + the host's own headers.
@@ -280,7 +283,11 @@ v4_replay_run: build/persona_host
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/replay/replay_determinism_test.js
 
-v4_all_tests: v4_modules_run v4_replay_run
+v4_ollama_run: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/replay/ollama_provider_test.js
+
+v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run
 	@echo "--- V4 tests: green ---"
 
 # ----- profile sanity drivers -----

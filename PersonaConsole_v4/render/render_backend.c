@@ -53,6 +53,14 @@ RenderBackend *render_backend_default(void){
 
 void render_backends_init(void){
     /* Idempotent — render_backend_register handles duplicate names. */
-    render_backend_register(render_template_backend());
-    render_backend_register(render_slm_backend());
+    RenderBackend *tpl = render_template_backend();
+    RenderBackend *slm = render_slm_backend();
+    render_backend_register(tpl);
+    render_backend_register(slm);
+    /* Call each backend's initialize() so env-var-driven config gets
+     * read (e.g. PE_OLLAMA_HOST, PE_SLM_PROVIDER) before first render.
+     * Init failures don't unregister — the render call returns
+     * "unavailable" and the host falls back to template. */
+    if (tpl && tpl->initialize) tpl->initialize(tpl);
+    if (slm && slm->initialize) slm->initialize(slm);
 }
