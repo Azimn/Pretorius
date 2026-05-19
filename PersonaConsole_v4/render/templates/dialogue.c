@@ -171,6 +171,13 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
     uint32_t today_or = eng->todays.entries[eng->state.today_index].voice_flag_or;
     flags |= today_or;
     const UtterancePlan *p = &eng->plan;
+    int grounded_turn = (eng->matched_group != 0xFFFF
+                      && t->group == eng->matched_group
+                      && eng->input_class != 2
+                      && eng->input_class != 4);
+    if (grounded_turn) {
+        flags &= ~(uint32_t)(PE_VF_METAPHOR | PE_VF_SELF_INTERRUPT);
+    }
 
     /* metaphor injection — gated by theatricality.  Strings live in the
      * cartridge (identity.flourishes); engine never embeds character-flavored
@@ -192,7 +199,7 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
         snprintf(buf, cap, "%s", tmp);
     }
     /* hedging — gated by plan.hedging */
-    if ((style_rng(&seed) % 255u) < (uint32_t)(p->hedging / 2)){
+    if (!grounded_turn && (style_rng(&seed) % 255u) < (uint32_t)(p->hedging / 2)){
         char tmp[PE_TEMPLATE_TEXT];
         snprintf(tmp, sizeof(tmp), "Perhaps — %c%s",
                  (char)tolower((unsigned char)buf[0]), buf + 1);
@@ -200,7 +207,7 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
     }
     /* verbosity expansion — gated by plan.verbosity.  Strings come from the
      * cartridge (identity.expansions); empty slots are skipped. */
-    if ((style_rng(&seed) % 255u) < (uint32_t)(p->verbosity / 2)){
+    if (!grounded_turn && (style_rng(&seed) % 255u) < (uint32_t)(p->verbosity / 2)){
         const char *ex = eng->identity.expansions[style_rng(&seed) % PE_EXPANSION_COUNT];
         if (ex[0]){
             char tmp[PE_TEMPLATE_TEXT];
@@ -367,18 +374,30 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
         }
     }
 
-    /* collect candidates: matching group, current intent, active-memory injection */
-    for (uint32_t i = 0; i < eng->templates.count && eng->candidate_count < 64; ++i){
-        const Template *t = &eng->templates.entries[i];
-        if (!t->text[0]) continue;
-        if (!template_admissible(eng, t)) continue;
-        int relevant = 0;
-        if (eng->matched_group != 0xFFFF && t->group == eng->matched_group) relevant = 1;
-        if (t->intent == eng->state.current_intent) relevant = 1;
-        if (!relevant) continue;
-        eng->candidate_ids[eng->candidate_count] = (uint16_t)i;
-        eng->candidate_scores[eng->candidate_count] = score_template(eng, t);
-        eng->candidate_count++;
+    /* collect candidates.  If the classifier found a concrete dialogue
+     * group, try that group first so "hello" and "how are you" are not
+     * drowned out by generic mood/intent monologues.  If the group has no
+     * admissible lines, fall back to the old intent-driven search. */
+    for (int pass = 0; pass < 2 && eng->candidate_count == 0; ++pass){
+        int prefer_group = (eng->matched_group != 0xFFFF && pass == 0);
+        for (uint32_t i = 0; i < eng->templates.count && eng->candidate_count < 64; ++i){
+            const Template *t = &eng->templates.entries[i];
+            if (!t->text[0]) continue;
+            if (!template_admissible(eng, t)) continue;
+            int relevant = 0;
+            if (prefer_group) {
+                relevant = (t->group == eng->matched_group);
+            } else {
+                if (eng->matched_group != 0xFFFF && t->group == eng->matched_group) relevant = 1;
+                if (t->intent == eng->state.current_intent) relevant = 1;
+            }
+            if (!relevant) continue;
+            eng->candidate_ids[eng->candidate_count] = (uint16_t)i;
+            eng->candidate_scores[eng->candidate_count] = score_template(eng, t);
+            if (prefer_group) eng->candidate_scores[eng->candidate_count] += 140;
+            eng->candidate_count++;
+        }
+        if (eng->matched_group == 0xFFFF) break;
     }
 
     /* fallback if nothing matched */
@@ -395,6 +414,20 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
      * top-3 pick reflects "what's the smart thing to say" not just
      * "what fits my current mood." */
     pe_voice_rerank(eng);
+
+    if (eng->matched_group != 0xFFFF && eng->input_class != 2 && eng->input_class != 4){
+        for (uint16_t i = 0; i < eng->candidate_count; ++i){
+            const Template *t = &eng->templates.entries[eng->candidate_ids[i]];
+            if (t->group != eng->matched_group) continue;
+            if (t->intent == PE_INTENT_ANSWER) {
+                eng->candidate_scores[i] += 260;
+            } else if (t->intent == PE_INTENT_MONOLOGUE
+                    || t->intent == PE_INTENT_REMINISCE
+                    || t->intent == PE_INTENT_BOAST) {
+                eng->candidate_scores[i] -= 180;
+            }
+        }
+    }
 
     /* select top-3 by score, weighted random among them */
     uint16_t top_idx[3] = {0,0,0};
@@ -424,6 +457,10 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
 
     /* fill slots, then style transforms */
     char buf[PE_TEMPLATE_TEXT];
+    int grounded_turn = (eng->matched_group != 0xFFFF
+                      && chosen->group == eng->matched_group
+                      && eng->input_class != 2
+                      && eng->input_class != 4);
     fill_slots(eng, chosen, buf, sizeof(buf));
     apply_style(eng, chosen, buf, sizeof(buf));
 
@@ -451,6 +488,7 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
 
     /* topic callback (illusion layer): inject "by the way..." once in a while */
     if ((eng->identity.voice_flags & PE_VF_ALLOW_CALLBACK)
+        && !grounded_turn
         && (persona_rng_u32(&eng->state) % 100) < 10){
         for (int i = 0; i < PE_TOPIC_SLOTS; ++i){
             if (eng->state.topic_momentum[i].momentum > 600
@@ -471,6 +509,7 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
 
     /* tiny contradiction (2% with flag) — flagged in memory by stamping type=2 */
     if ((eng->identity.voice_flags & PE_VF_ALLOW_CONTRADICT)
+        && !grounded_turn
         && (persona_rng_u32(&eng->state) % 100) < 2
         && eng->memory.episodic_count > 0){
         size_t L = strlen(buf);

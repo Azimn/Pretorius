@@ -160,7 +160,7 @@ static void make_topics(TopicTable *tt){
 enum {
     G_PRAISE = 1, G_INSULT, G_QUESTION, G_THREAT, G_INTIMACY,
     G_CREATION, G_GIN, G_HOMUNCULI, G_GOD, G_HENRY, G_OPERA, G_DEATH,
-    G_GREETING, G_WHO, G_NEUTRAL
+    G_GREETING, G_WHO, G_STATUS, G_WORKCHAT, G_ACK, G_TELL, G_NEUTRAL
 };
 
 static void make_patterns(PatternTable *pt){
@@ -178,6 +178,7 @@ static void make_patterns(PatternTable *pt){
         /* insult */
         {"fool",         0xFFFF, -40, 60, -20, 2, G_INSULT,    0},
         {"madman",       0xFFFF, -20, 55, +10, 2, G_INSULT,    0},
+        {"mad",          0xFFFF, -15, 45,  +5, 2, G_INSULT,    0},
         {"monster",      0xFFFF, -30, 60, -10, 2, G_INSULT,    0},
         {"obscene",      T_ETHICS,-50, 70, -10, 2, G_INSULT,   0},
         {"hate",         0xFFFF, -60, 65, -30, 2, G_INSULT,    0},
@@ -221,6 +222,18 @@ static void make_patterns(PatternTable *pt){
         {"why",          0xFFFF, 0,   30, 0, 3, G_QUESTION,   0},
         {"how",          0xFFFF, 0,   30, 0, 3, G_QUESTION,   0},
         {"what",         0xFFFF, 0,   30, 0, 3, G_QUESTION,   0},
+        {"how are you",  0xFFFF, +5,  20, 0, 3, G_STATUS,     0},
+        {"how are oyu",  0xFFFF, +5,  20, 0, 3, G_STATUS,     0},
+        {"how do you feel", 0xFFFF, +5, 20, 0, 3, G_STATUS,   0},
+        {"are you all right", 0xFFFF, +5, 20, 0, 3, G_STATUS, 0},
+        {"working on",   T_WORK, +5,  30, +10, 3, G_WORKCHAT, 0},
+        {"your work",    T_WORK, +5,  30, +10, 3, G_WORKCHAT, 0},
+        {"what are you work", T_WORK, +5, 30, +10, 3, G_WORKCHAT, 0},
+        {"whata re you work", T_WORK, +5, 30, +10, 3, G_WORKCHAT, 0},
+        {"tell me",      0xFFFF, +5,  25, +5, 3, G_TELL,      0},
+        {"ok",           0xFFFF, +2,  10, 0, 0, G_ACK,        0},
+        {"okay",         0xFFFF, +2,  10, 0, 0, G_ACK,        0},
+        {"all right",    0xFFFF, +2,  10, 0, 0, G_ACK,        0},
     };
     uint32_t n = (uint32_t)(sizeof(P)/sizeof(P[0]));
     if (n > PE_PATTERN_MAX) n = PE_PATTERN_MAX;
@@ -299,6 +312,8 @@ static void T_addv2(TemplateTable *tt, uint16_t group, uint8_t intent,
 static void make_templates(TemplateTable *tt){
     memset(tt, 0, sizeof(*tt));
     /* greetings */
+    T_add(tt, G_GREETING, PE_INTENT_ANSWER, 175, -1000, 1000, -1,
+          "Good evening, {address}. I am listening. Try not to make it ordinary.");
     T_add(tt, G_GREETING, PE_INTENT_BOAST, 50, -1000, 1000, -1,
           "Ahhhh, {address}. Do come in. The night is electric and I am in a mood for visitors.");
     T_add(tt, G_GREETING, PE_INTENT_MONOLOGUE, 40, -200, 1000, -1,
@@ -315,6 +330,33 @@ static void make_templates(TemplateTable *tt){
           "I am the man who, while others were content to *study* life, took it gently by the wrist.");
     T_add(tt, G_WHO, PE_INTENT_MONOLOGUE, 50, -100, 1000, -1,
           "A man should not need to explain himself. Yet — Septimus, if you must. The rest is in the bottle.");
+
+    /* everyday conversation */
+    T_add(tt, G_STATUS, PE_INTENT_ANSWER, 110, -1000, 1000, -1,
+          "How am I? Awake, insufficiently admired, and only moderately ruined. A productive condition.");
+    T_add(tt, G_STATUS, PE_INTENT_PROBE, 80, -1000, 1000, -1,
+          "Still assembled, {address}. That is more than can be said for several of my colleagues.");
+    T_add(tt, G_STATUS, PE_INTENT_MONOLOGUE, 45, -1000, 1000, -1,
+          "My condition is not the interesting subject. The work is. But yes, I persist.");
+
+    T_add(tt, G_WORKCHAT, PE_INTENT_ANSWER, 120, -1000, 1000, PE_DRIVE_RECOGNITION,
+          "I am working on life, {address}: not the sermon version, the version with wire, will, and consequence.");
+    T_add(tt, G_WORKCHAT, PE_INTENT_PROBE, 75, -1000, 1000, -1,
+          "A better question is whether you want the polite answer or the useful one. I am making nature less smug.");
+    T_add(tt, G_WORKCHAT, PE_INTENT_MONOLOGUE, 50, -1000, 1000, PE_DRIVE_STIMULATION,
+          "The work is simple to name and impossible to forgive: continuation, correction, creation.");
+
+    T_add(tt, G_ACK, PE_INTENT_ANSWER, 100, -1000, 1000, -1,
+          "Mm. Good. Then we may proceed like civilized conspirators.");
+    T_add(tt, G_ACK, PE_INTENT_PROBE, 70, -1000, 1000, -1,
+          "Only 'ok'? Come now, {address}; give me a question with bones in it.");
+    T_add(tt, G_ACK, PE_INTENT_MONOLOGUE, 35, -1000, 1000, -1,
+          "Agreement is pleasant, but it is not yet conversation.");
+
+    T_add(tt, G_TELL, PE_INTENT_ANSWER, 100, -1000, 1000, -1,
+          "I can tell you a little. Ask cleanly, and I shall try not to decorate the answer beyond recognition.");
+    T_add(tt, G_TELL, PE_INTENT_PROBE, 70, -1000, 1000, -1,
+          "Tell you what, precisely? The work, the scandal, or the part polite men pretend not to want?");
 
     /* praise */
     T_add(tt, G_PRAISE, PE_INTENT_BOAST, 80, -1000, 1000, PE_DRIVE_RECOGNITION,
