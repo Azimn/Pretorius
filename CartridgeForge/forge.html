@@ -2802,13 +2802,19 @@ class LMRuntime {
  * ============================================================== */
 
 /* ---- size constants (match persona.h) ---- */
-const SZ_IDENTITY        = 1806;
+/* Section sizes — must match the engine's #pragma pack(push,1) struct
+ * layouts exactly.  PE_CORE_SEED_MAX, PE_PATTERN_MAX, PE_TEMPLATE_MAX,
+ * PE_PATTERN_KW_LEN, PE_TEMPLATE_TEXT are the capacity knobs the C
+ * engine exposes; bumping them in persona.h requires updating these
+ * literals (or this whole block) in lockstep.  Mismatch → cart load
+ * fails with "validation failed". */
+const SZ_IDENTITY        = 3076;     /* identity.bin (incl. 20 core memories) */
 const SZ_DRIVE_TABLE     = 272;
 const SZ_TODAY_TABLE     = 964;
 const SZ_BANK_REGISTRY   = 6012;
-const SZ_PATTERN_TABLE   = 4484;
-const SZ_TEMPLATE_TABLE  = 55812;
-const SZ_FALLBACK_TABLE  = 3460;
+const SZ_PATTERN_TABLE   = 11012;    /* 256 patterns × 43-byte Pattern entry + 4 */
+const SZ_TEMPLATE_TABLE  = 288772;   /* 1024 templates × 282-byte Template + 4 */
+const SZ_FALLBACK_TABLE  = 4612;     /* 3 tiers × 6 × 256 + 4 */
 const SZ_TOPIC_TABLE     = 2180;
 const SZ_GOAL_TABLE      = 748;
 
@@ -2817,7 +2823,7 @@ const PE_TABOO_COUNT     = 8;
 const PE_ADDRESS_COUNT   = 4;
 const PE_ADDRESS_LEN     = 16;
 const PE_NAME_LEN        = 32;
-const PE_CORE_SEED_MAX   = 10;
+const PE_CORE_SEED_MAX   = 20;
 const PE_MEM_SUMMARY_LEN = 96;
 const PE_FLOURISH_COUNT  = 4;
 const PE_FLOURISH_LEN    = 48;
@@ -2833,10 +2839,10 @@ const PE_BANK_REGISTRY_VERSION = 1;
 
 const PE_TOPIC_MAX          = 64;
 const PE_TOPIC_NAME         = 16;
-const PE_PATTERN_MAX        = 128;
-const PE_PATTERN_KW_LEN     = 24;
-const PE_TEMPLATE_MAX       = 256;
-const PE_TEMPLATE_TEXT      = 192;
+const PE_PATTERN_MAX        = 256;
+const PE_PATTERN_KW_LEN     = 32;
+const PE_TEMPLATE_MAX       = 1024;
+const PE_TEMPLATE_TEXT      = 256;
 const PE_FALLBACK_PER_TIER  = 6;
 const PE_GOAL_MAX           = 24;
 const PE_TODAY_MAX          = 16;

@@ -19,7 +19,11 @@ extern "C" {
 #define PE_TABOO_COUNT          8
 #define PE_ADDRESS_COUNT        4
 #define PE_ADDRESS_LEN          16
-#define PE_CORE_SEED_MAX        10
+/* Modern low-resource cartridge capacity.  These limits intentionally exceed
+ * the original P3-era authoring budget so characters can feel less repetitive
+ * on ordinary modern hardware while remaining deterministic, offline, and
+ * tiny compared with any mandatory LLM runtime. */
+#define PE_CORE_SEED_MAX        20
 #define PE_EPISODIC_MAX         50
 #define PE_SEMANTIC_USERS       16
 #define PE_SEMANTIC_FACTS       30
@@ -31,10 +35,10 @@ extern "C" {
 #define PE_PHRASE_USAGE         256
 #define PE_GOAL_MAX             24
 #define PE_TODAY_MAX            16
-#define PE_TEMPLATE_MAX         256
-#define PE_PATTERN_MAX          128
-#define PE_PATTERN_KW_LEN       24
-#define PE_TEMPLATE_TEXT        192
+#define PE_TEMPLATE_MAX         1024
+#define PE_PATTERN_MAX          256
+#define PE_PATTERN_KW_LEN       32
+#define PE_TEMPLATE_TEXT        256
 #define PE_TOPIC_MAX            64
 #define PE_TOPIC_NAME           16
 #define PE_FALLBACK_PER_TIER    6

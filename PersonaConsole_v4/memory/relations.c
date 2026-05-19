@@ -25,7 +25,7 @@ static int schema_path(Engine *eng, uint32_t hash, char *out, size_t n){
 }
 
 int pe_load_relation(Engine *eng, const char *user_id){
-    if (!user_id || !*user_id) user_id = "anon";
+    if (!user_id || !*user_id || !strcmp(user_id, "anon")) user_id = "Someone";
     uint32_t h = persona_hash(user_id);
     char path[512];
     relation_path(eng, h, path, sizeof(path));

@@ -124,6 +124,9 @@ h1 {
   align-self: flex-start;
   background: var(--char);
 }
+.msg.idle {
+  border: 1px solid rgba(212,165,116,0.45);
+}
 .msg .meta {
   font-size: 11px;
   color: rgba(255,255,255,0.6);

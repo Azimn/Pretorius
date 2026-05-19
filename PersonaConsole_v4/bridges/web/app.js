@@ -22,6 +22,12 @@ const els = {
     disp:      $("disp"),
 };
 
+const IDLE_PROBE_DELAY_MS = 45000;
+let idleTimer = null;
+let idleProbeTurn = -1;
+let idleRequestInFlight = false;
+let latestTurn = 0;
+
 /* Try to fetch the character's portrait.  On success, fade in the image
  * and hide the initial-letter placeholder.  On 404 (no portrait file in
  * the cartridge directory), keep the placeholder visible. */
@@ -66,6 +72,7 @@ function setState(s) {
     els.exhaust.textContent = s.exhaustion;
     els.delta.textContent   = s.voice_delta;
     els.disp.textContent    = s.disposition;
+    latestTurn = Number(s.turn_count || 0);
 }
 
 async function fetchState() {
@@ -75,8 +82,48 @@ async function fetchState() {
     } catch (e) { console.error(e); }
 }
 
+function scheduleIdleProbe() {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(requestIdleProbe, IDLE_PROBE_DELAY_MS);
+}
+
+async function requestIdleProbe() {
+    if (idleRequestInFlight || els.send.disabled) {
+        scheduleIdleProbe();
+        return;
+    }
+    if (document.hidden || els.input.value.trim()) {
+        scheduleIdleProbe();
+        return;
+    }
+    if (latestTurn === 0 || idleProbeTurn === latestTurn) {
+        scheduleIdleProbe();
+        return;
+    }
+    idleRequestInFlight = true;
+    try {
+        const r = await fetch("/idle_probe", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: "{}",
+        });
+        const data = await r.json();
+        if (data.state) setState(data.state);
+        if (data.reply && idleProbeTurn !== latestTurn) {
+            idleProbeTurn = latestTurn;
+            addMessage("char idle", data.reply, "idle probe");
+        }
+    } catch (e) {
+        console.error(e);
+    } finally {
+        idleRequestInFlight = false;
+        scheduleIdleProbe();
+    }
+}
+
 async function sendMessage(text) {
     addMessage("user", text);
+    scheduleIdleProbe();
     els.send.disabled = true;
     els.input.value = "";
     els.portrait.classList.add("speaking");
@@ -95,6 +142,7 @@ async function sendMessage(text) {
                 : "";
             addMessage("char", data.reply, meta);
             if (data.state) setState(data.state);
+            idleProbeTurn = -1;
         }
     } catch (e) {
         addMessage("char", `[network error] ${e.message}`);
@@ -102,6 +150,7 @@ async function sendMessage(text) {
         els.portrait.classList.remove("speaking");
         els.send.disabled = false;
         els.input.focus();
+        scheduleIdleProbe();
     }
 }
 
@@ -113,3 +162,4 @@ els.form.addEventListener("submit", (e) => {
 
 fetchState();
 loadPortrait();
+scheduleIdleProbe();

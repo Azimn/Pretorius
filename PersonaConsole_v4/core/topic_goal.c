@@ -38,7 +38,7 @@ static void boost_topic(NPCState *s, uint16_t topic_id, int amount){
 /* ---------- v2: per-turn input prep ---------- */
 
 static const char *NEGATION_CUES[] = {
-    "not ", "n't", " no ", " never", "without", "nor ", "neither", "hardly",
+    "not ", "n't", " no ", "no more", " never", "without", "nor ", "neither", "hardly",
     "scarcely", "barely", "rarely", "cannot", "isn", "aren", "wasn", "weren",
     "don ", "doesn", "didn"
 };
@@ -96,6 +96,7 @@ void pe_classify_input(Engine *eng, const char *input, EmotionVector *out_ev){
     eng->primary_topic = 0xFFFF;
     eng->state.last_matched_flags = 0;
     int v = 0, a = 30, d = 0;
+    int matched_group_has_topic = 0;
 
     /* sweep patterns; skip those whose first char isn't in the input bitmap */
     for (uint32_t i = 0; i < eng->patterns.count; ++i){
@@ -121,7 +122,15 @@ void pe_classify_input(Engine *eng, const char *input, EmotionVector *out_ev){
         }
         v += dv; a += da; d += dd;
         if (cls) eng->input_class = cls;
-        if (p->template_group != 0xFFFF && hit != 2) eng->matched_group = p->template_group;
+        if (p->template_group != 0xFFFF && hit != 2) {
+            int pattern_has_topic = (p->topic_id != 0xFFFF);
+            if (eng->matched_group == 0xFFFF
+                || pattern_has_topic
+                || !matched_group_has_topic) {
+                eng->matched_group = p->template_group;
+                matched_group_has_topic = pattern_has_topic;
+            }
+        }
         /* data-driven side-effect flags (intoxicant, etc.) — negated matches don't set */
         if (hit != 2) eng->state.last_matched_flags |= p->flags;
         if (p->topic_id != 0xFFFF){

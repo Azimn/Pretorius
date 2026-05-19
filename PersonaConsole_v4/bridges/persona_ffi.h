@@ -41,6 +41,11 @@ int ps_reply(PersonaSession *s,
              const char *input,
              char *out_buf, int out_buf_size);
 
+/* Optional character-initiated conversational probe.  This is read-only:
+ * it does not process input, advance turn_count, or persist memory.  Returns
+ * 0 when no idle probe should be emitted yet. */
+int ps_idle_probe(PersonaSession *s, char *out_buf, int out_buf_size);
+
 /* Persist current cognitive state to disk. */
 int ps_save(PersonaSession *s);
 

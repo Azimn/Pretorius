@@ -16,6 +16,10 @@ PersonaConsole_c99 is currently a small C99/POSIX-style runtime. The core engine
 - Cartridge section payloads are raw packed C structs.
 - Files are written and read as little-endian/native-layout data.
 - The current target is x86-class little-endian hardware.
+- Cartridge struct capacities are part of the binary ABI. The modern
+  low-resource standard raises dialogue capacity to 1024 templates,
+  256 patterns, 256-character template text, and 20 core seed memories.
+  Existing cartridges must be regenerated whenever these limits change.
 
 ## Planned Portability Layer
 

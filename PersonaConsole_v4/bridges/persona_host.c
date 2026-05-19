@@ -142,6 +142,30 @@ static int method_state(HostCtx *ctx, const char *body,
     return ps_state(ctx->sess, out_buf, out_cap);
 }
 
+static int method_idle_probe(HostCtx *ctx, const char *body,
+                             char *out_buf, int out_cap){
+    (void)body;
+    int n = ps_idle_probe(ctx->sess,
+                          ctx->reply_scratch, sizeof(ctx->reply_scratch));
+    if (n < 0) return snprintf(out_buf, (size_t)out_cap,
+                               "{\"error\":\"ps_idle_probe failed\",\"code\":%d}", n);
+    int pos = 0;
+    pos += snprintf(out_buf + pos, (size_t)(out_cap - pos), "{\"reply\":");
+    if (n == 0) {
+        pos += snprintf(out_buf + pos, (size_t)(out_cap - pos), "null");
+    } else {
+        int qn = json_emit_quoted(out_buf + pos, out_cap - pos, ctx->reply_scratch);
+        if (qn < 0) return -1;
+        pos += qn;
+    }
+    int sn = ps_state(ctx->sess, ctx->state_scratch, sizeof(ctx->state_scratch));
+    if (sn > 0)
+        pos += snprintf(out_buf + pos, (size_t)(out_cap - pos),
+                        ",\"state\":%s", ctx->state_scratch);
+    pos += snprintf(out_buf + pos, (size_t)(out_cap - pos), "}");
+    return pos;
+}
+
 static int method_save(HostCtx *ctx, const char *body,
                        char *out_buf, int out_cap){
     (void)body;
@@ -179,6 +203,7 @@ static int dispatch(HostCtx *ctx, const char *method, const char *body,
                     char *out_buf, int out_cap){
     if (!strcmp(method, "chat"))     return method_chat(ctx, body, out_buf, out_cap);
     if (!strcmp(method, "state"))    return method_state(ctx, body, out_buf, out_cap);
+    if (!strcmp(method, "idle_probe")) return method_idle_probe(ctx, body, out_buf, out_cap);
     if (!strcmp(method, "save"))     return method_save(ctx, body, out_buf, out_cap);
     if (!strcmp(method, "load"))     return method_load(ctx, body, out_buf, out_cap);
     if (!strcmp(method, "set_user")) return method_set_user(ctx, body, out_buf, out_cap);

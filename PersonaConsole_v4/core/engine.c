@@ -362,7 +362,16 @@ int persona_open(Engine *eng, const char *character_dir){
         eng->state.mood = 0;
         eng->state.trust_user = 400;
         eng->state.paranoia = 200;
-        eng->state.today_seed = (uint32_t)time(NULL);
+        {
+            const char *seed_env = getenv("PE_TODAY_SEED");
+            char *end = NULL;
+            unsigned long fixed_seed = seed_env && seed_env[0]
+                                     ? strtoul(seed_env, &end, 0)
+                                     : 0ul;
+            eng->state.today_seed = (seed_env && seed_env[0] && end && *end == '\0')
+                                  ? (uint32_t)fixed_seed
+                                  : (uint32_t)time(NULL);
+        }
         eng->state.session_start_time = persona_now_ms();
         eng->state.last_update_time   = eng->state.session_start_time;
         eng->state.rng_state = eng->state.today_seed ? eng->state.today_seed : 0xC0FFEEu;
@@ -709,9 +718,11 @@ post_render:;
                                         identity_threat, 0,
                                         identity_threat ? 100 : 30);
         char summary[PE_MEM_SUMMARY_LEN];
+        const char *speaker = eng->relation.known_as[0]
+                            ? eng->relation.known_as : "the visitor";
+        if (!strcmp(speaker, "anon")) speaker = "Someone";
         snprintf(summary, sizeof(summary), "%s said: %.60s",
-                 eng->relation.known_as[0] ? eng->relation.known_as : "stranger",
-                 input_text);
+                 speaker, input_text);
         pe_commit_memory(eng, summary, &ev, eng->primary_topic, s, identity_threat);
         pe_push_short_term(eng, (uint8_t)eng->input_class, input_text);
     }

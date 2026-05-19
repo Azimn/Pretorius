@@ -447,9 +447,21 @@ make lsh_test plasticity_run aether_run aether_pe_run voice_run host_run
 separately (4 × 256 bucket files); RAM cost is one bucket-file mmap
 per band per query, paged on demand.
 
+**Modern low-resource standard:** the original P3-era budget remains a useful
+minimal target, but new production cartridges are now authored against larger
+struct limits so characters can feel less repetitive without requiring an LLM:
+1024 templates, 256 patterns, 256-character templates, and 20 core seed
+memories. This keeps runtime RAM well under the existing <100 MB goal for
+ordinary cartridges while increasing fully-authored dialogue tables from
+"hundreds of KB" toward "low MB" scale.
+
 ---
 
 ## Authoring a New Character
+
+For cartridge design standards, coverage targets, phrase-bank strategy,
+repetition-control practices, and acceptance tests, see
+[`docs/CHARACTER_AUTHORING_GUIDE.md`](CHARACTER_AUTHORING_GUIDE.md).
 
 The expected path is the Forge:
 

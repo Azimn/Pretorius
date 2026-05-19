@@ -27,12 +27,31 @@ static PhraseUsage *find_phrase(MemoryStore *m, uint32_t pid){
     return slot;
 }
 
-static int repetition_penalty_pct(MemoryStore *m, uint32_t pid){
+static int repetition_penalty_pct(const Engine *eng, uint32_t pid){
+    MemoryStore *m = (MemoryStore*)&eng->memory;
     for (int i = 0; i < PE_PHRASE_USAGE; ++i){
-        if (m->phrase_usage[i].phrase_id == pid)
-            return 100 + m->phrase_usage[i].count * 40;
+        if (m->phrase_usage[i].phrase_id == pid) {
+            uint32_t age = (eng->state.turn_count > m->phrase_usage[i].last_turn)
+                         ? eng->state.turn_count - m->phrase_usage[i].last_turn : 0u;
+            int penalty = 100 + m->phrase_usage[i].count * 80;
+            if (age < 12) penalty += 5000;
+            else if (age < 24) penalty += (int)(24u - age) * 60;
+            return penalty;
+        }
     }
     return 100;
+}
+
+static int phrase_recently_used(const Engine *eng, uint32_t pid, uint32_t cooldown){
+    const MemoryStore *m = &eng->memory;
+    for (int i = 0; i < PE_PHRASE_USAGE; ++i){
+        if (m->phrase_usage[i].phrase_id == pid && m->phrase_usage[i].count > 0) {
+            uint32_t age = (eng->state.turn_count > m->phrase_usage[i].last_turn)
+                         ? eng->state.turn_count - m->phrase_usage[i].last_turn : 0u;
+            return age < cooldown;
+        }
+    }
+    return 0;
 }
 
 void pe_repetition_decay(Engine *eng){
@@ -175,7 +194,9 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
                       && t->group == eng->matched_group
                       && eng->input_class != 2
                       && eng->input_class != 4);
-    if (grounded_turn) {
+    int hostile_turn = (eng->input_class == 2 || eng->input_class == 4);
+    int appended_flourish = 0;
+    if (grounded_turn || hostile_turn) {
         flags &= ~(uint32_t)(PE_VF_METAPHOR | PE_VF_SELF_INTERRUPT);
     }
 
@@ -188,7 +209,11 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
         if (f[0]){
             size_t L = strlen(buf);
             size_t fl = strlen(f);
-            if (L + fl + 1 < cap){ memcpy(buf + L, f, fl); buf[L + fl] = 0; }
+            if (L + fl + 1 < cap){
+                memcpy(buf + L, f, fl);
+                buf[L + fl] = 0;
+                appended_flourish = 1;
+            }
         }
     }
     /* avoid direct affirmation */
@@ -201,13 +226,13 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
     /* hedging — gated by plan.hedging */
     if (!grounded_turn && (style_rng(&seed) % 255u) < (uint32_t)(p->hedging / 2)){
         char tmp[PE_TEMPLATE_TEXT];
-        snprintf(tmp, sizeof(tmp), "Perhaps — %c%s",
-                 (char)tolower((unsigned char)buf[0]), buf + 1);
+        snprintf(tmp, sizeof(tmp), "Perhaps. %s", buf);
         snprintf(buf, cap, "%s", tmp);
     }
     /* verbosity expansion — gated by plan.verbosity.  Strings come from the
      * cartridge (identity.expansions); empty slots are skipped. */
-    if (!grounded_turn && (style_rng(&seed) % 255u) < (uint32_t)(p->verbosity / 2)){
+    if (!grounded_turn && !hostile_turn && !appended_flourish
+        && (style_rng(&seed) % 255u) < (uint32_t)(p->verbosity / 2)){
         const char *ex = eng->identity.expansions[style_rng(&seed) % PE_EXPANSION_COUNT];
         if (ex[0]){
             char tmp[PE_TEMPLATE_TEXT];
@@ -227,12 +252,12 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
     /* self-interruption — gated by exhaustion + intoxication.
      * Confidant boost: speakers stumble more around close friends than
      * strangers (relaxed register). */
-    if ((flags & PE_VF_SELF_INTERRUPT)){
+    if (!hostile_turn && (flags & PE_VF_SELF_INTERRUPT)){
         uint32_t prob = (uint32_t)(eng->state.intoxication / 12 + eng->state.exhaustion / 16);
         if (eng->relation.tags & PE_TAG_CONFIDANT) prob += 30;
         if ((style_rng(&seed) % 255u) < prob){
             char tmp[PE_TEMPLATE_TEXT];
-            snprintf(tmp, sizeof(tmp), "Yes — no — %s", buf);
+            snprintf(tmp, sizeof(tmp), "Yes. No. %s", buf);
             snprintf(buf, cap, "%s", tmp);
         }
     }
@@ -263,8 +288,7 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
     /* v2: confess mode — prepend hedge for explicit uncertainty */
     if (p->rhetorical_mode == PE_RHET_CONFESS && p->certainty < 100){
         char tmp[PE_TEMPLATE_TEXT];
-        snprintf(tmp, sizeof(tmp), "I shall confess: %c%s",
-                 (char)tolower((unsigned char)buf[0]), buf + 1);
+        snprintf(tmp, sizeof(tmp), "I shall confess: %s", buf);
         snprintf(buf, cap, "%s", tmp);
     }
 }
@@ -314,7 +338,7 @@ static int32_t score_template(Engine *eng, const Template *t){
         && (t->intent == PE_INTENT_MONOLOGUE || t->intent == PE_INTENT_REMINISCE))
         s += eng->state.obsession_pressure / 8;
     /* repetition penalty */
-    int pen = repetition_penalty_pct(&eng->memory, t->id);
+    int pen = repetition_penalty_pct(eng, t->id);
     s = (s * 100) / pen;
     /* v2.1: LM "Pretorianness" bonus on the raw template text.
      * Normalized score is per-char milli-nats; center at -1500, scale /10.
@@ -359,7 +383,8 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
     {
         uint32_t fatigue = (eng->environment.turns_this_session * 256u) / 1000u;
         if (fatigue > 255u) fatigue = 255u;
-        if ((persona_rng_u32(&eng->state) & 255u) < fatigue){
+        if (eng->matched_group == 0xFFFF
+            && (persona_rng_u32(&eng->state) & 255u) < fatigue){
             static const char *flaws[] = {
                 "...",
                 "I don't want to talk about that.",
@@ -388,10 +413,15 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
             if (prefer_group) {
                 relevant = (t->group == eng->matched_group);
             } else {
-                if (eng->matched_group != 0xFFFF && t->group == eng->matched_group) relevant = 1;
-                if (t->intent == eng->state.current_intent) relevant = 1;
+                if (eng->matched_group != 0xFFFF) {
+                    if (t->group == eng->matched_group) relevant = 1;
+                    if (t->intent == eng->state.current_intent) relevant = 1;
+                } else {
+                    if (t->group == 0xFFFF && t->intent == eng->state.current_intent) relevant = 1;
+                }
             }
             if (!relevant) continue;
+            if (phrase_recently_used(eng, t->id, 12u)) continue;
             eng->candidate_ids[eng->candidate_count] = (uint16_t)i;
             eng->candidate_scores[eng->candidate_count] = score_template(eng, t);
             if (prefer_group) eng->candidate_scores[eng->candidate_count] += 140;
@@ -489,6 +519,8 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
     /* topic callback (illusion layer): inject "by the way..." once in a while */
     if ((eng->identity.voice_flags & PE_VF_ALLOW_CALLBACK)
         && !grounded_turn
+        && eng->input_class != 2
+        && eng->input_class != 4
         && (persona_rng_u32(&eng->state) % 100) < 10){
         for (int i = 0; i < PE_TOPIC_SLOTS; ++i){
             if (eng->state.topic_momentum[i].momentum > 600
@@ -498,10 +530,11 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
                     if (eng->topics.topics[k].id == eng->state.topic_momentum[i].topic_id){
                         tn = eng->topics.topics[k].name; break;
                     }
+                if (!strcmp(tn, "gin")) continue;
                 size_t L = strlen(buf);
                 if (L + 64 < sizeof(buf))
                     snprintf(buf + L, sizeof(buf) - L,
-                             " But come — let us return to %s.", tn);
+                             " But come, let us return to %s.", tn);
                 break;
             }
         }
