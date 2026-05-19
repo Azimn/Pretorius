@@ -326,6 +326,12 @@ v4_firewall_run: build/persona_host
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/hallucination_firewall_test.js
 
+# Aggregate JSON reports from continuity/drift runs into a comparison table.
+# Drop reports into results/ named <kind>_<model>_<quant>.json.
+v4_aggregate:
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/aggregate_results.js
+
 v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v4_instr_run v4_continuity_run v4_drift_run v4_firewall_run
 	@echo "--- V4 tests: green ---"
