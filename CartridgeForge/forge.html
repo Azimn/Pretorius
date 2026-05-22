@@ -2808,7 +2808,7 @@ class LMRuntime {
  * engine exposes; bumping them in persona.h requires updating these
  * literals (or this whole block) in lockstep.  Mismatch → cart load
  * fails with "validation failed". */
-const SZ_IDENTITY        = 3076;     /* identity.bin (incl. 20 core memories) */
+const SZ_IDENTITY        = 3092;     /* V5: identity.bin (incl. 20 core memories + obsession_strength[8] + pad[8]) */
 const SZ_DRIVE_TABLE     = 272;
 const SZ_TODAY_TABLE     = 964;
 const SZ_BANK_REGISTRY   = 6012;
@@ -3170,6 +3170,12 @@ function writeIdentitySection(ch, topics){
     w.str(id.flourishes[i] || '', PE_FLOURISH_LEN);
   for (let i = 0; i < PE_EXPANSION_COUNT; ++i)
     w.str(id.expansions[i] || '', PE_EXPANSION_LEN);
+  /* V5: obsession_strength[8] (default 0 → engine treats as 50) + pad[8] */
+  for (let i = 0; i < PE_OBSESSION_COUNT; ++i){
+    const s = id.obsession_strength ? id.obsession_strength[i] : 0;
+    w.u8((s | 0) & 0xff);
+  }
+  for (let i = 0; i < PE_OBSESSION_COUNT; ++i) w.u8(0);  /* _pad_obs */
 
   console.assert(w.pos === SZ_IDENTITY, 'identity size mismatch: ' + w.pos);
   return w.done();

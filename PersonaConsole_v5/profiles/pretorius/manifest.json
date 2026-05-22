@@ -1,0 +1,15 @@
+{
+  "output": "profiles/pretorius/pretorius.cart",
+  "lm_file": "profiles/pretorius/voice.lm",
+  "sections": [
+    {"name": "identity.bin", "path": "profiles/pretorius/identity.bin"},
+    {"name": "drives.bin", "path": "profiles/pretorius/drives.bin"},
+    {"name": "today.bin", "path": "profiles/pretorius/today.bin"},
+    {"name": "banks.bin", "path": "profiles/pretorius/banks.bin"},
+    {"name": "dialogue/patterns.bin", "path": "profiles/pretorius/dialogue/patterns.bin"},
+    {"name": "dialogue/templates.bin", "path": "profiles/pretorius/dialogue/templates.bin"},
+    {"name": "dialogue/fallback.bin", "path": "profiles/pretorius/dialogue/fallback.bin"},
+    {"name": "dialogue/topics.bin", "path": "profiles/pretorius/dialogue/topics.bin"},
+    {"name": "dialogue/goals.bin", "path": "profiles/pretorius/dialogue/goals.bin"}
+  ]
+}

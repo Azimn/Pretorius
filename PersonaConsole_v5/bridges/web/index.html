@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PersonaHost — chat</title>
+  <link rel="stylesheet" href="/web/style.css">
+</head>
+<body>
+  <main class="app">
+    <aside class="character">
+      <div class="portrait" id="portrait">
+        <img id="portrait-img" alt="" aria-hidden="true">
+        <span id="portrait-initial">?</span>
+      </div>
+      <h1 id="character-name">…</h1>
+      <p class="today" id="today-label"></p>
+      <dl class="state">
+        <dt>mood</dt>      <dd id="mood">—</dd>
+        <dt>intent</dt>    <dd id="intent">—</dd>
+        <dt>mode</dt>      <dd id="mode">—</dd>
+        <dt>turn</dt>      <dd id="turn">0</dd>
+        <dt>intox</dt>     <dd id="intox">0</dd>
+        <dt>exhaust</dt>   <dd id="exhaust">0</dd>
+        <dt>voice Δ</dt>   <dd id="voice-delta">0</dd>
+        <dt>disp.</dt>     <dd id="disp">—</dd>
+      </dl>
+    </aside>
+
+    <section class="chat">
+      <div class="messages" id="messages"></div>
+      <form class="input-row" id="input-form" autocomplete="off">
+        <input type="text" id="input" placeholder="say something…" autofocus>
+        <button type="submit" id="send">send</button>
+      </form>
+    </section>
+  </main>
+  <script src="/web/app.js"></script>
+</body>
+</html>
