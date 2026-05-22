@@ -368,6 +368,19 @@ v4_aggregate:
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/aggregate_results.js
 
+# V5: Forge ↔ engine schema drift watchdog.  Asserts the Forge's
+# hardcoded SZ_* constants match the engine's actual struct sizes.
+v4_forge_schema_drift: profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/forge_schema_drift_test.js
+
+# V5: V4 vs V5 A/B transcript comparison.  Drives both engines through
+# the same 16-turn arc and prints side-by-side replies.  Requires both
+# folders built and PersonaConsole_v4/ to be present as sibling.
+v4_v5_compare: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/v4_v5_compare.js
+
 v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v4_instr_run v4_continuity_run v4_idle_probe_run \
               v4_baseline_inheritance_run v4_background_time_run \
