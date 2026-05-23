@@ -417,6 +417,41 @@ turns about creation in the Pretorius cartridge:
 
 That is a pattern observation — distinct from event recall.
 
+### v5.1 — Recall-Coupled Plasticity (2024-2026 synthesis)
+
+A unification of four converging threads in 2024-2026 memory
+neuroscience that all point at the same paradigm shift: **retrieval
+is a write event, not a read**.  Every time a memory is recalled it
+is reconstructed through the current schema, briefly destabilised so
+current affect can rewrite it, strengthened against future decay, and
+its temporal neighbours are linked tighter through offline replay.
+
+| Thread | Source | What RCP does |
+|---|---|---|
+| Reconsolidation | Nader & Hardt 2009; Schiller/Phelps lab follow-ups | Each recalled memory's emotion EMA-blends 1/20 toward current event affect |
+| Testing effect | Roediger & Karpicke 2006; replicated through 2026 | `decay_counter` reset on access (already in `pe_associative_recall`) — RCP completes the loop |
+| Schema-biased survival | Bartlett 1932; Gilboa & Marlatte modern reviews | Memories whose valence sign matches the dominant live schema get +1 salience |
+| Replay coupling | Buzsáki SWR; Pfeiffer 2024 review | Adjacent pairs in the active recall set blend one differing LSH bit toward each other |
+
+Park et al. (UIST 2023) gave us *offline* abstraction (reflection).
+RCP gives us *online* plasticity — what happens to the raw episodic
+substrate every time we touch it.  The two compose: RCP shapes what
+reflection eventually sees.
+
+Cost: ≤ 4 µs/turn at `active_count = PE_ACTIVE_MAX`.  Determinism
+preserved.  Core memories (foundational autobiography) are explicitly
+immovable — the same firewall principle V4 established for the
+renderer applies here for retrieval.
+
+Observable: warm prefix vs hostile prefix on the same 11-turn recall
+sequence yields a 327-point schema delta — the same memories cool or
+sour by reconsolidation depending on the affective context of recall.
+
+| File | Role |
+|---|---|
+| `memory/recall_plasticity.{h,c}` | one function, one hook in engine.c after `pe_associative_recall` |
+| `tests/continuity/recall_plasticity_test.js` | 8 assertions — determinism, cooling, reflections-still-form |
+
 ---
 
 ## Test Suite Catalog
@@ -447,6 +482,7 @@ That is a pattern observation — distinct from event recall.
 | `make v4_drift_run` | 7-axis | Behavioral Drift Index, pass threshold < 30 |
 | `make v4_firewall_run` | 3 | Hallucination firewall under adversarial SLM injection |
 | `make v4_reflection_run` | 11 | Reflective consolidation: synthesis + abstraction + determinism + persistence |
+| `make v4_recall_plasticity_run` | 8 | RCP: determinism + reconsolidation cooling + reflection compatibility |
 
 ### Forge — end-to-end browser-to-engine
 

@@ -57,7 +57,8 @@ MEMORY_SRC := \
     memory/story.c           \
     memory/memory_firewall.c \
     memory/affect_curve.c    \
-    memory/reflection.c
+    memory/reflection.c      \
+    memory/recall_plasticity.c
 
 SCHEMA_SRC := \
     schema/schema_state.c
@@ -116,7 +117,7 @@ CORE_HEADERS := \
     core/intent.h core/identity.h core/environment.h
 MEMORY_HEADERS := \
     memory/aether.h memory/aether_internal.h memory/lsh_memory.h \
-    memory/consolidate.h memory/reflection.h
+    memory/consolidate.h memory/reflection.h memory/recall_plasticity.h
 RENDER_HEADERS := \
     render/templates/ngram_lm.h render/templates/mutator.h
 
@@ -420,13 +421,18 @@ v4_reflection_run: build/persona_host
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/reflection_test.js
 
+# V5: Recall-Coupled Plasticity (synthesis of 2024-2026 memory research).
+v4_recall_plasticity_run: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/recall_plasticity_test.js
+
 v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v4_instr_run v4_continuity_run v4_idle_probe_run \
               v4_baseline_inheritance_run v4_background_time_run \
               v4_proactive_intents_run v4_time_of_day_run \
               v4_strategic_pause_run v4_unresolved_thread_run \
               cartridge_stats v4_drift_run v4_firewall_run \
-              v4_reflection_run
+              v4_reflection_run v4_recall_plasticity_run
 	@echo "--- V4 tests: green ---"
 
 # ----- profile sanity drivers -----

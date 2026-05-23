@@ -10,6 +10,7 @@
 #include "../render/render_backend.h"   /* v4: renderer dispatch */
 #include "../memory/affect_curve.h"     /* v4: nonlinear affect */
 #include "../memory/reflection.h"       /* v5: Park et al. 2023 reflective consolidation */
+#include "../memory/recall_plasticity.h" /* v5: Recall-Coupled Plasticity (synthesis) */
 #include "../instrumentation/state_trace.h"  /* v4: observability */
 #include <stdio.h>
 #include <string.h>
@@ -683,6 +684,12 @@ int persona_process_input(Engine *eng,
 
     /* 4. associative recall */
     pe_associative_recall(eng, &ev);
+
+    /* 4a. V5: Recall-Coupled Plasticity (RCP).  Synthesis of four 2024-2026
+     * memory-neuroscience threads: reconsolidation (Schiller/Phelps),
+     * testing effect (Roediger), schema-biased survival (Gilboa), and SWR
+     * replay coupling (Buzsáki).  Retrieval is a write event. */
+    pe_recall_plasticity_tick(eng, &ev);
 
     /* 5. drive update */
     pe_update_drives_from_input(eng);
