@@ -381,6 +381,14 @@ v4_v5_compare: build/persona_host
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/v4_v5_compare.js
 
+# V5: per-archetype continuity scorecard.  Walks all 12 Forge archetypes,
+# builds a cart for each, runs the full 16-turn continuity benchmark.
+# Reveals cartridge-quality gaps (e.g., obsessions that don't surface in
+# replies, register-appropriateness scores per archetype).
+v4_archetype_continuity: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/archetype_continuity_test.js
+
 v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v4_instr_run v4_continuity_run v4_idle_probe_run \
               v4_baseline_inheritance_run v4_background_time_run \

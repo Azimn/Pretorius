@@ -3284,8 +3284,8 @@ function writeTemplateTable(ch){
   for (let i = 0; i < PE_TEMPLATE_MAX; ++i){
     const t = templates[i];
     if (!t){
-      /* zero-fill an empty Template (218 bytes) */
-      w.pad(218);
+      /* zero-fill an empty Template (282 bytes in V5: 26-byte header + 256 text) */
+      w.pad(282);
       continue;
     }
     w.u16(i + 1);                        /* id */
