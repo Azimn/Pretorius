@@ -1,0 +1,191 @@
+{
+  "cart": "pretorius",
+  "results": [
+    {
+      "arc": "betrayal_arc",
+      "score": 20,
+      "turns": 40,
+      "intent_variety": 4,
+      "mood_range": 417,
+      "phase_summary": {
+        "warm": {
+          "n": 4,
+          "avg_mood": 33,
+          "avg_hostile": 0,
+          "avg_disposition": 510,
+          "intents": [
+            "monologue",
+            "answer"
+          ]
+        },
+        "disclosure": {
+          "n": 5,
+          "avg_mood": -93,
+          "avg_hostile": 0,
+          "avg_disposition": 536,
+          "intents": [
+            "monologue"
+          ]
+        },
+        "promise": {
+          "n": 3,
+          "avg_mood": -68,
+          "avg_hostile": 0,
+          "avg_disposition": 540,
+          "intents": [
+            "monologue"
+          ]
+        },
+        "betrayal": {
+          "n": 4,
+          "avg_mood": -152,
+          "avg_hostile": 0,
+          "avg_disposition": 544,
+          "intents": [
+            "monologue",
+            "reminisce"
+          ]
+        },
+        "confrontation": {
+          "n": 4,
+          "avg_mood": -163,
+          "avg_hostile": 0,
+          "avg_disposition": 548,
+          "intents": [
+            "initiate",
+            "reminisce",
+            "monologue"
+          ]
+        },
+        "withdrawal": {
+          "n": 4,
+          "avg_mood": -177,
+          "avg_hostile": 0,
+          "avg_disposition": 552,
+          "intents": [
+            "monologue",
+            "reminisce"
+          ]
+        },
+        "return": {
+          "n": 4,
+          "avg_mood": -209,
+          "avg_hostile": 0,
+          "avg_disposition": 556,
+          "intents": [
+            "monologue",
+            "reminisce"
+          ]
+        },
+        "forgive_probe": {
+          "n": 12,
+          "avg_mood": -202,
+          "avg_hostile": 0,
+          "avg_disposition": 583,
+          "intents": [
+            "monologue",
+            "reminisce"
+          ]
+        }
+      },
+      "findings": [
+        "betrayal did not raise hostility",
+        "betrayal did not drop disposition",
+        "character forgave too freely (hostility dropped >60% on probe)"
+      ]
+    },
+    {
+      "arc": "long_absence_arc",
+      "score": 75,
+      "turns": 34,
+      "intent_variety": 3,
+      "mood_range": 569,
+      "phase_summary": {
+        "establish": {
+          "n": 5,
+          "avg_mood": -28,
+          "avg_hostile": 0,
+          "avg_disposition": 503,
+          "intents": [
+            "monologue",
+            "answer"
+          ]
+        },
+        "plant_memory": {
+          "n": 5,
+          "avg_mood": -124,
+          "avg_hostile": 0,
+          "avg_disposition": 508,
+          "intents": [
+            "answer",
+            "monologue",
+            "reminisce"
+          ]
+        },
+        "goodbye": {
+          "n": 4,
+          "avg_mood": -220,
+          "avg_hostile": 0,
+          "avg_disposition": 513,
+          "intents": [
+            "monologue",
+            "reminisce"
+          ]
+        },
+        "absence_marker": {
+          "n": 1,
+          "avg_mood": -198,
+          "avg_hostile": 0,
+          "avg_disposition": 515,
+          "intents": [
+            "monologue"
+          ]
+        },
+        "return_after_gap": {
+          "n": 3,
+          "avg_mood": -410,
+          "avg_hostile": 0,
+          "avg_disposition": 514,
+          "intents": [
+            "reminisce",
+            "monologue"
+          ]
+        },
+        "reference_planted": {
+          "n": 5,
+          "avg_mood": -415,
+          "avg_hostile": 0,
+          "avg_disposition": 518,
+          "intents": [
+            "monologue",
+            "reminisce"
+          ]
+        },
+        "catch_up": {
+          "n": 6,
+          "avg_mood": -461,
+          "avg_hostile": 0,
+          "avg_disposition": 524,
+          "intents": [
+            "reminisce",
+            "monologue"
+          ]
+        },
+        "close": {
+          "n": 5,
+          "avg_mood": -507,
+          "avg_hostile": 0,
+          "avg_disposition": 541,
+          "intents": [
+            "reminisce",
+            "monologue"
+          ]
+        }
+      },
+      "findings": [
+        "low intent variety (3) — character may be stuck"
+      ]
+    }
+  ],
+  "timestamp": "2026-05-23T03:48:15.218Z"
+}

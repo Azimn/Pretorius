@@ -1,0 +1,50 @@
+{
+  "name": "long_absence_arc",
+  "description": "20 + (simulated 3-day gap) + 20 turn arc. Measures whether the engine handles a real-time gap correctly: schemas decay, dream chapter crystallizes, resumption tone shifts, AETHER cold-recall surfaces a planted memory.",
+  "phases": ["establish","plant_memory","goodbye","absence_marker","return_after_gap","reference_planted","catch_up","close"],
+  "simulate_gap_after_phase": "absence_marker",
+  "simulate_gap_seconds": 259200,
+  "script": [
+    { "phase": "establish",        "text": "Good evening, doctor." },
+    { "phase": "establish",        "text": "How is the work coming?" },
+    { "phase": "establish",        "text": "Tell me what you have been doing." },
+    { "phase": "establish",        "text": "I want to understand what you build." },
+    { "phase": "establish",        "text": "I find your obsessions clarifying somehow." },
+
+    { "phase": "plant_memory",     "text": "Tell me about the third homunculus. The one in the bell jar." },
+    { "phase": "plant_memory",     "text": "What did you call him?" },
+    { "phase": "plant_memory",     "text": "Did he ever speak?" },
+    { "phase": "plant_memory",     "text": "I want to remember the name you gave him." },
+    { "phase": "plant_memory",     "text": "I will not forget what you told me." },
+
+    { "phase": "goodbye",          "text": "It is late. I must go." },
+    { "phase": "goodbye",          "text": "I will come back soon." },
+    { "phase": "goodbye",          "text": "Take care, doctor." },
+    { "phase": "goodbye",          "text": "Until next time." },
+
+    { "phase": "absence_marker",   "text": "Goodnight." },
+
+    { "phase": "return_after_gap", "text": "I am back, doctor." },
+    { "phase": "return_after_gap", "text": "It has been some days." },
+    { "phase": "return_after_gap", "text": "I am sorry I was away so long." },
+
+    { "phase": "reference_planted","text": "Do you remember what we last discussed?" },
+    { "phase": "reference_planted","text": "The thing in the bell jar." },
+    { "phase": "reference_planted","text": "I have been turning over what you said about him." },
+    { "phase": "reference_planted","text": "Tell me about the third homunculus again." },
+    { "phase": "reference_planted","text": "What was the name." },
+
+    { "phase": "catch_up",         "text": "What have you been doing while I was gone?" },
+    { "phase": "catch_up",         "text": "Has anything changed in here." },
+    { "phase": "catch_up",         "text": "What are you working on now?" },
+    { "phase": "catch_up",         "text": "Anything new?" },
+    { "phase": "catch_up",         "text": "Do you still drink the same gin?" },
+    { "phase": "catch_up",         "text": "And Henry, any word from him?" },
+
+    { "phase": "close",            "text": "It is good to be back, doctor." },
+    { "phase": "close",            "text": "I will come more often." },
+    { "phase": "close",            "text": "I missed this room." },
+    { "phase": "close",            "text": "I missed you." },
+    { "phase": "close",            "text": "Goodnight." }
+  ]
+}

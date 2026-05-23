@@ -389,6 +389,30 @@ v4_archetype_continuity: build/persona_host
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/archetype_continuity_test.js
 
+# V5: adversarial continuity arcs.  Runs betrayal_arc + long_absence_arc
+# from tests/continuity/arcs/*.json.  Designed to be harder than the
+# canonical 16-turn arc and to expose cartridge gaps that the easy arc
+# misses.  long_absence_arc backdates the relation file to simulate
+# a real-time gap, exercising the V5 background-time-evolution path.
+v4_adversarial_arcs: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/multi_arc_benchmark.js
+
+# V5: cartridge authoring audit.  Static analysis of a profile's
+# obsession→template cross-reference + dead pattern group detection.
+# Answers the "why does my cartridge score low on autobiographical_
+# consistency" question programmatically.
+v4_cartridge_audit:
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tools/cartridge_audit.js profiles/pretorius
+
+# V5: demo transcript generator.  Produces docs/DEMO_TRANSCRIPT.md, a
+# 36-turn naturalistic conversation with Pretorius + state annotations.
+# The public-facing artifact for "what does the engine actually do."
+v4_demo_transcript: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/demo_transcript.js
+
 v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v4_instr_run v4_continuity_run v4_idle_probe_run \
               v4_baseline_inheritance_run v4_background_time_run \
