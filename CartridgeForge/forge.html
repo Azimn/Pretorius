@@ -3133,6 +3133,17 @@ function writeIdentitySection(ch, topics){
     const name = id.taboos[i];
     w.u16(name ? (topicByName[name] || 0) : 0);
   }
+  /* V5: obsession_strength[8] + _pad_obs[8] go HERE per persona.h struct
+   * order — between taboos and address_user_as.  Earlier versions of
+   * this writer mistakenly placed them at the end of the section, which
+   * caused the engine to read taboos/address fields from misaligned
+   * offsets.  Engine still loaded the cart but obsession_strength was
+   * silently always zero. */
+  for (let i = 0; i < PE_OBSESSION_COUNT; ++i){
+    const s = id.obsession_strength ? id.obsession_strength[i] : 0;
+    w.u8((s | 0) & 0xff);
+  }
+  for (let i = 0; i < PE_OBSESSION_COUNT; ++i) w.u8(0);  /* _pad_obs */
   /* address_user_as[4][16] */
   for (let i = 0; i < PE_ADDRESS_COUNT; ++i){
     w.str(id.address_user_as[i] || '', PE_ADDRESS_LEN);
@@ -3170,12 +3181,6 @@ function writeIdentitySection(ch, topics){
     w.str(id.flourishes[i] || '', PE_FLOURISH_LEN);
   for (let i = 0; i < PE_EXPANSION_COUNT; ++i)
     w.str(id.expansions[i] || '', PE_EXPANSION_LEN);
-  /* V5: obsession_strength[8] (default 0 → engine treats as 50) + pad[8] */
-  for (let i = 0; i < PE_OBSESSION_COUNT; ++i){
-    const s = id.obsession_strength ? id.obsession_strength[i] : 0;
-    w.u8((s | 0) & 0xff);
-  }
-  for (let i = 0; i < PE_OBSESSION_COUNT; ++i) w.u8(0);  /* _pad_obs */
 
   console.assert(w.pos === SZ_IDENTITY, 'identity size mismatch: ' + w.pos);
   return w.done();
