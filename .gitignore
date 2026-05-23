@@ -189,3 +189,6 @@ temp/
  
 # Skills
 skills-lock.json
+
+# Patch archives generated for hand-off
+v5_*_patch.zip
