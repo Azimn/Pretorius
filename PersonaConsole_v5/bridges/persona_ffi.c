@@ -9,6 +9,7 @@
 #include "persona_ffi.h"
 #include "persona.h"
 #include "persona_internal.h"
+#include "reflection.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -288,4 +289,52 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         (int)eng->schema.slot[SCHEMA_RELATIONSHIP_OWES],
         (int)eng->schema.slot[SCHEMA_SELF_DIGNITY]);
     return n;
+}
+
+/* JSON-escape a string into a fixed buffer.  Returns chars written.
+ * Used only by ps_reflections — kept local to avoid polluting the FFI. */
+static int json_escape_into(char *dst, int cap, const char *src){
+    int p = 0;
+    for (const char *c = src; *c && p + 8 < cap; ++c){
+        unsigned char ch = (unsigned char)*c;
+        switch (ch){
+            case '"': dst[p++]='\\'; dst[p++]='"'; break;
+            case '\\': dst[p++]='\\'; dst[p++]='\\'; break;
+            case '\n': dst[p++]='\\'; dst[p++]='n'; break;
+            case '\r': dst[p++]='\\'; dst[p++]='r'; break;
+            case '\t': dst[p++]='\\'; dst[p++]='t'; break;
+            default:
+                if (ch < 0x20) p += snprintf(dst+p, cap-p, "\\u%04x", ch);
+                else dst[p++] = (char)ch;
+        }
+    }
+    if (p < cap) dst[p] = 0;
+    return p;
+}
+
+int ps_reflections(PersonaSession *s, char *out_buf, int out_buf_size){
+    if (!s || !out_buf || out_buf_size <= 0) return -1;
+    const Engine *eng = &s->eng;
+    int pos = 0;
+    pos += snprintf(out_buf + pos, (size_t)(out_buf_size - pos),
+                    "{\"count\":%u,\"reflections\":[",
+                    (unsigned)eng->reflections.count);
+    for (unsigned i = 0; i < eng->reflections.count && pos < out_buf_size - 64; ++i){
+        const MemoryNode *m = &eng->reflections.memories[i];
+        char text[256] = "";
+        pe_reflection_render(eng, m, text, (int)sizeof(text));
+        char esc[512];
+        json_escape_into(esc, (int)sizeof(esc), text);
+        pos += snprintf(out_buf + pos, (size_t)(out_buf_size - pos),
+                        "%s{\"topic\":%u,\"sources\":%u,\"salience\":%u,"
+                        "\"timestamp\":%u,\"text\":\"%s\"}",
+                        i == 0 ? "" : ",",
+                        (unsigned)m->topic_id,
+                        (unsigned)eng->reflections.source_count[i],
+                        (unsigned)m->salience,
+                        (unsigned)m->timestamp,
+                        esc);
+    }
+    pos += snprintf(out_buf + pos, (size_t)(out_buf_size - pos), "]}");
+    return pos;
 }

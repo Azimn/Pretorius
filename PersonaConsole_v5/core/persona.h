@@ -592,6 +592,21 @@ struct Engine {
     /* v3.1: autobiographical chapters + dream state. */
     ChapterBook   chapters;
 
+    /* V5: reflective memory consolidation (Park et al. UIST 2023).
+     * See memory/reflection.h for the algorithm.  Struct laid out
+     * here so persona.h is the single source of truth for the
+     * Engine layout. */
+    struct {
+        MemoryNode  memories[16];          /* PE_REFLECTION_MAX */
+        uint16_t    count;
+        uint16_t    head;
+        uint32_t    last_consolidate_turn;
+        uint8_t     abstraction_level[16];
+        uint8_t     source_count[16];
+        uint16_t    source_topic[16];
+        uint8_t     _pad[8];
+    } reflections;
+
     /* v3.2: AETHER long-term episodic storage.  Opaque pointer — engine.c
      * includes aether.h; cartridge compilers (compile_*.c) see only the
      * forward-declared struct, no header dependency. */

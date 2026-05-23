@@ -9,6 +9,7 @@
 #include "environment.h"
 #include "../render/render_backend.h"   /* v4: renderer dispatch */
 #include "../memory/affect_curve.h"     /* v4: nonlinear affect */
+#include "../memory/reflection.h"       /* v5: Park et al. 2023 reflective consolidation */
 #include "../instrumentation/state_trace.h"  /* v4: observability */
 #include <stdio.h>
 #include <string.h>
@@ -516,6 +517,10 @@ int persona_open(Engine *eng, const char *character_dir){
 
     /* v3.1: autobiographical chapters — load persisted book (soft-fail). */
     load_or_zero(eng->char_dir, "chapters.bin", &eng->chapters, sizeof(ChapterBook));
+
+    /* V5: reflective consolidation state — load persisted ring (soft-fail).
+     * pe_reflection_load zero-inits if the file is missing or size-mismatched. */
+    pe_reflection_load(eng, eng->char_dir);
     eng->baseline_valence = 0;
     eng->baseline_arousal = 30;
     environment_session_start(eng);
@@ -546,6 +551,8 @@ int persona_save(Engine *eng){
     /* v3.1: chapters — non-fatal if write fails (re-crystallised on next load) */
     pe_path_join(p, sizeof(p), eng->char_dir, "chapters.bin");
     pe_write_file_atomic(p, &eng->chapters, sizeof(ChapterBook));
+    /* V5: reflections — non-fatal if write fails (re-synthesised on next gate) */
+    pe_reflection_save(eng, eng->char_dir);
     return 0;
 }
 
@@ -897,6 +904,12 @@ post_render:;
     }
 
     pe_prime_unprompted_memory(eng);
+
+    /* V5: reflective consolidation (Park et al. 2023).  Cooldown-gated
+     * inside the function — cheap on most turns, ~50µs on the synthesis
+     * turn.  Reflections become available immediately to next-turn
+     * retrieval. */
+    pe_consolidate_reflections(eng);
 
     eng->state.last_update_time = now;
     identity_update_rolling(eng, ev.valence, ev.arousal);

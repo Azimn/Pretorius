@@ -200,8 +200,12 @@ input
   → pe_trace_push
   → pe_predict_next_input
   → opportunistic AETHER consolidation (every 16 turns when WAL dirty)
+  → V5: pe_consolidate_reflections   importance-scored top-K → SimHash
+                                cluster → bitwise-majority signature
+                                synthesis → reflection ring (every 8 turns)
   → persona_save               state.bin / memory.bin / chapters.bin
-                                + per-relation .bin + .schema + AETHER
+                                + reflections.bin + per-relation .bin
+                                + .schema + AETHER
 ```
 
 ### Determinism
@@ -374,6 +378,45 @@ layer. The deterministic engine remains canonical.
 | `9b08cb9` | benchmark | Canonical continuity benchmark. 16-turn arc, 5 axes (emotional_persistence / schema_stability / relational_continuity / autobiographical_consistency / renderer_invariance). |
 | `64fc423` | A+B+C | Rigid prompt format `[IDENTITY] [AFFECT] [STANCE] ...`. Behavioral Drift Index (7 axes). Hallucination firewall test (operational proof). |
 
+### v5 — Reflective memory consolidation (Park et al. 2023)
+
+Adapted from Park, J. S., O'Brien, J. C., Cai, C. J., Morris, M. R.,
+Liang, P., & Bernstein, M. S., *Generative Agents: Interactive
+Simulacra of Human Behavior*, UIST 2023 (§3.2 Reflection / §3.3
+Retrieval).  Park et al. generate reflections via an LLM ("what
+high-level abstraction summarises these recent observations?"); we
+replace the LLM step with deterministic primitives we already ship,
+preserving the V4 invariants:
+
+- **Importance scoring** (`pe_memory_importance`): salience × 0.40 +
+  |valence| × 0.25 + arousal × 0.20 + recency × 0.15.
+- **Clustering**: top-K candidates grouped by SimHash Hamming distance
+  ≤ 16 (Park's "cosine similarity ≥ threshold", swapped for our LSH).
+- **Synthesis**: bitwise-majority consensus signature across cluster
+  members (existing AETHER primitive in `consolidate.c`).  Salience
+  boosted 1.3× — reflections retrieve preferentially.
+- **Surface text**: deterministic template pool keyed by topic class
+  (`core/baseline_reflections.c`).  Future cartridge format bump will
+  let cartridges override with character-specific reflection templates.
+
+Cost: amortised < 1 µs per turn; ~50 µs on the consolidation turn
+(every 8 turns).  Disk: 2 KB per character (`reflections.bin`).
+
+| File | Role |
+|---|---|
+| `memory/reflection.{h,c}` | scoring + clustering + synthesis + retrieval + persistence |
+| `core/baseline_reflections.c` | template pool (GENERIC / CHARGED / INTIMATE / OBSESSION × 4-6 variants) |
+| `core/persona.h` | reflection ring embedded on Engine (single layout authority) |
+| `tests/continuity/reflection_test.js` | 11 assertions — synthesis, abstraction, determinism, persistence |
+
+The reflection mechanism is what Park et al. demonstrated produces the
+"lived-in" quality their agents exhibited.  Sample output after 25
+turns about creation in the Pretorius cartridge:
+
+> *"Always the work returns to the conversation.  I begin to think you sense its weight."*
+
+That is a pattern observation — distinct from event recall.
+
 ---
 
 ## Test Suite Catalog
@@ -403,6 +446,7 @@ layer. The deterministic engine remains canonical.
 | `make v4_continuity_run` | 5-axis | Canonical continuity benchmark, pass threshold 60/100 |
 | `make v4_drift_run` | 7-axis | Behavioral Drift Index, pass threshold < 30 |
 | `make v4_firewall_run` | 3 | Hallucination firewall under adversarial SLM injection |
+| `make v4_reflection_run` | 11 | Reflective consolidation: synthesis + abstraction + determinism + persistence |
 
 ### Forge — end-to-end browser-to-engine
 

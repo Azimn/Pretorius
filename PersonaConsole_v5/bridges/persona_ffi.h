@@ -66,6 +66,11 @@ int ps_name(PersonaSession *s, char *out_buf, int out_buf_size);
  * cartridge file.  Used by the host's static-asset routes. */
 int ps_char_dir(PersonaSession *s, char *out_buf, int out_buf_size);
 
+/* V5: inspect the reflective memory ring.  Writes a JSON object of the form
+ * {"count":N,"reflections":[{"topic":T,"sources":K,"salience":S,"text":"..."},...]}.
+ * Returns bytes written (excluding NUL), or negative on error. */
+int ps_reflections(PersonaSession *s, char *out_buf, int out_buf_size);
+
 #ifdef __cplusplus
 }
 #endif
