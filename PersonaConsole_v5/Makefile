@@ -121,7 +121,7 @@ MEMORY_HEADERS := \
 RENDER_HEADERS := \
     render/templates/ngram_lm.h render/templates/mutator.h
 
-.PHONY: all clean character kiki_character cartridges test lsh_test \
+.PHONY: all clean character kiki_character cartridges test lsh_test lint lint_test \
         plasticity_test plasticity_run lm_build aether_test aether_run \
         host host_run host_test \
         forge_cart_test forge_bundle_test forge_dialogue_test \
@@ -129,7 +129,7 @@ RENDER_HEADERS := \
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
      build/compile_cartridge build/compile_pretorius build/compile_kiki \
-     build/repl build/build_lm build/cartridge_stats \
+     build/repl build/build_lm build/cartridge_stats build/cartridge_lint \
      profiles/pretorius/voice.lm profiles/kiki/voice.lm \
      profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart
 
@@ -179,6 +179,14 @@ build/libpersona_host.so: $(HOST_SRC) $(ENGINE_SRC) $(PLAS_SRC) $(AETHER_SRC) $(
 # ----- tools -----
 build/compile_cartridge: tools/compile_cartridge.c core/cartridge.c $(CORE_HEADERS)
 	$(CC) $(CFLAGS) tools/compile_cartridge.c core/cartridge.c -o $@ $(LDFLAGS)
+
+build/cartridge_lint: tools/cartridge_lint.c core/cartridge.c $(CORE_HEADERS)
+	$(CC) $(CFLAGS) tools/cartridge_lint.c core/cartridge.c -o $@ $(LDFLAGS)
+
+# Lint the shipped showcase carts.  Override CART=... to lint another.
+CART ?= profiles/pretorius/pretorius.cart
+lint: build/cartridge_lint
+	./build/cartridge_lint $(CART)
 
 build/compile_pretorius: tools/compile_pretorius.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
 	$(CC) $(CFLAGS) tools/compile_pretorius.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
@@ -403,6 +411,13 @@ v4_firewall_run: build/persona_host
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/hallucination_firewall_test.js
 
+# Authoring lint: the shipped showcase carts must stay error-clean.
+# make stops on the first nonzero exit, so a regressed cart fails the build.
+lint_test: build/cartridge_lint profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart
+	./build/cartridge_lint profiles/pretorius/pretorius.cart
+	./build/cartridge_lint profiles/kiki/kiki.cart
+	@echo "--- lint: showcase carts clean ---"
+
 # Aggregate JSON reports from continuity/drift runs into a comparison table.
 # Drop reports into results/ named <kind>_<model>_<quant>.json.
 v4_aggregate:
@@ -419,7 +434,7 @@ v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v4_reflection_run v5_reflection_surface_run \
               v5_conversation_rhythm_run v5_offscreen_autonomy_run \
               v5_relationships_roster_run v4_recall_plasticity_run \
-              v4_firewall_run
+              v4_firewall_run lint_test
 	@echo "--- V4 tests: green ---"
 
 # ----- profile sanity drivers -----
