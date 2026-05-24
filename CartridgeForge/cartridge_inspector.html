@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartridge Inspector — is your character alive?</title>
+<style>
+:root{
+  --bg:#0e0e10; --panel:#1a1a1d; --panel-2:#232328; --border:#2a2a2e;
+  --text:#e8e6e3; --muted:#8a8a90; --accent:#d4a574; --accent-dim:#7a5c3c;
+  --ok:#6fbf73; --warn:#d49d4a; --err:#d46666; --radius:10px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;min-height:100%;}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:880px; margin:0 auto; padding:28px 20px 60px;}
+header h1{font-size:24px; margin:0 0 4px; color:var(--accent); font-weight:600;}
+header p{margin:0 0 22px; color:var(--muted);}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.92em; color:var(--accent);}
+
+#drop{
+  border:2px dashed var(--accent-dim); border-radius:var(--radius);
+  padding:42px 20px; text-align:center; color:var(--muted);
+  background:var(--panel); transition:border-color .15s,background .15s; cursor:pointer;
+}
+#drop.hot{border-color:var(--accent); background:var(--panel-2); color:var(--text);}
+#drop strong{color:var(--text);}
+#file{display:none;}
+
+.hidden{display:none;}
+#verdict{
+  margin:22px 0 8px; padding:16px 18px; border-radius:var(--radius);
+  font-size:18px; font-weight:600; border:1px solid var(--border);
+}
+#verdict.ok{background:rgba(111,191,115,.10); border-color:var(--ok); color:var(--ok);}
+#verdict.warn{background:rgba(212,157,74,.10); border-color:var(--warn); color:var(--warn);}
+#verdict.err{background:rgba(212,102,102,.10); border-color:var(--err); color:var(--err);}
+#verdict small{display:block; font-weight:400; font-size:13px; color:var(--muted); margin-top:4px;}
+
+.grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px; margin:14px 0 8px;}
+.stat{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:10px 12px;}
+.stat .n{font-size:22px; font-weight:600; color:var(--text);}
+.stat .n.zero{color:var(--err);}
+.stat .l{font-size:12px; color:var(--muted);}
+
+.cov{display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 18px;}
+.pill{padding:5px 11px; border-radius:999px; font-size:13px; border:1px solid var(--border); background:var(--panel);}
+.pill.yes{border-color:var(--ok); color:var(--ok);}
+.pill.no{border-color:var(--err); color:var(--err);}
+.pill::before{content:"✓ "; }
+.pill.no::before{content:"✗ "; }
+
+.group{margin:18px 0 0;}
+.group h3{font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 8px;}
+.finding{display:flex; gap:10px; padding:9px 12px; border:1px solid var(--border); border-left-width:3px;
+  border-radius:6px; background:var(--panel); margin-bottom:6px;}
+.finding.err{border-left-color:var(--err);}
+.finding.warn{border-left-color:var(--warn);}
+.finding.info{border-left-color:var(--accent-dim);}
+.finding .tag{font-size:11px; font-weight:700; text-transform:uppercase; min-width:46px; padding-top:1px;}
+.finding.err .tag{color:var(--err);} .finding.warn .tag{color:var(--warn);} .finding.info .tag{color:var(--muted);}
+.finding .msg{flex:1;}
+.finding .why{display:block; color:var(--muted); font-size:13px; margin-top:2px;}
+
+footer{margin-top:34px; color:var(--muted); font-size:13px; border-top:1px solid var(--border); padding-top:14px;}
+.again{margin-top:16px;}
+.again button{background:var(--panel-2); border:1px solid var(--border); color:var(--text); padding:8px 14px; border-radius:8px;}
+.again button:hover{border-color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Cartridge Inspector</h1>
+    <p>Drop a <code>.cart</code> file to see whether your character has what it needs to feel
+       alive. Everything runs in your browser — nothing is uploaded.</p>
+  </header>
+
+  <div id="drop">
+    <strong>Drop a .cart here</strong> or click to choose a file
+    <input type="file" id="file" accept=".cart">
+  </div>
+
+  <div id="report" class="hidden">
+    <div id="verdict"></div>
+    <div class="grid" id="stats"></div>
+    <div class="group">
+      <h3>V5 proactivity coverage — what makes a character feel alive</h3>
+      <div class="cov" id="coverage"></div>
+    </div>
+    <div id="findings"></div>
+    <div class="again"><button id="reset">Inspect another cartridge</button></div>
+  </div>
+
+  <footer>
+    Mirrors the <code>cartridge_lint</code> CLI checks. A character that passes here has the
+    structural hooks (wants, preoccupations, resumption lines, milestones) for proactivity,
+    offscreen autonomy, and continuity — rather than only ever reacting.
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+/* ---- cartridge constants (mirror core/persona.h, V5) ---- */
+const CART_MAGIC = 0x54524143;          // 'CART'
+const ID_V5_SIZE = 4854;                // V5 identity.bin; V4 = 3092
+// front-of-identity offsets
+const O_BIG5 = 0, O_OBS = 16, O_TABOO = 32, O_ADDR = 64, O_NAME = 128, O_COREN = 160;
+const ADDR_COUNT = 4, ADDR_LEN = 16, NAME_LEN = 32, OBS_COUNT = 8, TABOO_COUNT = 8;
+// V5 tail (appended at the old V4 end, offset 3092) — verified to close at 4854
+const O_PRE = 3092, PRE_COUNT = 3, PRE_LEN = 96;
+const O_RES = 3380, RES_BUCKETS = 4, RES_LEN = 192;
+const O_WANT = 4148, WANT_COUNT = 3, WANT_STRIDE = 38, WANT_NAME_LEN = 32;
+const O_MLINE = 4262, MS_COUNT = 6, MS_LEN = 96, O_MDAY = 4838;
+// topics
+const TOPIC_STRIDE = 34, TOPIC_NAME = 16;
+const td = new TextDecoder("utf-8", {fatal:false});
+
+function cstr(view, off, len){
+  let end = off;
+  const max = off + len;
+  while (end < max && view.getUint8(end) !== 0) end++;
+  return td.decode(new Uint8Array(view.buffer, off, end - off));
+}
+function noneTopic(id){ return id === 0 || id === 0xFFFF; }
+
+function parseCart(buf){
+  const dv = new DataView(buf);
+  if (buf.byteLength < 32 || dv.getUint32(0, true) !== CART_MAGIC)
+    return {fatal:"This file is not a PersonaConsole cartridge (bad magic number)."};
+  const version = dv.getUint16(4, true);
+  const entry_count = dv.getUint16(6, true);
+  const header_size = dv.getUint32(8, true);
+  const payload_size = dv.getUint32(12, true);
+  const payload_checksum = dv.getUint32(16, true);
+  const sections = {};
+  let eo = 32;
+  for (let i = 0; i < entry_count && eo + 60 <= buf.byteLength; i++){
+    const name = cstr(dv, eo, 48);
+    sections[name] = { offset: dv.getUint32(eo+48, true), size: dv.getUint32(eo+52, true) };
+    eo += 60;
+  }
+  // FNV-1a integrity over payload
+  let h = 2166136261 >>> 0;
+  const u8 = new Uint8Array(buf);
+  const end = Math.min(header_size + payload_size, buf.byteLength);
+  for (let i = header_size; i < end; i++){ h = (h ^ u8[i]) >>> 0; h = Math.imul(h, 16777619) >>> 0; }
+  h = h || 1;
+  return { dv, version, header_size, sections, integrity_ok: (h === payload_checksum) };
+}
+function sectionView(cart, name){
+  const s = cart.sections[name];
+  if (!s) return null;
+  return { dv: cart.dv, base: cart.header_size + s.offset, size: s.size };
+}
+
+/* ---- the lint, mirroring cartridge_lint.c ---- */
+function lint(buf){
+  const F = [];                       // findings
+  const add = (sev,msg,why) => F.push({sev,msg,why});
+  const cart = parseCart(buf);
+  if (cart.fatal) return { fatal: cart.fatal };
+
+  if (!cart.integrity_ok)
+    add("err","Cartridge failed integrity validation","The payload checksum does not match — the file is corrupt or truncated.");
+
+  const idS = sectionView(cart, "identity.bin");
+  if (!idS) return { fatal:"identity.bin section missing — not a loadable cartridge." };
+  const id = cart.dv; const B = idS.base;
+  const rd16 = o => id.getUint16(B+o, true);
+  const rd8  = o => id.getUint8(B+o);
+  const str  = (o,l) => cstr(id, B+o, l);
+  const is_v5 = idS.size >= ID_V5_SIZE;
+
+  // topics
+  let topicIds = new Set(), topicCount = 0;
+  const tpS = sectionView(cart, "dialogue/topics.bin");
+  if (tpS){
+    topicCount = id.getUint32(tpS.base, true);
+    for (let i=0;i<topicCount && i<64;i++) topicIds.add(id.getUint32(tpS.base+4+i*TOPIC_STRIDE, true));
+  }
+  const topicExists = t => !noneTopic(t) && topicIds.has(t);
+
+  // counts for dashboard
+  const stats = { version:cart.version, topics:topicCount };
+
+  // identity core
+  const name = str(O_NAME, NAME_LEN);
+  if (!name) add("err","Character has no name","character_name is empty; the cartridge will load nameless.");
+  let nAddr=0; for(let i=0;i<ADDR_COUNT;i++) if(str(O_ADDR+i*ADDR_LEN, ADDR_LEN)) nAddr++;
+  if (nAddr===0) add("warn","No forms of address","The character can only ever call the user “my dear”.");
+  let big5zero = [0,2,4,6,8].every(o=>rd16(o)===0);
+  if (big5zero) add("warn","Flat personality","All Big Five traits are 0; the planner’s stance won’t vary by temperament.");
+
+  // topics
+  if (topicCount===0) add("err","No topics","The character has nothing to talk about.");
+
+  // obsessions / taboos
+  let nObs=0; for(let i=0;i<OBS_COUNT;i++){ const o=rd16(O_OBS+i*2); if(noneTopic(o))continue; nObs++;
+    if(!topicExists(o)) add("err","Obsession points at a missing topic","Obsession slot "+i+" targets topic id="+o+", which isn’t in the topic table — fixation will collapse to a fallback."); }
+  if (nObs===0) add("warn","No obsessions","No fixation pull; the character drifts without a recurring preoccupation of mind.");
+  for(let i=0;i<TABOO_COUNT;i++){ const t=rd16(O_TABOO+i*2); if(!noneTopic(t)&&!topicExists(t)) add("warn","Taboo points at a missing topic","Taboo slot "+i+" targets topic id="+t+"."); }
+  stats.obsessions = nObs;
+
+  // dialogue counts
+  const tmS = sectionView(cart,"dialogue/templates.bin");
+  const glS = sectionView(cart,"dialogue/goals.bin");
+  const nTmpl = tmS ? id.getUint32(tmS.base, true) : 0;
+  const nGoals = glS ? id.getUint32(glS.base, true) : 0;
+  if (nTmpl===0) add("err","No dialogue templates","The character can only ever emit generic fallbacks.");
+  stats.templates = nTmpl; stats.goals = nGoals;
+
+  // core memories
+  const coreN = rd8(O_COREN);
+  if (coreN===0) add("warn","No seeded memories","Cold recall has no backstory to surface in early conversation.");
+  stats.core_memories = coreN;
+
+  // voice
+  const hasVoice = !!cart.sections["LM "];
+  if (!hasVoice) add("warn","No voice model","voice.lm is absent; rendering is template-only (deterministic, lower fidelity).");
+
+  // ---- V5 proactivity block ----
+  const cov = {};
+  if (is_v5){
+    // wants
+    let nWants=0,nLive=0;
+    for(let i=0;i<WANT_COUNT;i++){ const b=O_WANT+i*WANT_STRIDE; const nm=str(b,WANT_NAME_LEN); const tp=rd16(b+32);
+      if(nm){ nWants++;
+        if(noneTopic(tp)) add("err","A want has no target topic","Want “"+nm+"” has no valid target — it will never drive proactivity or offscreen activity.");
+        else if(!topicExists(tp)) add("err","A want points at a missing topic","Want “"+nm+"” targets topic id="+tp+", not in the topic table.");
+        else nLive++;
+      } else if(!noneTopic(tp)) add("warn","Half-defined want","Want slot "+i+" has a target topic but no name.");
+    }
+    if(nWants===0) add("warn","No wants — the character only reacts","With no wants, proactivity and offscreen autonomy are inert: it will never raise a subject on its own.");
+    stats.wants = nWants; cov.Wants = nWants>0;
+
+    // preoccupations
+    let nPre=0; for(let i=0;i<PRE_COUNT;i++) if(str(O_PRE+i*PRE_LEN,PRE_LEN)) nPre++;
+    if(nPre===0) add("warn","No current preoccupations","Offscreen activity falls back to “the work”; identity surfacing will be bland.");
+    stats.preoccupations = nPre; cov.Preoccupations = nPre>0;
+
+    // resumption
+    let nRes=0; for(let i=0;i<RES_BUCKETS;i++) if(str(O_RES+i*RES_LEN,RES_LEN)) nRes++;
+    if(nRes===0) add("warn","No resumption lines","Returns after an absence use a generic greeting instead of acknowledging time apart.");
+    stats.resumption = nRes; cov["Resumption lines"] = nRes>0;
+
+    // milestones
+    let nMs=0, prev=0;
+    for(let i=0;i<MS_COUNT;i++){ const line=str(O_MLINE+i*MS_LEN,MS_LEN); const day=id.getUint16(B+O_MDAY+i*2,true);
+      if(!line && day===0) continue; nMs++;
+      if(line && day===0) add("warn","Milestone never fires","Milestone slot "+i+" has a line but day=0.");
+      if(!line && day!==0) add("warn","Empty milestone","Milestone slot "+i+" sets day="+day+" but has no line.");
+      if(day!==0 && day<=prev) add("warn","Milestone days out of order","Slot "+i+" day="+day+" ≤ previous "+prev+"; matching assumes ascending days.");
+      if(day!==0) prev=day;
+    }
+    stats.milestones = nMs; cov.Milestones = nMs>0;
+  } else {
+    add("info","V4-era cartridge","This cart predates the V5 proactivity fields (wants, preoccupations, resumption, milestones); those checks are skipped.");
+  }
+
+  const errors = F.filter(f=>f.sev==="err").length;
+  const warns  = F.filter(f=>f.sev==="warn").length;
+  return { name, is_v5, stats, coverage:cov, findings:F, errors, warns };
+}
+
+/* ---- rendering ---- */
+const $ = s => document.querySelector(s);
+function render(r){
+  $("#report").classList.remove("hidden");
+  $("#drop").classList.add("hidden");
+
+  const v = $("#verdict");
+  if (r.fatal){
+    v.className = "err"; v.innerHTML = "Can’t read this cartridge<small>"+r.fatal+"</small>";
+    $("#stats").innerHTML=""; $("#coverage").innerHTML=""; $("#findings").innerHTML="";
+    return;
+  }
+  if (r.errors>0){ v.className="err"; v.innerHTML = (r.name||"Character")+" will not behave correctly<small>"+r.errors+" error(s), "+r.warns+" warning(s) — fix the errors before shipping.</small>"; }
+  else if (r.warns>0){ v.className="warn"; v.innerHTML = (r.name||"Character")+" loads, but feels thin<small>0 errors, "+r.warns+" warning(s) — address these to make it feel alive.</small>"; }
+  else { v.className="ok"; v.innerHTML = (r.name||"Character")+" is ready<small>0 errors, 0 warnings — all the hooks for a living character are present.</small>"; }
+
+  const labels = {version:"format",topics:"topics",obsessions:"obsessions",wants:"wants",
+    preoccupations:"preoccupations",resumption:"resumption",milestones:"milestones",
+    core_memories:"core memories",templates:"templates",goals:"goals"};
+  const order = ["version","topics","obsessions","wants","preoccupations","resumption","milestones","core_memories","templates","goals"];
+  $("#stats").innerHTML = order.filter(k=>k in r.stats).map(k=>{
+    let val = r.stats[k]; if(k==="version") val = "V"+val;
+    const zero = (typeof val==="number" && val===0) ? " zero" : "";
+    return '<div class="stat"><div class="n'+zero+'">'+val+'</div><div class="l">'+labels[k]+'</div></div>';
+  }).join("");
+
+  const cov = r.coverage||{};
+  $("#coverage").innerHTML = Object.keys(cov).length
+    ? Object.entries(cov).map(([k,ok])=>'<span class="pill '+(ok?"yes":"no")+'">'+k+'</span>').join("")
+    : '<span class="pill no">V4 cart — no V5 proactivity fields</span>';
+
+  const sevRank = {err:0,warn:1,info:2};
+  const sorted = r.findings.slice().sort((a,b)=>sevRank[a.sev]-sevRank[b.sev]);
+  const tagText = {err:"error",warn:"warn",info:"info"};
+  $("#findings").innerHTML = sorted.length
+    ? '<div class="group"><h3>Findings</h3>'+sorted.map(f=>
+        '<div class="finding '+f.sev+'"><div class="tag">'+tagText[f.sev]+'</div>'+
+        '<div class="msg">'+f.msg+(f.why?'<span class="why">'+f.why+'</span>':'')+'</div></div>').join("")+'</div>'
+    : '';
+}
+
+/* ---- file handling ---- */
+function handleFile(file){
+  const fr = new FileReader();
+  fr.onload = () => { try { render(lint(fr.result)); } catch(e){ render({fatal:"Parse error: "+e.message}); } };
+  fr.readAsArrayBuffer(file);
+}
+const drop = $("#drop"), input = $("#file");
+drop.addEventListener("click", ()=>input.click());
+input.addEventListener("change", e=>{ if(e.target.files[0]) handleFile(e.target.files[0]); });
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev, e=>{e.preventDefault();drop.classList.add("hot");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev, e=>{e.preventDefault();drop.classList.remove("hot");}));
+drop.addEventListener("drop", e=>{ const f=e.dataTransfer.files[0]; if(f) handleFile(f); });
+$("#reset").addEventListener("click", ()=>{ $("#report").classList.add("hidden"); $("#drop").classList.remove("hidden"); input.value=""; });
+</script>
+</body>
+</html>
