@@ -24,6 +24,7 @@ void pe_classify_input(Engine *eng, const char *input,
                        EmotionVector *out_ev);
 void pe_update_drives_from_input(Engine *eng);
 void pe_update_topic_momentum(Engine *eng);
+void pe_boost_topic(NPCState *s, uint16_t topic_id, int amount);
 
 /* memory */
 void pe_associative_recall(Engine *eng, const EmotionVector *ev);

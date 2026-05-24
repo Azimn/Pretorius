@@ -58,6 +58,14 @@ extern "C" {
 #define PE_ACTIVE_MAX           (PE_EPISODIC_MAX + PE_COLD_SCRATCH_MAX)
                                     /* v3.2: active_memories[] holds working +
                                      * cold candidates in one ranked list */
+#define PE_PREOCCUPATION_COUNT  3
+#define PE_PREOCCUPATION_LEN    96
+#define PE_RESUMPTION_BUCKETS   4
+#define PE_RESUMPTION_LEN       192
+#define PE_WANT_COUNT           3
+#define PE_WANT_NAME_LEN        32
+#define PE_MILESTONE_COUNT      6
+#define PE_MILESTONE_LEN        96
 
 /* ---------- pattern flags (Pattern.flags bitmask) ---------- */
 #define PE_PATTERN_FLAG_INTOXICANT (1u<<0)  /* matching this pattern raises intoxication */
@@ -195,6 +203,14 @@ typedef struct {
 } MemoryNode;
 
 typedef struct {
+    char     name[PE_WANT_NAME_LEN];
+    uint16_t target_topic_id;
+    uint8_t  target_pattern_class;
+    uint8_t  intensity;
+    uint16_t _pad;
+} CharacterWant;
+
+typedef struct {
     uint16_t openness, conscientiousness, extraversion, agreeableness, neuroticism;
     uint16_t _pad0;
     uint32_t voice_flags;
@@ -211,6 +227,12 @@ typedef struct {
      * Empty slot (first byte 0) is treated as "skip" so cartridges can opt out. */
     char flourishes[PE_FLOURISH_COUNT][PE_FLOURISH_LEN];  /* PE_VF_METAPHOR injection */
     char expansions[PE_EXPANSION_COUNT][PE_EXPANSION_LEN]; /* verbosity injection */
+    char current_preoccupations[PE_PREOCCUPATION_COUNT][PE_PREOCCUPATION_LEN];
+    char resumption_lines[PE_RESUMPTION_BUCKETS][PE_RESUMPTION_LEN];
+    CharacterWant wants[PE_WANT_COUNT];
+    char milestone_lines[PE_MILESTONE_COUNT][PE_MILESTONE_LEN];
+    uint16_t milestone_days[PE_MILESTONE_COUNT];
+    uint16_t _v5_pad[2];
 } Identity;
 
 typedef struct {
@@ -327,7 +349,12 @@ typedef struct {
     uint16_t unresolved_threads[8];
     uint8_t  unresolved_count;
     uint8_t  unresolved_head;
-    uint16_t _pad_v5;
+    uint8_t  milestones_seen;
+    uint8_t  _pad_v5b;
+    uint16_t want_turns_since_engaged[PE_WANT_COUNT];
+    char     resumption_pending[PE_RESUMPTION_LEN];
+    uint8_t  turns_since_question;
+    uint8_t  last_reply_had_question;
 } NPCState;
 
 typedef struct {
@@ -593,9 +620,8 @@ struct Engine {
     ChapterBook   chapters;
 
     /* V5: reflective memory consolidation (Park et al. UIST 2023).
-     * See memory/reflection.h for the algorithm.  Struct laid out
-     * here so persona.h is the single source of truth for the
-     * Engine layout. */
+     * The algorithm lives in memory/reflection.h; the state is embedded
+     * here so persona.h remains the single authority for Engine layout. */
     struct {
         MemoryNode  memories[16];          /* PE_REFLECTION_MAX */
         uint16_t    count;

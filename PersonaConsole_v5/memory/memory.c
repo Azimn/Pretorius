@@ -3,6 +3,7 @@
 #include "persona_internal.h"
 #include "lsh_memory.h"            /* v3.0: fuzzy semantic recall */
 #include "aether.h"                /* v3.2: long-term episodic storage */
+#include "reflection.h"            /* v5: high-level pattern recall */
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
@@ -250,6 +251,31 @@ void pe_associative_recall(Engine *eng, const EmotionVector *ev){
                 (uint8_t)(m->retrieval_prob + ((255u - m->retrieval_prob) >> 4));
         }
     }
+    /* V5: reflections are abstract pattern memories, so they join the
+     * same active-memory list as AETHER cold hits.  Query them before
+     * AETHER so the small cold_scratch buffer cannot crowd them out. */
+    if (eng->reflections.count > 0
+        && eng->cold_scratch_count < PE_COLD_SCRATCH_MAX
+        && eng->active_count < PE_ACTIVE_MAX){
+        MemoryNode refl[2];
+        int n_refl = pe_query_reflections(eng, qsig, eng->primary_topic, refl, 2);
+        for (int i = 0; i < n_refl
+                       && eng->cold_scratch_count < PE_COLD_SCRATCH_MAX
+                       && eng->active_count < PE_ACTIVE_MAX; ++i){
+            MemoryNode *rn = &eng->cold_scratch[eng->cold_scratch_count];
+            *rn = refl[i];
+            int32_t score = 640 + rn->salience / 2;
+            if (eng->primary_topic != 0xFFFF && rn->topic_id == eng->primary_topic)
+                score += 120;
+            if (score > 900) score = 900;
+            eng->active_memories[eng->active_count] =
+                (uint16_t)(PE_EPISODIC_MAX + eng->cold_scratch_count);
+            eng->active_match[eng->active_count] = (uint16_t)score;
+            eng->active_count++;
+            eng->cold_scratch_count++;
+        }
+    }
+
     /* v3.2: AETHER fallback.  If working memory had nothing strong (either
      * empty or top match below PE_COLD_FALLBACK_MATCH), query the cold
      * store with the current input.  Results are materialised into

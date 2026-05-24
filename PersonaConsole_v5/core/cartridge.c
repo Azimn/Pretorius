@@ -48,7 +48,7 @@ int pe_cart_state_dir(char *out, size_t n, const char *cart_path){
 static int read_header(FILE *f, PECartridgeHeader *h){
     if (fread(h, 1, sizeof(*h), f) != sizeof(*h)) return -1;
     if (h->magic != PE_CART_MAGIC) return -2;
-    if (h->version != PE_CART_VERSION) return -3;
+    if (h->version != PE_CART_VERSION_V4 && h->version != PE_CART_VERSION_V5) return -3;
     if (h->entry_count > PE_CART_MAX_SECTIONS) return -4;
     if (h->header_size != sizeof(*h)) return -5;
     return 0;

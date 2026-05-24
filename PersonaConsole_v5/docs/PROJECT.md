@@ -452,11 +452,33 @@ sour by reconsolidation depending on the affective context of recall.
 | `memory/recall_plasticity.{h,c}` | one function, one hook in engine.c after `pe_associative_recall` |
 | `tests/continuity/recall_plasticity_test.js` | 8 assertions — determinism, cooling, reflections-still-form |
 
+### v5.2 — Proactive presence and offscreen autonomy
+
+V5.2 extends the "character feels alive" work from response quality into
+presence. The character is no longer only a reply machine for the current user.
+It can ask questions to break one-way monologue rhythm, carry unresolved
+threads forward, and create deterministic internal self-events after long
+absences. These self-events are deliberately non-agentic: they do not call
+outside services, manipulate the world, or learn new identity. They update the
+character's memory and return posture so the user feels an ongoing inner life.
+
+The host also exposes a relationship roster hook. Each interlocutor already has
+separate relation files; the new endpoint makes that surface inspectable for
+future multi-user and multi-character scenes.
+
+| File | Role |
+|---|---|
+| `core/engine.c` | offscreen autonomy tick, return-line composition, question rhythm |
+| `bridges/persona_ffi.{h,c}` | `ps_relationships` roster inspection |
+| `bridges/persona_host.c` | stdio `relationships` method |
+| `tests/continuity/offscreen_autonomy_test.js` | verifies absence can produce authored private-life activity |
+| `tests/continuity/relationships_roster_test.js` | verifies distinct persisted interlocutor relationships |
+
 ---
 
 ## Test Suite Catalog
 
-18 test groups, all green at HEAD:
+20+ test groups, all green in the current V5 workspace:
 
 ### Layer 1 — engine correctness (v3.x legacy, preserved through V4)
 
@@ -483,6 +505,9 @@ sour by reconsolidation depending on the affective context of recall.
 | `make v4_firewall_run` | 3 | Hallucination firewall under adversarial SLM injection |
 | `make v4_reflection_run` | 11 | Reflective consolidation: synthesis + abstraction + determinism + persistence |
 | `make v4_recall_plasticity_run` | 8 | RCP: determinism + reconsolidation cooling + reflection compatibility |
+| `make v5_conversation_rhythm_run` | 1+ | Long monologue rhythm eventually yields a character question |
+| `make v5_offscreen_autonomy_run` | 2 | Long absence produces deterministic private-life activity |
+| `make v5_relationships_roster_run` | 5 | Multiple interlocutors persist as distinct relationships |
 
 ### Forge — end-to-end browser-to-engine
 

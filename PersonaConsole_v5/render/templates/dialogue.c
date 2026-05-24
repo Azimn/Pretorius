@@ -6,6 +6,7 @@
 #include "ngram_lm.h"        /* v2.1: optional reranker */
 #include "mutator.h"         /* v2.1: optional template expansion */
 #include "environment.h"
+#include "reflection.h"
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -102,6 +103,12 @@ static size_t append_str(char *dst, size_t cap, size_t pos, const char *s){
     return pos;
 }
 
+static void trim_terminal_punctuation(char *s){
+    size_t len = strlen(s);
+    while (len > 0 && (s[len - 1] == '.' || s[len - 1] == '!' || s[len - 1] == '?'))
+        s[--len] = 0;
+}
+
 static void fill_text_slots(Engine *eng, const char *src, uint32_t slot_seed, char *out, size_t n){
     size_t pos = 0;
     const char *user_name = eng->relation.known_as[0] ? eng->relation.known_as : "my dear";
@@ -120,19 +127,35 @@ static void fill_text_slots(Engine *eng, const char *src, uint32_t slot_seed, ch
      * v3.2: indices may resolve into working memory OR cold_scratch[]
      * (sentinel range >= PE_EPISODIC_MAX) — use pe_active_node helper. */
     const char *mem_summary = "";
+    char rendered_memory[256];
+    rendered_memory[0] = 0;
     const MemoryNode *cb = NULL;
     if (eng->plan.callback_memory != 0xFFFF)
         cb = pe_active_node(eng, eng->plan.callback_memory);
     if (cb && phrase_recently_used(eng, usage_id(PE_USAGE_MEMORY, cb->id), 6u))
         cb = NULL;
     if (cb) {
-        mem_summary = cb->summary;
+        if (cb->memory_type == MEM_CACHE
+            && !strncmp(cb->summary, "[reflection", 11)
+            && pe_reflection_render(eng, cb, rendered_memory, (int)sizeof(rendered_memory)) > 0) {
+            trim_terminal_punctuation(rendered_memory);
+            mem_summary = rendered_memory;
+        } else {
+            mem_summary = cb->summary;
+        }
     } else if (eng->active_count > 0) {
         for (uint16_t i = 0; i < eng->active_count; ++i){
             const MemoryNode *a = pe_active_node(eng, eng->active_memories[i]);
             if (a && !phrase_recently_used(eng, usage_id(PE_USAGE_MEMORY, a->id), 6u)){
                 cb = a;
-                mem_summary = a->summary;
+                if (cb->memory_type == MEM_CACHE
+                    && !strncmp(cb->summary, "[reflection", 11)
+                    && pe_reflection_render(eng, cb, rendered_memory, (int)sizeof(rendered_memory)) > 0) {
+                    trim_terminal_punctuation(rendered_memory);
+                    mem_summary = rendered_memory;
+                } else {
+                    mem_summary = a->summary;
+                }
                 break;
             }
         }
@@ -161,6 +184,25 @@ static void fill_text_slots(Engine *eng, const char *src, uint32_t slot_seed, ch
                 else if (!strcmp(key, "topic"))   pos = append_str(out, n, pos, topic_name);
                 else if (!strcmp(key, "memory"))  pos = append_str(out, n, pos, mem_summary);
                 else if (!strcmp(key, "name"))    pos = append_str(out, n, pos, eng->identity.character_name);
+                else if (!strcmp(key, "preoccupation")) {
+                    int n_set = 0;
+                    for (int i = 0; i < PE_PREOCCUPATION_COUNT; ++i)
+                        if (eng->identity.current_preoccupations[i][0]) n_set++;
+                    if (n_set == 0) {
+                        pos = append_str(out, n, pos, "the work");
+                    } else {
+                        uint32_t pick = (eng->state.today_seed ^ eng->state.turn_count) % (uint32_t)n_set;
+                        int found = 0;
+                        for (int i = 0; i < PE_PREOCCUPATION_COUNT; ++i){
+                            if (!eng->identity.current_preoccupations[i][0]) continue;
+                            if (found == (int)pick){
+                                pos = append_str(out, n, pos, eng->identity.current_preoccupations[i]);
+                                break;
+                            }
+                            found++;
+                        }
+                    }
+                }
                 else if (!strcmp(key, "session_count")) {
                     char tmp[16]; snprintf(tmp, sizeof(tmp), "%u", eng->environment.session_count);
                     pos = append_str(out, n, pos, tmp);
@@ -205,6 +247,12 @@ static int starts_with_lower(const char *s, const char *w){
         if (tolower((unsigned char)*s) != (unsigned char)*w) return 0;
     }
     return 1;
+}
+
+static int ends_with_question(const char *s){
+    size_t len = strlen(s);
+    while (len > 0 && isspace((unsigned char)s[len - 1])) len--;
+    return len > 0 && s[len - 1] == '?';
 }
 
 /* v2: style transforms now consume the UtterancePlan in addition to voice_flags.
@@ -272,6 +320,7 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
     /* verbosity expansion — gated by plan.verbosity.  Strings come from the
      * cartridge (identity.expansions); empty slots are skipped. */
     if (!grounded_turn && !hostile_turn && !appended_flourish
+        && !ends_with_question(buf)
         && (style_rng(&seed) % 255u) < (uint32_t)(p->verbosity / 2)){
         uint32_t start = style_rng(&seed) % PE_EXPANSION_COUNT;
         const char *ex = "";
@@ -460,6 +509,19 @@ static const char *fallback_line(Engine *eng){
     return "...";
 }
 
+static int render_reflection_callback(Engine *eng, char *out, size_t n){
+    if (!eng || !out || n == 0) return 0;
+    if (eng->plan.callback_memory == 0xFFFF) return 0;
+    const MemoryNode *m = pe_active_node(eng, eng->plan.callback_memory);
+    if (!m || m->memory_type != MEM_CACHE || strncmp(m->summary, "[reflection", 11))
+        return 0;
+    char text[256];
+    if (pe_reflection_render(eng, m, text, (int)sizeof(text)) <= 0) return 0;
+    snprintf(out, n, "Ah. %s", text);
+    record_use(&eng->memory, usage_id(PE_USAGE_MEMORY, m->id), eng->state.turn_count);
+    return 1;
+}
+
 /* ---------- main generator ---------- */
 
 int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
@@ -478,6 +540,7 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
         uint32_t fatigue = (eng->environment.turns_this_session * 256u) / 1000u;
         if (fatigue > 255u) fatigue = 255u;
         if (eng->matched_group == 0xFFFF
+            && eng->state.current_intent != PE_INTENT_REMINISCE
             && (persona_rng_u32(&eng->state) & 255u) < fatigue){
             static const char *flaws[] = {
                 "...",
@@ -531,6 +594,11 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
 
     /* fallback if nothing matched */
     if (eng->candidate_count == 0){
+        if (eng->state.current_intent == PE_INTENT_REMINISCE
+            && render_reflection_callback(eng, out, n)){
+            eng->last_template_intent = PE_INTENT_REMINISCE;
+            return 0;
+        }
         const char *line = fallback_line(eng);
         uint32_t line_id = usage_id(PE_USAGE_FALLBACK, persona_hash(line));
         fill_text_slots(eng, line, line_id, out, n);
@@ -650,6 +718,10 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
     /* tiny contradiction (2% with flag) — flagged in memory by stamping type=2 */
     if ((eng->identity.voice_flags & PE_VF_ALLOW_CONTRADICT)
         && !grounded_turn
+        && !ends_with_question(buf)
+        && eng->state.current_intent != PE_INTENT_PROBE
+        && eng->state.current_intent != PE_INTENT_INITIATE
+        && eng->state.current_intent != PE_INTENT_CLARIFY
         && (persona_rng_u32(&eng->state) % 100) < 2
         && eng->memory.episodic_count > 0){
         size_t L = strlen(buf);

@@ -354,6 +354,44 @@ v4_unresolved_thread_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/unresolved_thread_test.js
 
+v5_identity_surface_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/v5_identity_surface_test.js
+
+v5_resumption_lines_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/resumption_lines_test.js
+
+v5_want_pull_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/v5_want_pull_test.js
+
+# V5: Reflective Memory Consolidation (Park et al. 2023 adaptation).
+v4_reflection_run: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/reflection_test.js
+
+v5_reflection_surface_run: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/reflection_surface_test.js
+
+v5_conversation_rhythm_run: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/conversation_rhythm_test.js
+
+v5_offscreen_autonomy_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/offscreen_autonomy_test.js
+
+v5_relationships_roster_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/relationships_roster_test.js
+
+# V5: Recall-Coupled Plasticity.
+v4_recall_plasticity_run: build/persona_host
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/recall_plasticity_test.js
+
 # Behavioral Drift Index — measures identity divergence between renderers.
 v4_drift_run: build/persona_host
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
@@ -371,68 +409,17 @@ v4_aggregate:
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/aggregate_results.js
 
-# V5: Forge ↔ engine schema drift watchdog.  Asserts the Forge's
-# hardcoded SZ_* constants match the engine's actual struct sizes.
-v4_forge_schema_drift: profiles/pretorius/pretorius.cart
-	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
-	node tests/forge_schema_drift_test.js
-
-# V5: V4 vs V5 A/B transcript comparison.  Drives both engines through
-# the same 16-turn arc and prints side-by-side replies.  Requires both
-# folders built and PersonaConsole_v4/ to be present as sibling.
-v4_v5_compare: build/persona_host
-	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
-	node tests/continuity/v4_v5_compare.js
-
-# V5: per-archetype continuity scorecard.  Walks all 12 Forge archetypes,
-# builds a cart for each, runs the full 16-turn continuity benchmark.
-# Reveals cartridge-quality gaps (e.g., obsessions that don't surface in
-# replies, register-appropriateness scores per archetype).
-v4_archetype_continuity: build/persona_host
-	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
-	node tests/continuity/archetype_continuity_test.js
-
-# V5: adversarial continuity arcs.  Runs betrayal_arc + long_absence_arc
-# from tests/continuity/arcs/*.json.  Designed to be harder than the
-# canonical 16-turn arc and to expose cartridge gaps that the easy arc
-# misses.  long_absence_arc backdates the relation file to simulate
-# a real-time gap, exercising the V5 background-time-evolution path.
-v4_adversarial_arcs: build/persona_host
-	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
-	node tests/continuity/multi_arc_benchmark.js
-
-# V5: cartridge authoring audit.  Static analysis of a profile's
-# obsession→template cross-reference + dead pattern group detection.
-# Answers the "why does my cartridge score low on autobiographical_
-# consistency" question programmatically.
-v4_cartridge_audit:
-	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
-	node tools/cartridge_audit.js profiles/pretorius
-
-# V5: demo transcript generator.  Produces docs/DEMO_TRANSCRIPT.md, a
-# 36-turn naturalistic conversation with Pretorius + state annotations.
-# The public-facing artifact for "what does the engine actually do."
-v4_demo_transcript: build/persona_host
-	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
-	node tests/continuity/demo_transcript.js
-
-# V5: Reflective Memory Consolidation (Park et al. 2023 adaptation).
-v4_reflection_run: build/persona_host
-	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
-	node tests/continuity/reflection_test.js
-
-# V5: Recall-Coupled Plasticity (synthesis of 2024-2026 memory research).
-v4_recall_plasticity_run: build/persona_host
-	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
-	node tests/continuity/recall_plasticity_test.js
-
 v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v4_instr_run v4_continuity_run v4_idle_probe_run \
               v4_baseline_inheritance_run v4_background_time_run \
               v4_proactive_intents_run v4_time_of_day_run \
               v4_strategic_pause_run v4_unresolved_thread_run \
-              cartridge_stats v4_drift_run v4_firewall_run \
-              v4_reflection_run v4_recall_plasticity_run
+              v5_identity_surface_run v5_resumption_lines_run \
+              v5_want_pull_run cartridge_stats v4_drift_run \
+              v4_reflection_run v5_reflection_surface_run \
+              v5_conversation_rhythm_run v5_offscreen_autonomy_run \
+              v5_relationships_roster_run v4_recall_plasticity_run \
+              v4_firewall_run
 	@echo "--- V4 tests: green ---"
 
 # ----- profile sanity drivers -----

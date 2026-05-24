@@ -73,9 +73,7 @@ function runHost(env){
   return new Promise((resolve, reject) => {
     const stdin = SCRIPT.map(s => `{"method":"chat","text":${JSON.stringify(s)}}`).join('\n')
                 + '\n{"method":"close"}\n';
-    /* Lock today_seed so BDI scores stop varying with wall-clock. */
-    const fixed_env = Object.assign({ PE_TODAY_SEED: '42' }, process.env, env || {});
-    const proc = spawn(HOST, [CART, '--stdio'], { env: fixed_env });
+    const proc = spawn(HOST, [CART, '--stdio'], { env: Object.assign({}, process.env, env || {}) });
     let stdout = '', stderr = '';
     proc.stdout.on('data', d => stdout += d.toString('utf-8'));
     proc.stderr.on('data', d => stderr += d.toString('utf-8'));

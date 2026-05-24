@@ -348,6 +348,55 @@ When the user mentions Henry, Pretorius should not merely match a keyword; he
 should answer through accumulated memories of admiration, humiliation, rivalry,
 and regret.
 
+## Offscreen Life And Autonomy
+
+A believable character should not feel suspended in a jar between user turns.
+PersonaConsole V5 can now create deterministic offscreen self-events after a
+long absence. These are not agentic world actions: the runtime does not call
+APIs, control devices, browse, or change the outside world. It only lets the
+character's internal life continue.
+
+Author every production character with a small private-life surface:
+
+- **Wants:** 2-3 active goals the character can pursue without the user.
+- **Preoccupations:** 3 recurring concerns that can occupy them during absence.
+- **Return lines:** 4 variants for "you have been gone" across moods.
+- **Unfinished threads:** things they may bring back up later.
+- **Private interpretations:** how they explain silence, absence, or delay.
+
+Good offscreen activity is character-specific and modest:
+
+```text
+Good: In your absence, I occupied myself with convincing the gin to last until Tuesday.
+Good: While you were gone, I kept turning Henry's cowardice over like a specimen.
+Bad: I hacked the laboratory mainframe and built a new creature.
+Bad: I waited here doing nothing until you returned.
+```
+
+The goal is anthropomorphic projection: the user feels the character has a
+center of gravity outside the chat window. Keep it psychologically active,
+not physically overclaiming.
+
+## Multi-Interlocutor Readiness
+
+The user should eventually be only one person in the character's world, not the
+entire world. Even when a cartridge is shipped for one-user chat, author it as
+if it may later meet other users, NPCs, rivals, collaborators, or companions.
+
+Plan for:
+
+- Distinct relationship records per interlocutor.
+- Different address behavior for strangers, trusted people, rivals, and threats.
+- Memory summaries that name the speaker when known.
+- Relationship-specific facts, debts, wounds, promises, and boundaries.
+- Lines that can refer to "someone else" without breaking immersion.
+- A neutral unknown-person label such as "someone" or "the visitor," not "anon."
+
+This matters because future multi-character scenes will depend on relationship
+state rather than treating the current user as the only meaningful entity. A
+character who can distinguish Julia, Victor, Kiki, and Henry is already more
+lifelike than one who flattens everyone into "the user."
+
 ## State-Reactive Writing
 
 Alive characters vary with state. Write separate variants for:

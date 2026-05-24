@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
 
 struct PersonaSession {
     Engine eng;
@@ -258,6 +259,8 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"last_template_group\":%u,"
         "\"last_template_intent\":\"%s\","
         "\"unresolved_count\":%u,"
+        "\"turns_since_question\":%u,"
+        "\"last_reply_had_question\":%u,"
         "\"disposition\":%d,"
         "\"user_id\":\"%s\","
         "\"schema\":{\"trustworthy\":%d,\"hostile\":%d,\"intimate\":%d,"
@@ -278,6 +281,8 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         eng->last_template_group,
         intent_name(eng->last_template_intent),
         (unsigned)eng->state.unresolved_count,
+        (unsigned)eng->state.turns_since_question,
+        (unsigned)eng->state.last_reply_had_question,
         eng->relation.disposition,
         s->user_id,
         (int)eng->schema.slot[SCHEMA_USER_TRUSTWORTHY],
@@ -291,21 +296,19 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
     return n;
 }
 
-/* JSON-escape a string into a fixed buffer.  Returns chars written.
- * Used only by ps_reflections — kept local to avoid polluting the FFI. */
 static int json_escape_into(char *dst, int cap, const char *src){
     int p = 0;
     for (const char *c = src; *c && p + 8 < cap; ++c){
         unsigned char ch = (unsigned char)*c;
         switch (ch){
-            case '"': dst[p++]='\\'; dst[p++]='"'; break;
-            case '\\': dst[p++]='\\'; dst[p++]='\\'; break;
-            case '\n': dst[p++]='\\'; dst[p++]='n'; break;
-            case '\r': dst[p++]='\\'; dst[p++]='r'; break;
-            case '\t': dst[p++]='\\'; dst[p++]='t'; break;
-            default:
-                if (ch < 0x20) p += snprintf(dst+p, cap-p, "\\u%04x", ch);
-                else dst[p++] = (char)ch;
+        case '"':  dst[p++]='\\'; dst[p++]='"';  break;
+        case '\\': dst[p++]='\\'; dst[p++]='\\'; break;
+        case '\n': dst[p++]='\\'; dst[p++]='n';  break;
+        case '\r': dst[p++]='\\'; dst[p++]='r';  break;
+        case '\t': dst[p++]='\\'; dst[p++]='t';  break;
+        default:
+            if (ch < 0x20) p += snprintf(dst + p, (size_t)(cap - p), "\\u%04x", ch);
+            else dst[p++] = (char)ch;
         }
     }
     if (p < cap) dst[p] = 0;
@@ -322,8 +325,8 @@ int ps_reflections(PersonaSession *s, char *out_buf, int out_buf_size){
     for (unsigned i = 0; i < eng->reflections.count && pos < out_buf_size - 64; ++i){
         const MemoryNode *m = &eng->reflections.memories[i];
         char text[256] = "";
+        char esc[512] = "";
         pe_reflection_render(eng, m, text, (int)sizeof(text));
-        char esc[512];
         json_escape_into(esc, (int)sizeof(esc), text);
         pos += snprintf(out_buf + pos, (size_t)(out_buf_size - pos),
                         "%s{\"topic\":%u,\"sources\":%u,\"salience\":%u,"
@@ -336,5 +339,53 @@ int ps_reflections(PersonaSession *s, char *out_buf, int out_buf_size){
                         esc);
     }
     pos += snprintf(out_buf + pos, (size_t)(out_buf_size - pos), "]}");
+    return pos;
+}
+
+int ps_relationships(PersonaSession *s, char *out_buf, int out_buf_size){
+    if (!s || !out_buf || out_buf_size <= 0) return -1;
+    Engine *eng = &s->eng;
+    char rel_dir[512];
+    if (pe_path_join(rel_dir, sizeof(rel_dir), eng->char_dir, "relations") != 0)
+        return -1;
+
+    int pos = 0;
+    int count = 0;
+    pos += snprintf(out_buf + pos, (size_t)(out_buf_size - pos),
+                    "{\"relationships\":[");
+
+    DIR *d = opendir(rel_dir);
+    if (d){
+        struct dirent *de;
+        while ((de = readdir(d)) != NULL && pos < out_buf_size - 128){
+            size_t len = strlen(de->d_name);
+            if (len < 5 || strcmp(de->d_name + len - 4, ".bin")) continue;
+
+            char path[512];
+            if (pe_path_join(path, sizeof(path), rel_dir, de->d_name) != 0) continue;
+            Relation r;
+            if (pe_read_file(path, &r, sizeof(r)) != 0) continue;
+
+            char name[128];
+            char esc[256];
+            snprintf(name, sizeof(name), "%s", r.known_as[0] ? r.known_as : "Someone");
+            json_escape_into(esc, (int)sizeof(esc), name);
+            pos += snprintf(out_buf + pos, (size_t)(out_buf_size - pos),
+                            "%s{\"user_hash\":%u,\"known_as\":\"%s\","
+                            "\"disposition\":%d,\"tags\":%u,"
+                            "\"first_contact\":%u,\"last_contact\":%u}",
+                            count == 0 ? "" : ",",
+                            (unsigned)r.user_hash,
+                            esc,
+                            (int)r.disposition,
+                            (unsigned)r.tags,
+                            (unsigned)r.first_contact,
+                            (unsigned)r.last_contact);
+            count++;
+        }
+        closedir(d);
+    }
+    pos += snprintf(out_buf + pos, (size_t)(out_buf_size - pos),
+                    "],\"count\":%d}", count);
     return pos;
 }

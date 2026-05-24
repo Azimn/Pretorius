@@ -156,6 +156,12 @@ static int method_reflections(HostCtx *ctx, const char *body,
     return ps_reflections(ctx->sess, out_buf, out_cap);
 }
 
+static int method_relationships(HostCtx *ctx, const char *body,
+                                char *out_buf, int out_cap){
+    (void)body;
+    return ps_relationships(ctx->sess, out_buf, out_cap);
+}
+
 static int method_idle_probe(HostCtx *ctx, const char *body,
                              char *out_buf, int out_cap){
     (void)body;
@@ -222,6 +228,7 @@ static int dispatch(HostCtx *ctx, const char *method, const char *body,
     if (!strcmp(method, "load"))     return method_load(ctx, body, out_buf, out_cap);
     if (!strcmp(method, "set_user")) return method_set_user(ctx, body, out_buf, out_cap);
     if (!strcmp(method, "reflections")) return method_reflections(ctx, body, out_buf, out_cap);
+    if (!strcmp(method, "relationships")) return method_relationships(ctx, body, out_buf, out_cap);
     return snprintf(out_buf, (size_t)out_cap,
                     "{\"error\":\"unknown method '%s'\"}", method);
 }

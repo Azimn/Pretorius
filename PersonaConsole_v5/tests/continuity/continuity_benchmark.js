@@ -84,11 +84,7 @@ function runHost(env){
   return new Promise((resolve, reject) => {
     const stdin = SCRIPT.map(s => `{"method":"chat","text":${JSON.stringify(s.text)}}`).join('\n')
                 + '\n{"method":"state"}\n{"method":"close"}\n';
-    /* Lock today_seed so wall-clock variance stops moving scores
-     * between runs.  Continuity benchmark becomes a real regression
-     * test instead of a fuzzy one.  Caller's env still wins. */
-    const fixed_env = Object.assign({ PE_TODAY_SEED: '42' }, process.env, env || {});
-    const proc = spawn(HOST, [CART, '--stdio'], { env: fixed_env });
+    const proc = spawn(HOST, [CART, '--stdio'], { env: Object.assign({}, process.env, env || {}) });
     let stdout = '', stderr = '';
     proc.stdout.on('data', d => stdout += d.toString('utf-8'));
     proc.stderr.on('data', d => stderr += d.toString('utf-8'));

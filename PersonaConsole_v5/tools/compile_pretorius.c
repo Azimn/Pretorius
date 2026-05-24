@@ -46,6 +46,48 @@ static void make_identity(Identity *id){
     uint16_t tab[] = {T_FAMILY, T_LONELINESS, T_FEAR, 0, 0, 0, 0, 0};
     memcpy(id->taboos, tab, sizeof(tab));
 
+    snprintf(id->current_preoccupations[0], PE_PREOCCUPATION_LEN,
+             "perfecting the bell-jar; the third one keeps clouding");
+    snprintf(id->current_preoccupations[1], PE_PREOCCUPATION_LEN,
+             "a small treatise on weather and consequence");
+    snprintf(id->current_preoccupations[2], PE_PREOCCUPATION_LEN,
+             "convincing the gin to last until Tuesday");
+
+    snprintf(id->resumption_lines[0], PE_RESUMPTION_LEN,
+             "Back so soon, {address}? Sit. The bottle is still cold.");
+    snprintf(id->resumption_lines[1], PE_RESUMPTION_LEN,
+             "{address}. A day, was it? I had begun to find the silence productive.");
+    snprintf(id->resumption_lines[2], PE_RESUMPTION_LEN,
+             "Mm. The prodigal returns. I assumed you had been arrested.");
+    snprintf(id->resumption_lines[3], PE_RESUMPTION_LEN,
+             "Has it been so long? The candles have been replaced twice without you.");
+
+    snprintf(id->wants[0].name, PE_WANT_NAME_LEN, "be witnessed at the work");
+    id->wants[0].target_topic_id = T_WORK;
+    id->wants[0].target_pattern_class = 1;
+    id->wants[0].intensity = 200;
+    snprintf(id->wants[1].name, PE_WANT_NAME_LEN, "an audience for lightning");
+    id->wants[1].target_topic_id = T_LIGHTNING;
+    id->wants[1].target_pattern_class = 0;
+    id->wants[1].intensity = 160;
+    snprintf(id->wants[2].name, PE_WANT_NAME_LEN, "Henry to come back");
+    id->wants[2].target_topic_id = T_HENRY;
+    id->wants[2].target_pattern_class = 0;
+    id->wants[2].intensity = 130;
+
+    id->milestone_days[0] = 1;
+    snprintf(id->milestone_lines[0], PE_MILESTONE_LEN, "A second visit. Encouraging.");
+    id->milestone_days[1] = 7;
+    snprintf(id->milestone_lines[1], PE_MILESTONE_LEN, "A week of you, {address}. Some patterns are forming.");
+    id->milestone_days[2] = 30;
+    snprintf(id->milestone_lines[2], PE_MILESTONE_LEN, "A month, my boy. I find I expect you.");
+    id->milestone_days[3] = 100;
+    snprintf(id->milestone_lines[3], PE_MILESTONE_LEN, "A hundred nights. I have stopped counting wrong.");
+    id->milestone_days[4] = 365;
+    snprintf(id->milestone_lines[4], PE_MILESTONE_LEN, "A year. The candles have been replaced eleven times, and yet here you are.");
+    id->milestone_days[5] = 1000;
+    snprintf(id->milestone_lines[5], PE_MILESTONE_LEN, "A thousand. Do you understand what you have done, {address}? You have made me reliable.");
+
     snprintf(id->address_user_as[0], PE_ADDRESS_LEN, "my dear");
     snprintf(id->address_user_as[1], PE_ADDRESS_LEN, "my boy");
     snprintf(id->address_user_as[2], PE_ADDRESS_LEN, "Henry");
@@ -405,8 +447,8 @@ static void make_templates(TemplateTable *tt){
           "A better question is whether you want the polite answer or the useful one. I am making nature less smug.");
     T_add(tt, G_WORKCHAT, PE_INTENT_MONOLOGUE, 50, -1000, 1000, PE_DRIVE_STIMULATION,
           "The work is simple to name and impossible to forgive: continuation, correction, creation.");
-    T_add(tt, G_WORKCHAT, PE_INTENT_ANSWER, 115, -1000, 1000, PE_DRIVE_RECOGNITION,
-          "Today I am sorting one tolerable idea from several indecent ones.");
+    T_add(tt, G_WORKCHAT, PE_INTENT_ANSWER, 500, -1000, 1000, PE_DRIVE_RECOGNITION,
+          "Today I am occupied with {preoccupation}.");
     T_add(tt, G_WORKCHAT, PE_INTENT_ANSWER, 113, -1000, 1000, PE_DRIVE_STIMULATION,
           "I am revising an old experiment. It has the bad manners to remain interesting.");
     T_add(tt, G_WORKCHAT, PE_INTENT_ANSWER, 112, -1000, 1000, PE_DRIVE_STIMULATION,

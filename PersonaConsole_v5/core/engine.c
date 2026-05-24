@@ -9,13 +9,14 @@
 #include "environment.h"
 #include "../render/render_backend.h"   /* v4: renderer dispatch */
 #include "../memory/affect_curve.h"     /* v4: nonlinear affect */
-#include "../memory/reflection.h"       /* v5: Park et al. 2023 reflective consolidation */
-#include "../memory/recall_plasticity.h" /* v5: Recall-Coupled Plasticity (synthesis) */
+#include "../memory/reflection.h"       /* v5: reflective consolidation */
+#include "../memory/recall_plasticity.h" /* v5: recall-coupled plasticity */
 #include "../instrumentation/state_trace.h"  /* v4: observability */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <stddef.h>
 
 /* ---------- load helpers ---------- */
 static int load_or_zero(const char *dir, const char *name, void *buf, size_t n){
@@ -38,6 +39,46 @@ static int load_static_section(const char *root, int is_cart,
     return load_required(root, name, buf, n);
 }
 
+static int load_identity_section(const char *root, int is_cart, Identity *out){
+    void *buf = NULL;
+    size_t sz = 0;
+    size_t v4_size = offsetof(Identity, current_preoccupations);
+    int rc;
+    if (!out) return -1;
+    memset(out, 0, sizeof(*out));
+    if (is_cart) {
+        rc = pe_cart_load_section_alloc(root, "identity.bin", &buf, &sz);
+        if (rc != 0) return rc;
+    } else {
+        char path[512];
+        FILE *f;
+        long n;
+        if (pe_path_join(path, sizeof(path), root, "identity.bin") != 0) return -1;
+        f = fopen(path, "rb");
+        if (!f) return -2;
+        fseek(f, 0, SEEK_END);
+        n = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        if (n < 0){ fclose(f); return -3; }
+        buf = malloc((size_t)n ? (size_t)n : 1u);
+        if (!buf){ fclose(f); return -4; }
+        if (fread(buf, 1, (size_t)n, f) != (size_t)n){
+            free(buf);
+            fclose(f);
+            return -5;
+        }
+        fclose(f);
+        sz = (size_t)n;
+    }
+    if (sz == sizeof(Identity) || sz == v4_size){
+        memcpy(out, buf, sz);
+        free(buf);
+        return 0;
+    }
+    free(buf);
+    return -10;
+}
+
 static const char *topic_name_by_id(const Engine *eng, uint16_t topic_id){
     if (topic_id == 0xFFFF) return NULL;
     for (uint32_t i = 0; i < eng->topics.count; ++i)
@@ -54,6 +95,56 @@ static const char *input_class_label(int input_class){
     case 4: return "threat";
     case 5: return "intimacy";
     default: return NULL;
+    }
+}
+
+static uint16_t pe_neglected_want_index(const Engine *eng){
+    uint16_t best = 0xFFFF;
+    uint32_t best_score = 0;
+    for (uint16_t i = 0; i < PE_WANT_COUNT; ++i){
+        const CharacterWant *w = &eng->identity.wants[i];
+        if (!w->name[0]) continue;
+        if (w->target_topic_id == 0xFFFF || w->target_topic_id == 0) continue;
+        uint32_t age = eng->state.want_turns_since_engaged[i];
+        uint32_t intensity = w->intensity ? w->intensity : 100u;
+        uint32_t score = age * intensity;
+        if (score > best_score){
+            best_score = score;
+            best = i;
+        }
+    }
+    return best_score >= 600u ? best : 0xFFFF;
+}
+
+static void pe_update_character_wants(Engine *eng){
+    if (!eng) return;
+    for (uint16_t i = 0; i < PE_WANT_COUNT; ++i){
+        const CharacterWant *w = &eng->identity.wants[i];
+        if (!w->name[0]){
+            eng->state.want_turns_since_engaged[i] = 0;
+            continue;
+        }
+        int engaged = 0;
+        if (w->target_topic_id != 0xFFFF && w->target_topic_id != 0
+            && eng->primary_topic == w->target_topic_id)
+            engaged = 1;
+        if (w->target_pattern_class != 0
+            && eng->input_class == w->target_pattern_class)
+            engaged = 1;
+        if (engaged) {
+            eng->state.want_turns_since_engaged[i] = 0;
+        } else if (eng->state.want_turns_since_engaged[i] < 0xFFFFu) {
+            eng->state.want_turns_since_engaged[i]++;
+        }
+    }
+
+    if (eng->input_class == 0 && eng->matched_group == 0xFFFF){
+        uint16_t idx = pe_neglected_want_index(eng);
+        if (idx != 0xFFFF){
+            const CharacterWant *w = &eng->identity.wants[idx];
+            pe_boost_topic(&eng->state, w->target_topic_id,
+                           80 + (int)(w->intensity ? w->intensity : 100u));
+        }
     }
 }
 
@@ -94,6 +185,142 @@ static void pe_prime_unprompted_memory(Engine *eng){
         best->retrieval_prob = 240;
         eng->state.turns_since_unprompted_recall = 0;
     }
+}
+
+static void pe_queue_resumption(Engine *eng, uint32_t real_gap_seconds){
+    if (!eng || eng->relation.last_contact == 0) return;
+    int bucket = -1;
+    if (real_gap_seconds < 7200u) bucket = 0;
+    else if (real_gap_seconds < 86400u) bucket = 1;
+    else if (real_gap_seconds < 7u * 86400u) bucket = 2;
+    else bucket = 3;
+    if (bucket >= 0 && bucket < PE_RESUMPTION_BUCKETS
+        && eng->identity.resumption_lines[bucket][0]){
+        snprintf(eng->state.resumption_pending,
+                 sizeof(eng->state.resumption_pending),
+                 "%s", eng->identity.resumption_lines[bucket]);
+    }
+    if (eng->relation.first_contact > 0){
+        uint32_t now_s = (uint32_t)time(NULL);
+        uint32_t age_days = now_s > eng->relation.first_contact
+                          ? (now_s - eng->relation.first_contact) / 86400u : 0u;
+        for (int i = 0; i < PE_MILESTONE_COUNT && i < 8; ++i){
+            if (eng->identity.milestone_days[i] == 0) continue;
+            if (age_days == eng->identity.milestone_days[i]
+                && !(eng->state.milestones_seen & (1u << i))
+                && eng->identity.milestone_lines[i][0]){
+                eng->state.milestones_seen |= (uint8_t)(1u << i);
+                snprintf(eng->state.resumption_pending,
+                         sizeof(eng->state.resumption_pending),
+                         "%s", eng->identity.milestone_lines[i]);
+                break;
+            }
+        }
+    }
+}
+
+static void pe_fill_pending_line(Engine *eng, const char *src, char *out, size_t n){
+    size_t pos = 0;
+    uint32_t modulus = pe_allow_intimate_address(eng) ? PE_ADDRESS_COUNT : 2u;
+    const char *address = eng->identity.address_user_as[
+        (eng->state.today_seed ^ eng->state.turn_count) % modulus
+    ];
+    if (!address[0]) address = "my dear";
+    if (n > 0) out[0] = 0;
+    while (src && *src && pos + 1 < n){
+        if (!strncmp(src, "{address}", 9)){
+            const char *a = address;
+            while (*a && pos + 1 < n) out[pos++] = *a++;
+            src += 9;
+        } else {
+            out[pos++] = *src++;
+        }
+    }
+    if (pos < n) out[pos] = 0;
+}
+
+static void pe_prepend_resumption_if_pending(Engine *eng, char *out, size_t n){
+    if (!eng || !out || n == 0 || !eng->state.resumption_pending[0]) return;
+    char line[PE_RESUMPTION_LEN];
+    char reply[PE_TEMPLATE_TEXT];
+    pe_fill_pending_line(eng, eng->state.resumption_pending, line, sizeof(line));
+    snprintf(reply, sizeof(reply), "%s", out);
+    if (reply[0])
+        snprintf(out, n, "%s %s", line, reply);
+    else
+        snprintf(out, n, "%s", line);
+    eng->state.resumption_pending[0] = 0;
+}
+
+static void pe_append_offscreen_resumption(Engine *eng, const char *line){
+    if (!eng || !line || !line[0]) return;
+    char tmp[PE_RESUMPTION_LEN];
+    if (eng->state.resumption_pending[0])
+        snprintf(tmp, sizeof(tmp), "%s %s", eng->state.resumption_pending, line);
+    else
+        snprintf(tmp, sizeof(tmp), "%s", line);
+    snprintf(eng->state.resumption_pending,
+             sizeof(eng->state.resumption_pending),
+             "%s", tmp);
+}
+
+static void pe_offscreen_autonomy_tick(Engine *eng, uint32_t real_gap_seconds){
+    if (!eng || real_gap_seconds < 6u * 3600u) return;
+
+    const CharacterWant *best = NULL;
+    uint16_t best_idx = 0;
+    uint32_t best_score = 0;
+    for (uint16_t i = 0; i < PE_WANT_COUNT; ++i){
+        const CharacterWant *w = &eng->identity.wants[i];
+        if (!w->name[0]) continue;
+        uint32_t age = eng->state.want_turns_since_engaged[i] + real_gap_seconds / 3600u;
+        uint32_t intensity = w->intensity ? w->intensity : 100u;
+        uint32_t score = age * intensity;
+        if (score > best_score){
+            best_score = score;
+            best = w;
+            best_idx = i;
+        }
+    }
+
+    const char *pre = "the work";
+    int n_pre = 0;
+    for (int i = 0; i < PE_PREOCCUPATION_COUNT; ++i)
+        if (eng->identity.current_preoccupations[i][0]) n_pre++;
+    if (n_pre > 0){
+        uint32_t pick = (eng->state.today_seed ^ real_gap_seconds ^ eng->state.turn_count) % (uint32_t)n_pre;
+        int seen = 0;
+        for (int i = 0; i < PE_PREOCCUPATION_COUNT; ++i){
+            if (!eng->identity.current_preoccupations[i][0]) continue;
+            if (seen == (int)pick){ pre = eng->identity.current_preoccupations[i]; break; }
+            seen++;
+        }
+    }
+
+    uint16_t topic = best ? best->target_topic_id : eng->identity.obsessions[0];
+    if (topic == 0 || topic == 0xFFFF) topic = eng->identity.obsessions[0];
+    if (topic == 0) topic = 0xFFFF;
+
+    char summary[PE_MEM_SUMMARY_LEN];
+    if (best)
+        snprintf(summary, sizeof(summary), "[offscreen] I pursued %s by %s.", best->name, pre);
+    else
+        snprintf(summary, sizeof(summary), "[offscreen] I occupied myself with %s.", pre);
+
+    EmotionVector ev = { +12, 28, +18, 0 };
+    pe_commit_memory(eng, summary, &ev, topic, 90, 0);
+    if (best && best_idx < PE_WANT_COUNT)
+        eng->state.want_turns_since_engaged[best_idx] = 0;
+    if (topic != 0xFFFF)
+        pe_boost_topic(&eng->state, topic, 260);
+
+    char line[PE_RESUMPTION_LEN];
+    snprintf(line, sizeof(line), "In your absence, I occupied myself with %s.", pre);
+    pe_append_offscreen_resumption(eng, line);
+}
+
+static int reply_has_question(const char *s){
+    return s && strchr(s, '?') != NULL;
 }
 
 static void seed_drives(Engine *eng){
@@ -403,7 +630,7 @@ int persona_open(Engine *eng, const char *character_dir){
         snprintf(eng->char_dir, sizeof(eng->char_dir), "%s", character_dir);
     }
 
-    if (load_static_section(character_dir, is_cart, "identity.bin", &eng->identity, sizeof(Identity)) != 0) {
+    if (load_identity_section(character_dir, is_cart, &eng->identity) != 0) {
         fprintf(stderr, "persona: failed to load identity.bin from %s\n", character_dir);
         return -1;
     }
@@ -519,9 +746,9 @@ int persona_open(Engine *eng, const char *character_dir){
     /* v3.1: autobiographical chapters — load persisted book (soft-fail). */
     load_or_zero(eng->char_dir, "chapters.bin", &eng->chapters, sizeof(ChapterBook));
 
-    /* V5: reflective consolidation state — load persisted ring (soft-fail).
-     * pe_reflection_load zero-inits if the file is missing or size-mismatched. */
+    /* V5: reflective consolidation state — load persisted ring (soft-fail). */
     pe_reflection_load(eng, eng->char_dir);
+
     eng->baseline_valence = 0;
     eng->baseline_arousal = 30;
     environment_session_start(eng);
@@ -593,6 +820,10 @@ int persona_process_input(Engine *eng,
         if (eng->relation.last_contact > 0 && now_s > eng->relation.last_contact)
             real_gap_seconds = now_s - eng->relation.last_contact;
     }
+    if (first_turn_of_session && eng->relation.last_contact > 0)
+        pe_queue_resumption(eng, real_gap_seconds);
+    if (first_turn_of_session)
+        pe_offscreen_autonomy_tick(eng, real_gap_seconds);
     environment_update_turn(eng, input_text);
 
     /* 2. time delta + decay */
@@ -685,10 +916,8 @@ int persona_process_input(Engine *eng,
     /* 4. associative recall */
     pe_associative_recall(eng, &ev);
 
-    /* 4a. V5: Recall-Coupled Plasticity (RCP).  Synthesis of four 2024-2026
-     * memory-neuroscience threads: reconsolidation (Schiller/Phelps),
-     * testing effect (Roediger), schema-biased survival (Gilboa), and SWR
-     * replay coupling (Buzsáki).  Retrieval is a write event. */
+    /* 4a. V5: retrieval is a write event.  Recalled memories are gently
+     * reconsolidated through the current affect/schema context. */
     pe_recall_plasticity_tick(eng, &ev);
 
     /* 5. drive update */
@@ -703,6 +932,7 @@ int persona_process_input(Engine *eng,
 
     /* 7. topic momentum */
     pe_update_topic_momentum(eng);
+    pe_update_character_wants(eng);
 
     /* 8. goal arbitration (with 2-turn hysteresis except on interrupt) */
     uint16_t prev_goal = eng->state.current_goal;
@@ -725,11 +955,30 @@ int persona_process_input(Engine *eng,
     /* exhaustion > 800 + paranoia > 600 → theatrical collapse (withdraw) */
     if (eng->state.exhaustion > 800 && eng->state.paranoia > 600)
         eng->state.current_intent = PE_INTENT_WITHDRAW;
-    if (eng->state.neutral_streak >= 3 && eng->matched_group == 0xFFFF){
+    if (eng->state.turns_since_question >= 4
+        && eng->input_class != 2
+        && eng->input_class != 3
+        && eng->input_class != 4
+        && eng->state.current_intent != PE_INTENT_REMINISCE
+        && eng->state.current_intent != PE_INTENT_ATTEND
+        && eng->state.current_intent != PE_INTENT_PAUSE){
+        eng->state.current_intent = (eng->matched_group != 0xFFFF)
+            ? PE_INTENT_PROBE : PE_INTENT_INITIATE;
+    }
+    if (eng->state.neutral_streak >= 3
+        && eng->matched_group == 0xFFFF
+        && eng->state.current_intent != PE_INTENT_REMINISCE){
         if ((persona_rng_u32(&eng->state) & 0xFFu) < 80u){
             eng->state.current_intent = PE_INTENT_INITIATE;
             eng->state.neutral_streak = 0;
         }
+    }
+    if (eng->input_class == 0 && eng->matched_group == 0xFFFF
+        && eng->state.neutral_streak >= 2
+        && pe_neglected_want_index(eng) != 0xFFFF
+        && eng->state.current_intent != PE_INTENT_ATTEND
+        && eng->state.current_intent != PE_INTENT_REMINISCE){
+        eng->state.current_intent = PE_INTENT_INITIATE;
     }
     {
         size_t input_len = strlen(input_text);
@@ -816,6 +1065,8 @@ post_render:;
 
     /* 11b. v3.1: dream recall — prepend dream_phrase to first response after
      * a long absence.  Only fires once (dream_pending is cleared here). */
+    pe_prepend_resumption_if_pending(eng, out, n);
+
     if (eng->chapters.dream_pending){
         size_t dl = strlen(eng->chapters.dream_phrase);
         size_t rl = strlen(out);
@@ -830,6 +1081,14 @@ post_render:;
 
     /* 11a. v2: record trace */
     pe_trace_push(eng);
+
+    {
+        int asked = reply_has_question(out);
+        eng->state.last_reply_had_question = asked ? 1u : 0u;
+        if (asked) eng->state.turns_since_question = 0;
+        else if (eng->state.turns_since_question < 255)
+            eng->state.turns_since_question++;
+    }
 
     /* 11b. v3.0: at end-of-turn, predict next input given what we just
      * said + current UserModel.  Surprise check at start of next turn
@@ -912,10 +1171,8 @@ post_render:;
 
     pe_prime_unprompted_memory(eng);
 
-    /* V5: reflective consolidation (Park et al. 2023).  Cooldown-gated
-     * inside the function — cheap on most turns, ~50µs on the synthesis
-     * turn.  Reflections become available immediately to next-turn
-     * retrieval. */
+    /* V5: reflective consolidation.  Cooldown-gated inside the function;
+     * cheap on ordinary turns, and persisted with persona_save below. */
     pe_consolidate_reflections(eng);
 
     eng->state.last_update_time = now;

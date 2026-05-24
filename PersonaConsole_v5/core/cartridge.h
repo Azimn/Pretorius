@@ -6,7 +6,9 @@
 #include <stddef.h>
 
 #define PE_CART_MAGIC      0x54524143u  /* 'CART' little-endian */
-#define PE_CART_VERSION    1u
+#define PE_CART_VERSION_V4 1u
+#define PE_CART_VERSION_V5 2u
+#define PE_CART_VERSION    PE_CART_VERSION_V5
 #define PE_CART_NAME_LEN   48
 #define PE_CART_MAX_SECTIONS 32
 

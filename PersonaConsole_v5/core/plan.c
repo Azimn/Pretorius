@@ -63,6 +63,38 @@ static uint16_t pick_stance(const Engine *eng){
 /* clamp helpers (byte) */
 static inline uint8_t clmp_u8(int32_t v){ if (v<0) return 0; if (v>255) return 255; return (uint8_t)v; }
 
+static int topic_momentum_for_plan(const NPCState *s, uint16_t tid){
+    if (tid == 0xFFFF) return 0;
+    for (int i = 0; i < PE_TOPIC_SLOTS; ++i)
+        if (s->topic_momentum[i].topic_id == tid) return s->topic_momentum[i].momentum;
+    return 0;
+}
+
+static uint16_t neglected_want_topic(const Engine *eng){
+    uint16_t best_topic = 0xFFFF;
+    uint32_t best_score = 0;
+    for (uint16_t i = 0; i < PE_WANT_COUNT; ++i){
+        const CharacterWant *w = &eng->identity.wants[i];
+        if (!w->name[0]) continue;
+        if (w->target_topic_id == 0xFFFF || w->target_topic_id == 0) continue;
+        uint32_t age = eng->state.want_turns_since_engaged[i];
+        uint32_t intensity = w->intensity ? w->intensity : 100u;
+        uint32_t score = age * intensity
+                       + (uint32_t)topic_momentum_for_plan(&eng->state, w->target_topic_id);
+        if (score > best_score){
+            best_score = score;
+            best_topic = w->target_topic_id;
+        }
+    }
+    return best_score >= 600u ? best_topic : 0xFFFF;
+}
+
+static int is_reflection_node(const MemoryNode *m){
+    return m
+        && m->memory_type == MEM_CACHE
+        && !strncmp(m->summary, "[reflection", 11);
+}
+
 void pe_build_plan(Engine *eng){
     UtterancePlan *p = &eng->plan;
     memset(p, 0, sizeof(*p));
@@ -86,7 +118,7 @@ void pe_build_plan(Engine *eng){
     p->rhetorical_mode = mode;
     p->stance          = pick_stance(eng);
 
-    /* target topic: fixation > primary input topic > obsession pressure target */
+    /* target topic: fixation > primary input topic > neglected want > obsession pressure target */
     if (eng->state.fixation_topic != 0xFFFF && eng->state.fixation_strength > 400)
         p->target_topic = eng->state.fixation_topic;
     else if (eng->primary_topic != 0xFFFF)
@@ -94,7 +126,12 @@ void pe_build_plan(Engine *eng){
     else {
         /* if obsession_pressure is high, pick a starved obsession topic */
         p->target_topic = 0xFFFF;
-        if (eng->state.obsession_pressure > 500){
+        {
+            uint16_t want_topic = neglected_want_topic(eng);
+            if (want_topic != 0xFFFF)
+                p->target_topic = want_topic;
+        }
+        if (p->target_topic == 0xFFFF && eng->state.obsession_pressure > 500){
             for (int i = 0; i < PE_OBSESSION_COUNT; ++i){
                 uint16_t o = eng->identity.obsessions[i];
                 if (!o) break;
@@ -103,9 +140,17 @@ void pe_build_plan(Engine *eng){
         }
     }
 
-    /* callback memory: pick highest-match active memory if recall fired strongly */
+    /* callback memory: prefer an active reflection when it is strong enough;
+     * otherwise pick the highest-match active memory. */
     p->callback_memory = (eng->active_count > 0 && eng->active_match[0] > 600)
                        ? eng->active_memories[0] : 0xFFFF;
+    for (uint16_t i = 0; i < eng->active_count; ++i){
+        const MemoryNode *m = pe_active_node(eng, eng->active_memories[i]);
+        if (eng->active_match[i] > 650 && is_reflection_node(m)){
+            p->callback_memory = eng->active_memories[i];
+            break;
+        }
+    }
 
     /* certainty: high recognition + low paranoia + low negation = high
      * (also reduced by acute_spike volatility) */

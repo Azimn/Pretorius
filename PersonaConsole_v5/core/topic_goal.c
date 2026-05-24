@@ -9,7 +9,7 @@
 
 /* ---------- pattern lookup ---------- */
 
-static void boost_topic(NPCState *s, uint16_t topic_id, int amount){
+void pe_boost_topic(NPCState *s, uint16_t topic_id, int amount){
     if (topic_id == 0xFFFF) return;
     int slot_free = -1;
     int slot_lowest = 0;
@@ -134,7 +134,7 @@ void pe_classify_input(Engine *eng, const char *input, EmotionVector *out_ev){
         /* data-driven side-effect flags (intoxicant, etc.) — negated matches don't set */
         if (hit != 2) eng->state.last_matched_flags |= p->flags;
         if (p->topic_id != 0xFFFF){
-            boost_topic(&eng->state, p->topic_id, 400);
+            pe_boost_topic(&eng->state, p->topic_id, 400);
             if (eng->primary_topic == 0xFFFF) eng->primary_topic = p->topic_id;
         }
     }
@@ -170,7 +170,7 @@ void pe_update_topic_momentum(Engine *eng){
                 for (int k = 0; k < 6; ++k){
                     uint16_t adj = eng->topics.topics[i].adjacents[k];
                     if (adj == 0xFFFF) break;
-                    boost_topic(&eng->state, adj, 100);
+                    pe_boost_topic(&eng->state, adj, 100);
                 }
                 break;
             }
@@ -182,7 +182,7 @@ void pe_update_topic_momentum(Engine *eng){
         if (!o) break;
         uint8_t strength = eng->identity.obsession_strength[i]
                          ? eng->identity.obsession_strength[i] : 50;
-        boost_topic(&eng->state, o, 10 + (int)((uint32_t)strength * 60u / 100u));
+        pe_boost_topic(&eng->state, o, 10 + (int)((uint32_t)strength * 60u / 100u));
     }
 }
 
@@ -239,6 +239,15 @@ uint16_t pe_select_intent(Engine *eng, uint16_t goal_idx, const EmotionVector *e
     }
     /* direct question + high trust → answer */
     if (eng->input_class == 3 && eng->relation.disposition > 500) return PE_INTENT_ANSWER;
+    if (eng->input_class != 2 && eng->input_class != 4){
+        for (uint16_t i = 0; i < eng->active_count; ++i){
+            const MemoryNode *m = pe_active_node(eng, eng->active_memories[i]);
+            if (m && eng->active_match[i] > 700
+                && m->memory_type == MEM_CACHE
+                && !strncmp(m->summary, "[reflection", 11))
+                return PE_INTENT_REMINISCE;
+        }
+    }
     /* vivid memory active → reminisce occasionally */
     if (eng->active_count > 0 && eng->active_match[0] > 700
         && (persona_rng_u32(&eng->state) & 3) == 0) return PE_INTENT_REMINISCE;
