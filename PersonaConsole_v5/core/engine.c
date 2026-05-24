@@ -210,11 +210,15 @@ static void pe_queue_resumption(Engine *eng, uint32_t real_gap_seconds){
             if (eng->identity.milestone_days[i] == 0) continue;
             if (age_days >= eng->identity.milestone_days[i]
                 && !(eng->state.milestones_seen & (1u << i))
-                && eng->identity.milestone_lines[i][0])
+                && eng->identity.milestone_lines[i][0]){
+                /* Mark every crossed milestone seen so a long absence cannot
+                 * later surface a lesser milestone out of order; only the most
+                 * recent crossed milestone is spoken on this return. */
+                eng->state.milestones_seen |= (uint8_t)(1u << i);
                 milestone_idx = i;
+            }
         }
         if (milestone_idx >= 0){
-            eng->state.milestones_seen |= (uint8_t)(1u << milestone_idx);
             snprintf(eng->state.resumption_pending,
                      sizeof(eng->state.resumption_pending),
                      "%s", eng->identity.milestone_lines[milestone_idx]);

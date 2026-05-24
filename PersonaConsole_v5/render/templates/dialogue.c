@@ -606,9 +606,10 @@ static int render_direct_callback_question(Engine *eng, const char *input,
     int asks_memory = contains_ci(input, "remember")
                    || contains_ci(input, "discussed")
                    || contains_ci(input, "earlier");
-    int asks_absence = contains_ci(input, "while i was gone")
-                    || contains_ci(input, "while you were gone")
-                    || contains_ci(input, "gone");
+    int asks_absence = contains_ci(input, "i was gone")
+                    || contains_ci(input, "been gone")
+                    || contains_ci(input, "you were gone")
+                    || contains_ci(input, "while away");
     int asks_next = contains_ci(input, "next time");
     if (!asks_memory && !asks_absence && !asks_next) return 0;
 
