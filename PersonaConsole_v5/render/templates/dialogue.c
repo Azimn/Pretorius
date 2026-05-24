@@ -22,6 +22,9 @@
 #define PE_USAGE_CALLBACK   0x50000000u
 #define PE_USAGE_MEMORY     0x60000000u
 
+#define PE_TEMPLATE_BLACKOUT_TURNS 48u
+#define PE_FALLBACK_BLACKOUT_TURNS 48u
+
 static uint32_t usage_id(uint32_t ns, uint32_t value){
     uint32_t h = value ^ ns;
     h ^= h >> 16;
@@ -74,13 +77,15 @@ static int phrase_recently_used(const Engine *eng, uint32_t pid, uint32_t cooldo
 }
 
 void pe_repetition_decay(Engine *eng){
-    /* every 20 turns of staleness, count -= 1 (lazy) */
+    /* Repetition memory must outlive a normal chat session.  If this decays
+     * too quickly, exact template and fallback blackouts look correct in
+     * code but still repeat inside a 30-50 turn conversation. */
     uint32_t turn = eng->state.turn_count;
     for (int i = 0; i < PE_PHRASE_USAGE; ++i){
         PhraseUsage *p = &eng->memory.phrase_usage[i];
         if (p->count == 0) continue;
         uint32_t age = (turn > p->last_turn) ? turn - p->last_turn : 0;
-        uint32_t drop = age / 20u;
+        uint32_t drop = age / 64u;
         if (drop > 0) {
             if (drop > p->count) p->count = 0;
             else p->count -= (uint16_t)drop;
@@ -109,6 +114,50 @@ static void trim_terminal_punctuation(char *s){
         s[--len] = 0;
 }
 
+static const char *render_memory_summary(Engine *eng, const MemoryNode *m,
+                                         char *buf, size_t n){
+    if (!m) return "";
+    if (m->memory_type == MEM_CACHE
+        && !strncmp(m->summary, "[reflection", 11)
+        && pe_reflection_render(eng, m, buf, (int)n) > 0) {
+        trim_terminal_punctuation(buf);
+        return buf;
+    }
+    if (!strncmp(m->summary, "[offscreen] ", 12))
+        return m->summary + 12;
+    {
+        const char *s = m->summary;
+        int stripped = 0;
+        while (s[0] == '['){
+            const char *close = strchr(s, ']');
+            if (!close || close[1] != ' ') break;
+            s = close + 2;
+            stripped = 1;
+        }
+        if (!strncmp(s, "Someone asked:", 14)){
+            snprintf(buf, n, "you asked:%s", s + 14);
+            return buf;
+        }
+        if (!strncmp(s, "the visitor asked:", 18)){
+            snprintf(buf, n, "you asked:%s", s + 18);
+            return buf;
+        }
+        if (!strncmp(s, "Someone said:", 13)){
+            snprintf(buf, n, "you said:%s", s + 13);
+            return buf;
+        }
+        if (!strncmp(s, "the visitor said:", 17)){
+            snprintf(buf, n, "you said:%s", s + 17);
+            return buf;
+        }
+        if (stripped){
+            snprintf(buf, n, "%s", s);
+            return buf;
+        }
+    }
+    return m->summary;
+}
+
 static void fill_text_slots(Engine *eng, const char *src, uint32_t slot_seed, char *out, size_t n){
     size_t pos = 0;
     const char *user_name = eng->relation.known_as[0] ? eng->relation.known_as : "my dear";
@@ -135,27 +184,13 @@ static void fill_text_slots(Engine *eng, const char *src, uint32_t slot_seed, ch
     if (cb && phrase_recently_used(eng, usage_id(PE_USAGE_MEMORY, cb->id), 6u))
         cb = NULL;
     if (cb) {
-        if (cb->memory_type == MEM_CACHE
-            && !strncmp(cb->summary, "[reflection", 11)
-            && pe_reflection_render(eng, cb, rendered_memory, (int)sizeof(rendered_memory)) > 0) {
-            trim_terminal_punctuation(rendered_memory);
-            mem_summary = rendered_memory;
-        } else {
-            mem_summary = cb->summary;
-        }
+        mem_summary = render_memory_summary(eng, cb, rendered_memory, sizeof(rendered_memory));
     } else if (eng->active_count > 0) {
         for (uint16_t i = 0; i < eng->active_count; ++i){
             const MemoryNode *a = pe_active_node(eng, eng->active_memories[i]);
             if (a && !phrase_recently_used(eng, usage_id(PE_USAGE_MEMORY, a->id), 6u)){
                 cb = a;
-                if (cb->memory_type == MEM_CACHE
-                    && !strncmp(cb->summary, "[reflection", 11)
-                    && pe_reflection_render(eng, cb, rendered_memory, (int)sizeof(rendered_memory)) > 0) {
-                    trim_terminal_punctuation(rendered_memory);
-                    mem_summary = rendered_memory;
-                } else {
-                    mem_summary = a->summary;
-                }
+                mem_summary = render_memory_summary(eng, a, rendered_memory, sizeof(rendered_memory));
                 break;
             }
         }
@@ -253,6 +288,35 @@ static int ends_with_question(const char *s){
     size_t len = strlen(s);
     while (len > 0 && isspace((unsigned char)s[len - 1])) len--;
     return len > 0 && s[len - 1] == '?';
+}
+
+static int contains_ci(const char *hay, const char *needle){
+    if (!hay || !needle || !*needle) return 0;
+    size_t nl = strlen(needle);
+    for (const char *p = hay; *p; ++p){
+        size_t i = 0;
+        while (i < nl && p[i]
+            && tolower((unsigned char)p[i]) == tolower((unsigned char)needle[i]))
+            ++i;
+        if (i == nl) return 1;
+    }
+    return 0;
+}
+
+static const char *topic_name_for_reply(const Engine *eng, uint16_t topic_id){
+    if (!eng || topic_id == 0xFFFF) return "the work";
+    for (uint32_t i = 0; i < eng->topics.count; ++i)
+        if (eng->topics.topics[i].id == topic_id)
+            return eng->topics.topics[i].name;
+    return "the work";
+}
+
+static const char *preferred_preoccupation(const Engine *eng){
+    if (!eng) return "the work";
+    for (int i = 0; i < PE_PREOCCUPATION_COUNT; ++i)
+        if (eng->identity.current_preoccupations[i][0])
+            return eng->identity.current_preoccupations[i];
+    return "the work";
 }
 
 /* v2: style transforms now consume the UtterancePlan in addition to voice_flags.
@@ -496,15 +560,23 @@ static const char *fallback_line(Engine *eng){
     int stim = eng->state.drive_values[PE_DRIVE_STIMULATION];
     int mood = eng->state.mood;
     const FallbackTable *fb = &eng->fallbacks;
+    const char (*pool)[PE_TEMPLATE_TEXT] = NULL;
+    uint8_t count = 0;
     if (stim > 700 && fb->tier1_count > 0) {
-        uint32_t r = persona_rng_u32(&eng->state) % fb->tier1_count;
-        return fb->tier1[r];
+        pool = fb->tier1; count = fb->tier1_count;
     } else if (mood >= 300 && fb->tier2_count > 0) {
-        uint32_t r = persona_rng_u32(&eng->state) % fb->tier2_count;
-        return fb->tier2[r];
+        pool = fb->tier2; count = fb->tier2_count;
     } else if (fb->tier3_count > 0) {
-        uint32_t r = persona_rng_u32(&eng->state) % fb->tier3_count;
-        return fb->tier3[r];
+        pool = fb->tier3; count = fb->tier3_count;
+    }
+    if (pool && count > 0){
+        uint32_t start = persona_rng_u32(&eng->state) % count;
+        for (uint8_t k = 0; k < count; ++k){
+            const char *line = pool[(start + k) % count];
+            uint32_t line_id = usage_id(PE_USAGE_FALLBACK, persona_hash(line));
+            if (!phrase_recently_used(eng, line_id, PE_FALLBACK_BLACKOUT_TURNS)) return line;
+        }
+        return pool[start];
     }
     return "...";
 }
@@ -515,17 +587,65 @@ static int render_reflection_callback(Engine *eng, char *out, size_t n){
     const MemoryNode *m = pe_active_node(eng, eng->plan.callback_memory);
     if (!m || m->memory_type != MEM_CACHE || strncmp(m->summary, "[reflection", 11))
         return 0;
+    /* Repeat-suppress on a callback-specific namespace, not the shared memory
+     * namespace: ordinary recall of this reflection must not block its first
+     * spoken surfacing. */
+    if (phrase_recently_used(eng, usage_id(PE_USAGE_CALLBACK, m->id), 10u))
+        return 0;
     char text[256];
     if (pe_reflection_render(eng, m, text, (int)sizeof(text)) <= 0) return 0;
     snprintf(out, n, "Ah. %s", text);
+    record_use(&eng->memory, usage_id(PE_USAGE_CALLBACK, m->id), eng->state.turn_count);
     record_use(&eng->memory, usage_id(PE_USAGE_MEMORY, m->id), eng->state.turn_count);
+    return 1;
+}
+
+static int render_direct_callback_question(Engine *eng, const char *input,
+                                           char *out, size_t n){
+    if (!eng || !input || !out || n == 0) return 0;
+    int asks_memory = contains_ci(input, "remember")
+                   || contains_ci(input, "discussed")
+                   || contains_ci(input, "earlier");
+    int asks_absence = contains_ci(input, "while i was gone")
+                    || contains_ci(input, "while you were gone")
+                    || contains_ci(input, "gone");
+    int asks_next = contains_ci(input, "next time");
+    if (!asks_memory && !asks_absence && !asks_next) return 0;
+
+    if (asks_absence){
+        snprintf(out, n, "In your absence, I kept returning to %s.",
+                 preferred_preoccupation(eng));
+        return 1;
+    }
+
+    if (asks_next){
+        const char *tn = topic_name_for_reply(eng,
+            eng->plan.target_topic != 0xFFFF ? eng->plan.target_topic : eng->primary_topic);
+        snprintf(out, n, "Next time, ask me about %s. I want to see where that thought leads you.", tn);
+        return 1;
+    }
+
+    for (uint16_t i = 0; i < eng->active_count; ++i){
+        const MemoryNode *m = pe_active_node(eng, eng->active_memories[i]);
+        if (!m) continue;
+        if (phrase_recently_used(eng, usage_id(PE_USAGE_MEMORY, m->id), 8u)) continue;
+        char rendered[256];
+        const char *txt = render_memory_summary(eng, m, rendered, sizeof(rendered));
+        if (!txt || !txt[0]) continue;
+        if (strlen(txt) < 20 || strstr(txt, ": Wh.")) continue;
+        snprintf(out, n, "I remember this: %s.", txt);
+        record_use(&eng->memory, usage_id(PE_USAGE_MEMORY, m->id), eng->state.turn_count);
+        return 1;
+    }
+
+    snprintf(out, n, "I remember the thread of it: %s, and your habit of circling the dangerous part.",
+             topic_name_for_reply(eng, eng->primary_topic));
     return 1;
 }
 
 /* ---------- main generator ---------- */
 
 int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
-    (void)input;
     eng->candidate_count = 0;
     eng->last_template_group = 0xFFFF;
     eng->last_template_intent = 0xFFFF;
@@ -533,6 +653,11 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
     if (eng->state.current_intent == PE_INTENT_PAUSE){
         if (n > 0) out[0] = 0;
         eng->last_template_intent = PE_INTENT_PAUSE;
+        return 0;
+    }
+
+    if (render_direct_callback_question(eng, input, out, n)){
+        eng->last_template_intent = PE_INTENT_REMINISCE;
         return 0;
     }
 
@@ -551,7 +676,15 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
                 "Maybe."
             };
             uint32_t r = persona_rng_u32(&eng->state) % (uint32_t)(sizeof(flaws)/sizeof(flaws[0]));
-            snprintf(out, n, "%s", flaws[r]);
+            for (uint32_t k = 0; k < (uint32_t)(sizeof(flaws)/sizeof(flaws[0])); ++k){
+                const char *line = flaws[(r + k) % (uint32_t)(sizeof(flaws)/sizeof(flaws[0]))];
+                uint32_t fid = usage_id(PE_USAGE_FALLBACK, persona_hash(line));
+                if (!phrase_recently_used(eng, fid, PE_FALLBACK_BLACKOUT_TURNS) || k + 1 == (uint32_t)(sizeof(flaws)/sizeof(flaws[0]))){
+                    snprintf(out, n, "%s", line);
+                    record_use(&eng->memory, fid, eng->state.turn_count);
+                    break;
+                }
+            }
             eng->last_template_intent = eng->state.current_intent;
             return 0;
         }
@@ -579,7 +712,7 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
                 }
             }
             if (!relevant) continue;
-            if (phrase_recently_used(eng, usage_id(PE_USAGE_TEMPLATE, t->id), 12u)) continue;
+            if (phrase_recently_used(eng, usage_id(PE_USAGE_TEMPLATE, t->id), PE_TEMPLATE_BLACKOUT_TURNS)) continue;
             eng->candidate_ids[eng->candidate_count] = (uint16_t)i;
             eng->candidate_scores[eng->candidate_count] = score_template(eng, t);
             if (prefer_group) {
@@ -702,6 +835,7 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
                         tn = eng->topics.topics[k].name; break;
                     }
                 if (!strcmp(tn, "gin")) continue;
+                if (contains_ci(buf, tn)) continue;
                 uint32_t cbid = usage_id(PE_USAGE_CALLBACK, eng->state.topic_momentum[i].topic_id);
                 if (phrase_recently_used(eng, cbid, 8u)) continue;
                 size_t L = strlen(buf);

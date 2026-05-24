@@ -377,6 +377,17 @@ The goal is anthropomorphic projection: the user feels the character has a
 center of gravity outside the chat window. Keep it psychologically active,
 not physically overclaiming.
 
+Design rule:
+
+```text
+Simulate only what can later be felt in conversation.
+```
+
+Internal agency should change what the character says, remembers, asks,
+avoids, or feels. It should not become an invisible world simulator. External
+actions belong behind explicit user permission; private-life ticks should stay
+inside the character's memory, wants, and relationship state.
+
 ## Multi-Interlocutor Readiness
 
 The user should eventually be only one person in the character's world, not the

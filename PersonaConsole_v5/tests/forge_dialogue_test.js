@@ -7,9 +7,9 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const FORGE  = path.join(__dirname, '..', '..', 'CartridgeForge', 'forge.html');
+const FORGE  = path.join(__dirname, '..', 'CartridgeForge', 'forge.html');
 const HOST   = path.join(__dirname, '..', 'build', 'persona_host');
-const OUTDIR = '/tmp/forge_dialogue_test';
+const OUTDIR = path.join(__dirname, 'tmp', 'forge_dialogue_test');
 const OUT    = OUTDIR + '/override.cart';
 
 if (fs.existsSync(OUTDIR)) {

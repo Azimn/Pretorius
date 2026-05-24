@@ -64,13 +64,17 @@ function ok(cond, msg){
   backdateRelation(2);
   const rows = await run([
     { method: 'chat', text: 'I am back.' },
-    { method: 'chat', text: 'What did you do while I was gone?' }
+    { method: 'chat', text: 'What did you do while I was gone?' },
+    { method: 'state' }
   ]);
   const first = rows.find(r => typeof r.reply === 'string');
+  const state = rows.find(r => Array.isArray(r.want_ages));
   ok(first && /In your absence, I occupied myself with/i.test(first.reply),
      `return after absence mentions autonomous offscreen activity: ${first && first.reply}`);
   ok(rows.some(r => typeof r.reply === 'string' && /bell-jar|weather and consequence|gin to last|work|lightning|Henry/i.test(r.reply)),
      'offscreen activity is tied to authored wants or preoccupations');
+  ok(state && state.want_ages.some(v => v >= 24),
+     `offscreen gap ages non-selected wants (${state && state.want_ages})`);
 
   if (process.exitCode) process.exit(process.exitCode);
   console.log('PASSED -- offscreen autonomy active');

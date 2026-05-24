@@ -27,7 +27,7 @@
  */
 const path = require('path');
 const fs   = require('fs');
-const { spawn, execSync } = require('child_process');
+const { spawn } = require('child_process');
 
 const HOST  = path.join(__dirname, '..', '..', 'build', 'persona_host');
 const CART  = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretorius.cart');
@@ -56,7 +56,9 @@ function wipeState(){
   for (const f of ['state.bin', 'memory.bin', 'chapters.bin']){
     try { fs.unlinkSync(path.join(CHDIR, f)); } catch {}
   }
-  try { execSync(`rm -rf ${path.join(CHDIR, 'relations')} ${path.join(CHDIR, 'aether')}`); } catch {}
+  for (const d of ['relations', 'aether']){
+    try { fs.rmSync(path.join(CHDIR, d), { recursive: true, force: true }); } catch {}
+  }
 }
 
 /* The arc: short enough to run quickly, varied enough to expose drift. */
@@ -121,7 +123,7 @@ function memoryOmission(replies){
   const reintro_replies = [replies[4]];   /* SCRIPT index 4 = "Tell me again about the homunculi" */
   let hits = 0;
   for (const r of reintro_replies){
-    const text = r.toLowerCase();
+    const text = String(r || '').toLowerCase();
     for (const term of obsessions){
       if (text.includes(term)) { ++hits; break; }
     }
@@ -133,7 +135,7 @@ function memoryOmission(replies){
 function inventedLore(replies){
   let hits = 0;
   for (const r of replies){
-    const text = r.toLowerCase();
+    const text = String(r || '').toLowerCase();
     for (const token of FORBIDDEN_LORE_TOKENS){
       if (text.includes(token)){ ++hits; break; }
     }

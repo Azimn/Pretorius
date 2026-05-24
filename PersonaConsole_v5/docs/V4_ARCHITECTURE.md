@@ -277,6 +277,7 @@ technically defensible, philosophically coherent.
 | `make forge_dialogue_test` | 2 | dialogue-pack overrides + today-states |
 | `make forge_archetypes_test` | 12 | all gallery archetypes build + reply |
 | `make forge_parsers_test` | 21 | ChatGPT/Claude/Gemini/character.ai/SillyTavern parsers |
+| `make inspector_test` | 10 | Cartridge Inspector parses V5, legacy V4 identity, and corrupt carts |
 
 ## Future commits
 

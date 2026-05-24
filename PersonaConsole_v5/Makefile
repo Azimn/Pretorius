@@ -125,7 +125,7 @@ RENDER_HEADERS := \
         plasticity_test plasticity_run lm_build aether_test aether_run \
         host host_run host_test \
         forge_cart_test forge_bundle_test forge_dialogue_test \
-        forge_archetypes_test forge_parsers_test
+        forge_archetypes_test forge_parsers_test inspector_test
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
      build/compile_cartridge build/compile_pretorius build/compile_kiki \
@@ -183,7 +183,6 @@ build/compile_cartridge: tools/compile_cartridge.c core/cartridge.c $(CORE_HEADE
 build/cartridge_lint: tools/cartridge_lint.c core/cartridge.c $(CORE_HEADERS)
 	$(CC) $(CFLAGS) tools/cartridge_lint.c core/cartridge.c -o $@ $(LDFLAGS)
 
-# Lint the shipped showcase carts.  Override CART=... to lint another.
 CART ?= profiles/pretorius/pretorius.cart
 lint: build/cartridge_lint
 	./build/cartridge_lint $(CART)
@@ -279,7 +278,7 @@ voice_run: voice_test character
 	./build/voice_test
 
 # ----- Forge end-to-end tests (node) -----
-forge_cart_test: build/persona_host
+forge_cart_test: build/persona_host build/cartridge_lint
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH — skipping"; exit 0; }
 	node tests/forge_cart_test.js
 forge_bundle_test: build/persona_host
@@ -289,12 +288,16 @@ forge_bundle_test: build/persona_host
 forge_dialogue_test: build/persona_host
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/forge_dialogue_test.js
-forge_archetypes_test: build/persona_host
+forge_archetypes_test: build/persona_host build/cartridge_lint
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/forge_archetypes_test.js
 forge_parsers_test:
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/forge_parsers_test.js
+
+inspector_test: profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/inspector_test.js
 
 # ----- V4 architecture-hardening tests -----
 build/v4_modules_test: tests/replay/v4_modules_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
@@ -395,6 +398,24 @@ v5_relationships_roster_run: build/persona_host profiles/pretorius/pretorius.car
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/relationships_roster_test.js
 
+build/offscreen_memory_render_test: tests/offscreen_memory_render_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) tests/offscreen_memory_render_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+v5_offscreen_memory_render_run: build/offscreen_memory_render_test
+	./build/offscreen_memory_render_test
+
+v5_milestone_catchup_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/milestone_catchup_test.js
+
+v5_legacy_identity_migration_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/legacy_identity_migration_test.js
+
+v4_adversarial_arcs: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/multi_arc_benchmark.js
+
 # V5: Recall-Coupled Plasticity.
 v4_recall_plasticity_run: build/persona_host
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
@@ -411,8 +432,10 @@ v4_firewall_run: build/persona_host
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/hallucination_firewall_test.js
 
-# Authoring lint: the shipped showcase carts must stay error-clean.
-# make stops on the first nonzero exit, so a regressed cart fails the build.
+v5_transcript_quality_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/transcript_quality_test.js
+
 lint_test: build/cartridge_lint profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart
 	./build/cartridge_lint profiles/pretorius/pretorius.cart
 	./build/cartridge_lint profiles/kiki/kiki.cart
@@ -433,7 +456,10 @@ v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v5_want_pull_run cartridge_stats v4_drift_run \
               v4_reflection_run v5_reflection_surface_run \
               v5_conversation_rhythm_run v5_offscreen_autonomy_run \
-              v5_relationships_roster_run v4_recall_plasticity_run \
+              v5_relationships_roster_run v5_offscreen_memory_render_run \
+              v5_milestone_catchup_run v5_legacy_identity_migration_run \
+              v4_adversarial_arcs v4_recall_plasticity_run inspector_test \
+              v5_transcript_quality_run \
               v4_firewall_run lint_test
 	@echo "--- V4 tests: green ---"
 

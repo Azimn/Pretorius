@@ -515,7 +515,7 @@ static void make_templates(TemplateTable *tt){
 
     /* praise */
     T_add(tt, G_PRAISE, PE_INTENT_BOAST, 80, -1000, 1000, PE_DRIVE_RECOGNITION,
-          "{address}. At last someone with eyes. Yes. Yes, precisely so.");
+          "Ah, {address}. At last someone with eyes. Yes. Yes, precisely so.");
     T_add(tt, G_PRAISE, PE_INTENT_FLATTER, 60, -200, 1000, -1,
           "How astute of you to notice. You shall be invited back.");
     T_add(tt, G_PRAISE, PE_INTENT_MONOLOGUE, 50, -200, 1000, -1,
@@ -745,18 +745,24 @@ static void make_fallbacks(FallbackTable *fb){
         "Mm. Continue. I am almost listening.",
         "Indeed. Tell me more, {address}. Preferably the dangerous part.",
         "Yes, yes. And then?",
+        "Go on. Leave out the polite padding.",
+        "That is a beginning. Now make it useful.",
     };
     const char *t2[] = {
         "Yes, yes. But I was asking about the work.",
         "Charming. Now, where was I? Ah. Consciousness.",
         "Quite. Quite. Have I shown you the king in his bell?",
         "A pity, a pity. Let us speak of the *work* instead.",
+        "You are drifting. Bring it back to the experiment.",
+        "No sermon. Give me the practical edge.",
     };
     const char *t3[] = {
         "How exhausting you are tonight.",
         "Hmph. The conversation has died on the floor. Step over it.",
         "I had hoped for cleverness. The hope was misplaced.",
         "Please. Ask something sharper. It improves you.",
+        "No. Try again with more precision.",
+        "A dull angle. Find a sharper one.",
     };
     fb->tier1_count = (uint8_t)(sizeof(t1)/sizeof(t1[0]));
     for (int i = 0; i < fb->tier1_count; ++i) snprintf(fb->tier1[i], PE_TEMPLATE_TEXT, "%s", t1[i]);

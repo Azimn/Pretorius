@@ -261,6 +261,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"unresolved_count\":%u,"
         "\"turns_since_question\":%u,"
         "\"last_reply_had_question\":%u,"
+        "\"want_ages\":[%u,%u,%u],"
         "\"disposition\":%d,"
         "\"user_id\":\"%s\","
         "\"schema\":{\"trustworthy\":%d,\"hostile\":%d,\"intimate\":%d,"
@@ -283,6 +284,9 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         (unsigned)eng->state.unresolved_count,
         (unsigned)eng->state.turns_since_question,
         (unsigned)eng->state.last_reply_had_question,
+        (unsigned)eng->state.want_turns_since_engaged[0],
+        (unsigned)eng->state.want_turns_since_engaged[1],
+        (unsigned)eng->state.want_turns_since_engaged[2],
         eng->relation.disposition,
         s->user_id,
         (int)eng->schema.slot[SCHEMA_USER_TRUSTWORTHY],

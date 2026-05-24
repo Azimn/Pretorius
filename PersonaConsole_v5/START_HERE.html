@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PersonaConsole V5</title>
+<style>
+:root{
+  --bg:#0e0e10; --panel:#1a1a1d; --panel-2:#232328; --border:#2a2a2e;
+  --text:#e8e6e3; --muted:#8a8a90; --accent:#d4a574; --radius:10px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:920px; margin:0 auto; padding:34px 22px 60px}
+header{border-bottom:1px solid var(--border); padding-bottom:22px; margin-bottom:24px}
+h1{font-size:30px; margin:0 0 6px; color:var(--accent); font-weight:650}
+p{color:var(--muted); margin:0}
+.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px}
+.card{
+  display:block; color:inherit; text-decoration:none; background:var(--panel);
+  border:1px solid var(--border); border-radius:var(--radius); padding:22px;
+}
+.card:hover{border-color:var(--accent); background:var(--panel-2)}
+.card h2{font-size:18px; margin:0 0 8px; font-weight:600}
+.card p{font-size:14px}
+.steps{margin-top:26px; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:20px}
+.steps h2{font-size:16px; margin:0 0 10px; color:var(--muted); font-weight:600}
+ol{margin:0; padding-left:20px}
+li{margin:6px 0}
+code{color:var(--accent); font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>PersonaConsole V5</h1>
+    <p>Ownable deterministic characters: author locally, verify locally, run locally.</p>
+  </header>
+
+  <section class="grid">
+    <a class="card" href="CartridgeForge/forge.html">
+      <h2>Build A Character</h2>
+      <p>Open the Cartridge Forge to create a V5 cartridge, import chat logs, build voice data, and export a runnable cart.</p>
+    </a>
+    <a class="card" href="CartridgeInspector/cartridge_inspector.html">
+      <h2>Inspect A Cartridge</h2>
+      <p>Drop in any .cart file to check identity format, memories, dialogue coverage, and V5 proactivity hooks.</p>
+    </a>
+    <a class="card" href="docs/CHARACTER_AUTHORING_GUIDE.md">
+      <h2>Authoring Guide</h2>
+      <p>Read the practical guide for making characters feel less repetitive, more coherent, and more alive.</p>
+    </a>
+  </section>
+
+  <section class="steps">
+    <h2>Recommended Flow</h2>
+    <ol>
+      <li>Open <code>Cartridge Forge</code> and choose an archetype or import a chat history.</li>
+      <li>Fill the V5 internal-life fields: wants, preoccupations, resumption lines, and milestones.</li>
+      <li>Use the Export preflight panel until hard errors are gone.</li>
+      <li>Download the cart or bundle.</li>
+      <li>Optionally verify the cart with <code>Cartridge Inspector</code>.</li>
+      <li>Run it with <code>./build/persona_host my_character.cart</code>.</li>
+    </ol>
+  </section>
+</main>
+</body>
+</html>

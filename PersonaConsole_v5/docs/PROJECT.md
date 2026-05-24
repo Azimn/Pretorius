@@ -45,6 +45,15 @@ The project's niche is **persistent synthetic identity under
 constrained compute**. Not the smartest AI. Not the most agentic. The
 one that remains recognizably itself over time.
 
+The agency boundary is now more precise: **internal agency is core;
+unsupervised external agency is out of scope.** A character may want,
+initiate, remember, reflect, simulate private offscreen preoccupations,
+and change its relationship posture. It may not call tools, browse,
+modify files, send messages, control devices, or affect the outside
+world unless a future interface adds explicit user approval around that
+external action. Internal life belongs in Layer 1; external tool use is
+a permissioned shell around the character, not the character itself.
+
 ---
 
 ## Architecture Overview
@@ -294,9 +303,9 @@ roleplay prompts. We are CONSTRAINING the model, not immersing it.
 
 ## Project Components
 
-The project is three components in one repository:
+The project is four components in one repository:
 
-### Component 1: PersonaConsole engine  *(this folder, `PersonaConsole_v4/`)*
+### Component 1: PersonaConsole engine  *(`./`)*
 
 Deterministic C99 cognitive runtime. <10 ms/turn target, <300 KB/character
 on disk, no malloc in `process_input`. Character-agnostic — engine
@@ -309,7 +318,7 @@ Wrapper exposing the engine via:
 - JSON-over-stdio for scripting and tests
 - C FFI shared library (`libpersona_host.so`) for Unity / Unreal / Godot
 
-### Component 3: CartridgeForge  *(`../CartridgeForge/forge.html`)*
+### Component 3: CartridgeForge  *(`CartridgeForge/forge.html`)*
 
 Browser-based character authoring tool. Single self-contained HTML
 file. No install, no account, no upload. Produces `.cart` and
@@ -327,6 +336,18 @@ imported chat logs, voice LM corpus.
 
 Import parsers: ChatGPT, Claude (Anthropic export), Gemini (API +
 Google Takeout), character.ai, SillyTavern, generic JSONL.
+
+V5 authoring surface: wants, current preoccupations, resumption lines,
+relationship milestones, Forge-side preflight, and `cartridge_lint`
+roundtrip tests for exported carts and all gallery archetypes.
+
+### Component 4: CartridgeInspector  *(`CartridgeInspector/cartridge_inspector.html`)*
+
+Browser-based read-only cartridge checker. Drop a `.cart` onto the page
+to inspect identity format, topic coverage, memories, voice data, and V5
+proactivity hooks. It mirrors the high-value `cartridge_lint` checks
+without requiring a terminal, so users can verify cartridges they receive
+from someone else before installing them.
 
 ---
 
@@ -461,6 +482,8 @@ threads forward, and create deterministic internal self-events after long
 absences. These self-events are deliberately non-agentic: they do not call
 outside services, manipulate the world, or learn new identity. They update the
 character's memory and return posture so the user feels an ongoing inner life.
+Long gaps also age unsatisfied character wants, exposed in `/state` as
+`want_ages`, so tools and tests can see private-life pressure building.
 
 The host also exposes a relationship roster hook. Each interlocutor already has
 separate relation files; the new endpoint makes that surface inspectable for
@@ -508,6 +531,11 @@ future multi-user and multi-character scenes.
 | `make v5_conversation_rhythm_run` | 1+ | Long monologue rhythm eventually yields a character question |
 | `make v5_offscreen_autonomy_run` | 2 | Long absence produces deterministic private-life activity |
 | `make v5_relationships_roster_run` | 5 | Multiple interlocutors persist as distinct relationships |
+| `make v5_offscreen_memory_render_run` | 2 | Offscreen memory markers do not leak into dialogue |
+| `make v5_milestone_catchup_run` | 2 | Missed relationship milestones surface on later returns |
+| `make v5_legacy_identity_migration_run` | 2 | V4-sized identity sections load safely in V5 |
+| `make v4_adversarial_arcs` | 2 arcs | Betrayal/grudge and long-absence recall trajectories |
+| `make lint_test` | 2 carts | Static authoring lint for shipped showcase cartridges |
 
 ### Forge — end-to-end browser-to-engine
 
@@ -516,8 +544,14 @@ future multi-user and multi-character scenes.
 | `make forge_cart_test` | Forge JS → .cart → persona_host roundtrip |
 | `make forge_bundle_test` | Forge bundle.zip (cart + AETHER WAL) → deep-memory cold-fallback |
 | `make forge_dialogue_test` | Custom dialogue pack overrides + custom today-states |
-| `make forge_archetypes_test` | All 12 gallery archetypes build + reply |
+| `make forge_archetypes_test` | All 12 gallery archetypes build, lint, and reply |
 | `make forge_parsers_test` | 21 parser assertions (ChatGPT/Claude/Gemini/character.ai/SillyTavern) |
+
+### Inspector — cartridge verification
+
+| Test | Coverage |
+|---|---|
+| `make inspector_test` | Inspector JS parses V5, V4 identity, and corrupt carts |
 
 ### Aggregate
 
@@ -531,7 +565,7 @@ make test kiki_test     # v3.x sanity REPL scripts
 ## Build & Run
 
 ```bash
-cd PersonaConsole_v4
+cd PersonaConsole_v5
 make                              # builds all libs, tools, profiles, cartridges
 make host                         # builds persona_host + libpersona_host.so
 
@@ -570,12 +604,15 @@ repetition-control practices, and acceptance tests, see
 
 The expected path is the Forge:
 
-1. Open `../CartridgeForge/forge.html` in any browser.
+0. For a non-technical entry point, open `START_HERE.html`.
+1. Open `CartridgeForge/forge.html` in any browser.
 2. Pick an archetype OR import a chat log to seed identity.
-3. Edit identity / voice / drives / memories / banks / dialogue tables / today states.
+3. Edit identity / voice / V5 internal life / drives / memories / banks / dialogue tables / today states.
 4. Paste training text in the LM tab, click **Build LM**.
-5. Click **Download bundle.zip** (or `.cart` only).
-6. Drop the bundle next to `profiles/<your_char>/` and `./build/persona_host my_character.cart`.
+5. Use the Export preflight panel to fix hard errors.
+6. Click **Download bundle.zip** (or `.cart` only).
+7. Optionally open `CartridgeInspector/cartridge_inspector.html` and drop the cart there.
+8. Drop the bundle next to `profiles/<your_char>/` and run `./build/persona_host my_character.cart`.
 
 The Forge handles binary compilation in-browser. No C tools, no
 compile step, no terminal. The output is byte-identical to what
@@ -583,6 +620,19 @@ compile step, no terminal. The output is byte-identical to what
 
 For programmatic authoring, see `tools/compile_pretorius.c` as a
 template.
+
+Before publishing a cartridge, run the static authoring lint:
+
+```bash
+make lint CART=profiles/pretorius/pretorius.cart
+make lint_test
+```
+
+`tools/cartridge_lint.c` reads only authored cartridge/profile sections. It
+does not open the runtime engine and does not create `state.bin`, `relations/`,
+or `aether/`. It catches dangling topics, missing V5 proactivity hooks, unknown
+template slots, missing voice data, and other authoring problems that compile
+but make a character feel inert.
 
 ---
 

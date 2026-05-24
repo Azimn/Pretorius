@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const FORGE = path.join(__dirname, '..', '..', 'CartridgeForge', 'forge.html');
+const FORGE = path.join(__dirname, '..', 'CartridgeForge', 'forge.html');
 const html = fs.readFileSync(FORGE, 'utf-8');
 const m = html.match(/<script>([\s\S]*?)<\/script>/);
 let js = m[1];

@@ -6,7 +6,6 @@ build/
 profiles/*/state.bin
 profiles/*/memory.bin
 profiles/*/chapters.bin
-profiles/*/reflections.bin
 profiles/*/relations/
 profiles/*/aether/
 

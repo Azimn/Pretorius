@@ -8,9 +8,22 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const FORGE = path.join(__dirname, '..', '..', 'CartridgeForge', 'forge.html');
+const FORGE = path.join(__dirname, '..', 'CartridgeForge', 'forge.html');
 const HOST  = path.join(__dirname, '..', 'build', 'persona_host');
-const OUT   = '/tmp/forge_arch_test.cart';
+const LINT_BASE = path.join(__dirname, '..', 'build', 'cartridge_lint');
+const LINT  = fs.existsSync(LINT_BASE) ? LINT_BASE : LINT_BASE + '.exe';
+const OUT   = path.join(__dirname, 'tmp', 'forge_arch_test.cart');
+fs.mkdirSync(path.dirname(OUT), { recursive: true });
+
+function wipeCartState(cartPath){
+  const dir = path.dirname(cartPath);
+  for (const f of ['state.bin', 'memory.bin', 'chapters.bin']){
+    try { fs.unlinkSync(path.join(dir, f)); } catch {}
+  }
+  for (const d of ['relations', 'aether']){
+    try { fs.rmSync(path.join(dir, d), { recursive: true, force: true }); } catch {}
+  }
+}
 
 const html = fs.readFileSync(FORGE, 'utf-8');
 const m = html.match(/<script>([\s\S]*?)<\/script>/);
@@ -50,18 +63,21 @@ global.alert   = () => {};
 
 const exposeNames = [
   'ARCHETYPES','defaultCharacter','applyArchetype','buildCart',
-  'LMBuilder','PE_LM_DEFAULT_ORDER','GENERIC_TEMPLATES',
+  'internalLifeForSeed','LMBuilder','PE_LM_DEFAULT_ORDER','GENERIC_TEMPLATES',
 ];
 js += `\n;module.exports = { ${exposeNames.map(n => n + ':typeof ' + n + '!=="undefined"?' + n + ':null').join(',')} };`;
 const moduleObj = { exports: {} };
 new Function('module', js).call(global, moduleObj);
 const {
   ARCHETYPES, defaultCharacter, applyArchetype, buildCart,
-  LMBuilder, PE_LM_DEFAULT_ORDER, GENERIC_TEMPLATES,
+  internalLifeForSeed, LMBuilder, PE_LM_DEFAULT_ORDER, GENERIC_TEMPLATES,
 } = moduleObj.exports;
 
 if (!fs.existsSync(HOST)){
   console.error('persona_host not built'); process.exit(2);
+}
+if (!fs.existsSync(LINT)){
+  console.error('cartridge_lint not built'); process.exit(2);
 }
 
 console.log(`--- found ${ARCHETYPES.length} archetypes`);
@@ -82,6 +98,8 @@ for (const a of ARCHETYPES){
   ch.identity.flourishes = [...a.seed.flourishes].concat(['','','','']).slice(0,4);
   ch.identity.expansions = [...a.seed.expansions].concat(['','','','']).slice(0,4);
   ch.identity.core_memories = a.seed.memories.map(m => ({...m}));
+  const life = internalLifeForSeed && internalLifeForSeed(a.seed);
+  if (life) Object.assign(ch.identity, life);
   if (a.seed.templates && a.seed.templates.length){
     ch.dialoguePack = {
       templates: GENERIC_TEMPLATES.concat(a.seed.templates.map(t => Object.assign({}, t))),
@@ -101,7 +119,15 @@ for (const a of ARCHETYPES){
     fails++; continue;
   }
   fs.writeFileSync(OUT, Buffer.from(cart));
+  const lint = spawnSync(LINT, [OUT], { encoding: 'utf-8', timeout: 8000 });
+  if (lint.status !== 0 || !lint.stdout.includes('0 error(s), 0 warning(s)')){
+    console.error(`[${a.id}] FAIL cartridge_lint`);
+    console.error(lint.stdout);
+    console.error(lint.stderr);
+    fails++; continue;
+  }
 
+  wipeCartState(OUT);
   const res = spawnSync(HOST, [OUT, '--stdio'], {
     input: '{"method":"chat","text":"hello"}\n{"method":"chat","text":"who are you?"}\n{"method":"close"}\n',
     encoding: 'utf-8', timeout: 8000,

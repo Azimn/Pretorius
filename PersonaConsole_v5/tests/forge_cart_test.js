@@ -10,9 +10,22 @@ const fs   = require('fs');
 const path = require('path');
 const { execSync, spawnSync } = require('child_process');
 
-const FORGE = path.join(__dirname, '..', '..', 'CartridgeForge', 'forge.html');
+const FORGE = path.join(__dirname, '..', 'CartridgeForge', 'forge.html');
 const HOST  = path.join(__dirname, '..', 'build', 'persona_host');
-const OUT   = '/tmp/forge_test.cart';
+const LINT_BASE = path.join(__dirname, '..', 'build', 'cartridge_lint');
+const LINT  = fs.existsSync(LINT_BASE) ? LINT_BASE : LINT_BASE + '.exe';
+const OUT   = path.join(__dirname, 'tmp', 'forge_test.cart');
+fs.mkdirSync(path.dirname(OUT), { recursive: true });
+
+function wipeCartState(cartPath){
+  const dir = path.dirname(cartPath);
+  for (const f of ['state.bin', 'memory.bin', 'chapters.bin']){
+    try { fs.unlinkSync(path.join(dir, f)); } catch {}
+  }
+  for (const d of ['relations', 'aether']){
+    try { fs.rmSync(path.join(dir, d), { recursive: true, force: true }); } catch {}
+  }
+}
 
 console.log('--- extracting JS from', FORGE);
 const html = fs.readFileSync(FORGE, 'utf-8');
@@ -59,6 +72,7 @@ global.alert   = () => {};
 /* The forge script declares functions/consts at top-level; expose them. */
 const exposeNames = [
   'ARCHETYPES','defaultCharacter','applyArchetype','buildCart',
+  'internalLifeForSeed','preflightCharacter',
   'exportObject','CH','LMBuilder','LMRuntime','PE_LM_DEFAULT_ORDER',
   'LM_SAMPLE_PRETORIUS','LM_SAMPLE_KIKI'
 ];
@@ -75,7 +89,8 @@ try {
   process.exit(2);
 }
 
-const { ARCHETYPES, defaultCharacter, buildCart,
+const { ARCHETYPES, defaultCharacter, buildCart, internalLifeForSeed,
+        preflightCharacter,
         LMBuilder, LMRuntime, PE_LM_DEFAULT_ORDER,
         LM_SAMPLE_PRETORIUS } = moduleObj.exports;
 if (!buildCart){ console.error('buildCart not exported'); process.exit(2); }
@@ -101,6 +116,23 @@ ch.identity.taboos     = [...seed.taboos];
 ch.identity.flourishes = [...seed.flourishes].concat(['','','','']).slice(0,4);
 ch.identity.expansions = [...seed.expansions].concat(['','','','']).slice(0,4);
 ch.identity.core_memories = seed.memories.map(m => ({ ...m }));
+const life = internalLifeForSeed && internalLifeForSeed(seed);
+if (life) Object.assign(ch.identity, life);
+const preflight = preflightCharacter(ch);
+console.log(`preflight: ${preflight.errors} error(s), ${preflight.warnings} warning(s)`);
+if (preflight.errors || preflight.warnings){
+  console.error('FAIL: Forge archetype preflight found issues:', preflight.issues);
+  process.exit(1);
+}
+const broken = defaultCharacter();
+broken.name = 'Broken Want';
+broken.identity.wants = [{ name: 'want without topic', target_topic: '', target_class: 0, intensity: 100 }];
+const brokenPreflight = preflightCharacter(broken);
+if (!brokenPreflight.errors){
+  console.error('FAIL: preflight did not catch dangling want target');
+  process.exit(1);
+}
+console.log('preflight negative case catches dangling want target');
 
 /* --- BUILD AN LM in the browser-equivalent path, embed in cart --- */
 console.log('--- building LM in JS from Pretorian sample corpus');
@@ -121,12 +153,33 @@ console.log(`cart bytes: ${cart.length} (LM included)`);
 fs.writeFileSync(OUT, Buffer.from(cart));
 console.log('wrote', OUT);
 
+if (!fs.existsSync(LINT)){
+  console.error('cartridge_lint not built - run `make build/cartridge_lint` first');
+  process.exit(2);
+}
+console.log('--- linting Forge-produced cart');
+const lint = spawnSync(LINT, [OUT], {
+  encoding: 'utf-8',
+  timeout: 10000,
+});
+console.log('--- lint stdout ---'); console.log(lint.stdout);
+console.log('--- lint stderr ---'); console.log(lint.stderr);
+if (lint.status !== 0){
+  console.error('FAIL: cartridge_lint exited with', lint.status);
+  process.exit(1);
+}
+if (!lint.stdout.includes('0 error(s), 0 warning(s)')){
+  console.error('FAIL: Forge-produced cart has lint warnings/errors');
+  process.exit(1);
+}
+
 /* Now ask persona_host to load it. */
 if (!fs.existsSync(HOST)){
   console.error('persona_host not built — run `make host` first');
   process.exit(2);
 }
 console.log('--- launching persona_host ' + OUT + ' --stdio');
+wipeCartState(OUT);
 const res = spawnSync(HOST, ['--stdio', OUT], {
   input: '{"method":"chat","text":"Hello?"}\n{"method":"close"}\n',
   encoding: 'utf-8',

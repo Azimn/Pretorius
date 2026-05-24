@@ -13,10 +13,10 @@ const fs   = require('fs');
 const path = require('path');
 const { execSync, spawnSync } = require('child_process');
 
-const FORGE  = path.join(__dirname, '..', '..', 'CartridgeForge', 'forge.html');
+const FORGE  = path.join(__dirname, '..', 'CartridgeForge', 'forge.html');
 const HOST   = path.join(__dirname, '..', 'build', 'persona_host');
-const OUTDIR = '/tmp/forge_bundle_test';
-const ZIPOUT = '/tmp/forge_bundle_test.zip';
+const OUTDIR = path.join(__dirname, 'tmp', 'forge_bundle_test');
+const ZIPOUT = path.join(__dirname, 'tmp', 'forge_bundle_test.zip');
 
 if (fs.existsSync(OUTDIR)) execSync(`rm -rf ${OUTDIR}`);
 if (fs.existsSync(ZIPOUT)) fs.unlinkSync(ZIPOUT);

@@ -190,9 +190,10 @@ static void pe_prime_unprompted_memory(Engine *eng){
 static void pe_queue_resumption(Engine *eng, uint32_t real_gap_seconds){
     if (!eng || eng->relation.last_contact == 0) return;
     int bucket = -1;
-    if (real_gap_seconds < 7200u) bucket = 0;
-    else if (real_gap_seconds < 86400u) bucket = 1;
-    else if (real_gap_seconds < 7u * 86400u) bucket = 2;
+    if (real_gap_seconds < 7200u) bucket = -1;
+    else if (real_gap_seconds < 86400u) bucket = 0;
+    else if (real_gap_seconds < 7u * 86400u) bucket = 1;
+    else if (real_gap_seconds < 30u * 86400u) bucket = 2;
     else bucket = 3;
     if (bucket >= 0 && bucket < PE_RESUMPTION_BUCKETS
         && eng->identity.resumption_lines[bucket][0]){
@@ -204,17 +205,19 @@ static void pe_queue_resumption(Engine *eng, uint32_t real_gap_seconds){
         uint32_t now_s = (uint32_t)time(NULL);
         uint32_t age_days = now_s > eng->relation.first_contact
                           ? (now_s - eng->relation.first_contact) / 86400u : 0u;
+        int milestone_idx = -1;
         for (int i = 0; i < PE_MILESTONE_COUNT && i < 8; ++i){
             if (eng->identity.milestone_days[i] == 0) continue;
-            if (age_days == eng->identity.milestone_days[i]
+            if (age_days >= eng->identity.milestone_days[i]
                 && !(eng->state.milestones_seen & (1u << i))
-                && eng->identity.milestone_lines[i][0]){
-                eng->state.milestones_seen |= (uint8_t)(1u << i);
-                snprintf(eng->state.resumption_pending,
-                         sizeof(eng->state.resumption_pending),
-                         "%s", eng->identity.milestone_lines[i]);
-                break;
-            }
+                && eng->identity.milestone_lines[i][0])
+                milestone_idx = i;
+        }
+        if (milestone_idx >= 0){
+            eng->state.milestones_seen |= (uint8_t)(1u << milestone_idx);
+            snprintf(eng->state.resumption_pending,
+                     sizeof(eng->state.resumption_pending),
+                     "%s", eng->identity.milestone_lines[milestone_idx]);
         }
     }
 }
@@ -266,6 +269,7 @@ static void pe_append_offscreen_resumption(Engine *eng, const char *line){
 
 static void pe_offscreen_autonomy_tick(Engine *eng, uint32_t real_gap_seconds){
     if (!eng || real_gap_seconds < 6u * 3600u) return;
+    uint32_t gap_hours = real_gap_seconds / 3600u;
 
     const CharacterWant *best = NULL;
     uint16_t best_idx = 0;
@@ -273,9 +277,11 @@ static void pe_offscreen_autonomy_tick(Engine *eng, uint32_t real_gap_seconds){
     for (uint16_t i = 0; i < PE_WANT_COUNT; ++i){
         const CharacterWant *w = &eng->identity.wants[i];
         if (!w->name[0]) continue;
-        uint32_t age = eng->state.want_turns_since_engaged[i] + real_gap_seconds / 3600u;
+        uint32_t age = eng->state.want_turns_since_engaged[i] + gap_hours;
+        eng->state.want_turns_since_engaged[i] =
+            age > 0xFFFFu ? 0xFFFFu : (uint16_t)age;
         uint32_t intensity = w->intensity ? w->intensity : 100u;
-        uint32_t score = age * intensity;
+        uint32_t score = (uint32_t)eng->state.want_turns_since_engaged[i] * intensity;
         if (score > best_score){
             best_score = score;
             best = w;

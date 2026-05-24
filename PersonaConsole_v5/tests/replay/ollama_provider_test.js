@@ -17,7 +17,7 @@
 const net = require('net');
 const path = require('path');
 const fs = require('fs');
-const { spawn, execSync } = require('child_process');
+const { spawn } = require('child_process');
 
 const HOST  = path.join(__dirname, '..', '..', 'build', 'persona_host');
 const CART  = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretorius.cart');
@@ -30,7 +30,9 @@ function wipeState(){
   for (const f of ['state.bin', 'memory.bin', 'chapters.bin']){
     try { fs.unlinkSync(path.join(CHDIR, f)); } catch {}
   }
-  try { execSync(`rm -rf ${path.join(CHDIR, 'relations')} ${path.join(CHDIR, 'aether')}`); } catch {}
+  for (const d of ['relations', 'aether']){
+    try { fs.rmSync(path.join(CHDIR, d), { recursive: true, force: true }); } catch {}
+  }
 }
 
 /* Build an Ollama-mock TCP server.  Records every seed it sees. */
