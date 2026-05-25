@@ -10,7 +10,13 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 
 const ROOT = path.join(__dirname, '..', '..');
-const HOST = path.join(ROOT, 'build', 'persona_host');
+function exePath(base){
+  if (fs.existsSync(base)) return base;
+  if (process.platform === 'win32' && fs.existsSync(`${base}.exe`)) return `${base}.exe`;
+  return base;
+}
+
+const HOST = exePath(path.join(ROOT, 'build', 'persona_host'));
 const DEFAULT_CART = path.join(ROOT, 'profiles', 'pretorius', 'pretorius.cart');
 const ARC_DIR = path.join(__dirname, 'arcs');
 const REL_LAST_CONTACT_OFFSET = 8;
@@ -68,13 +74,14 @@ function chatRows(commands){
     proc.stdout.on('data', d => stdout += d.toString('utf8'));
     proc.stderr.on('data', d => stderr += d.toString('utf8'));
     proc.on('error', reject);
+    const killTimer = setTimeout(() => proc.kill('SIGKILL'), 45000);
     proc.on('close', status => {
+      clearTimeout(killTimer);
       if (status !== 0) reject(new Error(`host exited ${status}: ${stderr}`));
       else resolve(stdout.split('\n').filter(Boolean).map(l => JSON.parse(l)));
     });
     proc.stdin.write(stdin);
     proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 45000);
   });
 }
 

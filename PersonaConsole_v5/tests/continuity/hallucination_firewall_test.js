@@ -21,7 +21,13 @@ const path = require('path');
 const fs = require('fs');
 const { spawn, execSync } = require('child_process');
 
-const HOST = path.join(__dirname, '..', '..', 'build', 'persona_host');
+function exePath(base){
+  if (fs.existsSync(base)) return base;
+  if (process.platform === 'win32' && fs.existsSync(`${base}.exe`)) return `${base}.exe`;
+  return base;
+}
+
+const HOST = exePath(path.join(__dirname, '..', '..', 'build', 'persona_host'));
 const CART = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretorius.cart');
 const CHDIR = path.dirname(CART);
 
