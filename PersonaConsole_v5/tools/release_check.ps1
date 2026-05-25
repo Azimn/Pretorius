@@ -62,6 +62,8 @@ Require-File (Join-Path $DemoDir "Run_Kiki.cmd")
 Require-File (Join-Path $DemoDir "Stop_Server.cmd")
 Require-File (Join-Path $DemoDir "Collect_Diagnostics.cmd")
 Require-File (Join-Path $DemoDir "Collect_Diagnostics.ps1")
+Require-File (Join-Path $DemoDir "Reset_Demo_State.cmd")
+Require-File (Join-Path $DemoDir "Reset_Demo_State.ps1")
 Require-File (Join-Path $DemoDir "persona_host.exe")
 Require-File (Join-Path $DemoDir "cygwin1.dll")
 Require-File (Join-Path $DemoDir "cyggcc_s-seh-1.dll")
@@ -86,6 +88,9 @@ if ($readme -notmatch "No GPU" -or $readme -notmatch "internet") {
 if ($readme -notmatch "Collect_Diagnostics") {
   Fail "README_FIRST.txt must mention diagnostics collection"
 }
+if ($readme -notmatch "Reset_Demo_State") {
+  Fail "README_FIRST.txt must mention resetting local state"
+}
 
 $testerGuide = Get-Content -LiteralPath (Join-Path $DemoDir "TESTER_GUIDE.md") -Raw
 if ($testerGuide -notmatch "Most alive moment" -or $testerGuide -notmatch "Most fake moment" -or $testerGuide -notmatch "Pretorius felt") {
@@ -97,7 +102,7 @@ if ($testerGuideHtml -notmatch "Most alive moment" -or $testerGuideHtml -notmatc
 }
 
 $start = Get-Content -LiteralPath (Join-Path $DemoDir "START_HERE.html") -Raw
-if ($start -notmatch "Run_Pretorius\.cmd" -or $start -notmatch "Forge/forge\.html" -or $start -notmatch "Inspector/cartridge_inspector\.html" -or $start -notmatch "TESTER_GUIDE\.html" -or $start -notmatch "Collect_Diagnostics\.cmd") {
+if ($start -notmatch "Run_Pretorius\.cmd" -or $start -notmatch "Forge/forge\.html" -or $start -notmatch "Inspector/cartridge_inspector\.html" -or $start -notmatch "TESTER_GUIDE\.html" -or $start -notmatch "Collect_Diagnostics\.cmd" -or $start -notmatch "Reset_Demo_State\.cmd") {
   Fail "START_HERE.html does not expose first-run, Forge, and Inspector paths"
 }
 
@@ -155,6 +160,22 @@ try {
   if ($diag -match "Good morning, Doctor") {
     Fail "diagnostics output appears to include chat text"
   }
+
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $DemoDir "Reset_Demo_State.ps1") | Out-Null
+  if (Test-Path -LiteralPath $diagPath) {
+    Fail "reset script did not remove diagnostics output"
+  }
+  foreach ($stateFile in @("state.bin", "memory.bin", "chapters.bin", "reflections.bin")) {
+    if (Test-Path -LiteralPath (Join-Path $charDir $stateFile)) {
+      Fail "reset script did not remove $stateFile"
+    }
+  }
+  foreach ($stateDir in @("aether", "relations")) {
+    if (Test-Path -LiteralPath (Join-Path $charDir $stateDir)) {
+      Fail "reset script did not remove $stateDir"
+    }
+  }
+  Require-File $cart
 
   $proc.Refresh()
   $workingSetMb = [math]::Round($proc.WorkingSet64 / 1MB, 2)

@@ -172,6 +172,42 @@ Write-Host "Wrote $out"
 '@
 Write-Utf8NoBom (Join-Path $OutDir "Collect_Diagnostics.ps1") $diagScript
 
+$resetScript = @'
+$ErrorActionPreference = "Stop"
+$Here = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location -LiteralPath $Here
+
+$pidFile = Join-Path $Here ".persona_host.pid"
+if (Test-Path -LiteralPath $pidFile) {
+  $pidValue = Get-Content -LiteralPath $pidFile | Select-Object -First 1
+  if ($pidValue) {
+    Stop-Process -Id ([int]$pidValue) -Force -ErrorAction SilentlyContinue
+  }
+  Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
+}
+
+$stateNames = @("aether", "relations", "state.bin", "memory.bin", "chapters.bin", "reflections.bin")
+foreach ($char in @("pretorius", "kiki")) {
+  $charDir = Join-Path $Here "characters\$char"
+  if (-not (Test-Path -LiteralPath $charDir -PathType Container)) { continue }
+  $base = (Resolve-Path -LiteralPath $charDir).Path
+  foreach ($name in $stateNames) {
+    $target = Join-Path $charDir $name
+    if (Test-Path -LiteralPath $target) {
+      $resolved = (Resolve-Path -LiteralPath $target).Path
+      if (-not $resolved.StartsWith($base)) {
+        throw "Refusing to reset outside character folder: $resolved"
+      }
+      Remove-Item -LiteralPath $resolved -Recurse -Force
+    }
+  }
+}
+
+Remove-Item -LiteralPath (Join-Path $Here "PersonaConsole_Diagnostics.txt") -Force -ErrorAction SilentlyContinue
+Write-Host "PersonaConsole demo state reset. Cartridges were not changed."
+'@
+Write-Utf8NoBom (Join-Path $OutDir "Reset_Demo_State.ps1") $resetScript
+
 $stopScript = @'
 $ErrorActionPreference = "SilentlyContinue"
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -206,10 +242,15 @@ $cmdDiag = '@echo off
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Collect_Diagnostics.ps1"
 pause
 '
+$cmdReset = '@echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Reset_Demo_State.ps1"
+pause
+'
 Write-Utf8NoBom (Join-Path $OutDir "Run_Pretorius.cmd") $cmdPretorius
 Write-Utf8NoBom (Join-Path $OutDir "Run_Kiki.cmd") $cmdKiki
 Write-Utf8NoBom (Join-Path $OutDir "Stop_Server.cmd") $cmdStop
 Write-Utf8NoBom (Join-Path $OutDir "Collect_Diagnostics.cmd") $cmdDiag
+Write-Utf8NoBom (Join-Path $OutDir "Reset_Demo_State.cmd") $cmdReset
 
 $startHere = @'
 <!doctype html>
@@ -234,6 +275,7 @@ $startHere = @'
     <a href="Inspector/cartridge_inspector.html"><strong>Open Cartridge Inspector</strong><br><span class="muted">Check a cartridge before sharing it.</span></a>
     <a href="TESTER_GUIDE.html"><strong>Tester Guide</strong><br><span class="muted">Prompts and feedback questions for real-user testing.</span></a>
     <div class="card"><strong>Collect diagnostics</strong><br><span class="muted">Run <code>Collect_Diagnostics.cmd</code> if something breaks.</span></div>
+    <div class="card"><strong>Reset local memory</strong><br><span class="muted">Run <code>Reset_Demo_State.cmd</code> to start fresh.</span></div>
     <div class="card"><strong>Stop the server</strong><br><span class="muted">Run <code>Stop_Server.cmd</code> when finished.</span></div>
   </div>
   <p>Each character stores its own local memory beside its cartridge in <code>characters/</code>. This demo is local-first: no account, no network service, no GPU, and no LLM are required for the included cartridges.</p>
@@ -256,6 +298,7 @@ Other files:
 - Inspector/cartridge_inspector.html checks cartridge health.
 - TESTER_GUIDE.html has prompts and a feedback template.
 - Collect_Diagnostics.cmd writes PersonaConsole_Diagnostics.txt for bug reports.
+- Reset_Demo_State.cmd clears local demo memory/state without changing cartridges.
 - characters/ contains the included Pretorius and Kiki cartridges.
 
 Hardware:
