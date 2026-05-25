@@ -482,7 +482,7 @@ v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v5_relationships_roster_run v5_relation_layout_run \
               v5_save_state_run v5_offscreen_memory_render_run \
               v5_milestone_catchup_run v5_legacy_identity_migration_run \
-              v4_adversarial_arcs v4_recall_plasticity_run inspector_test \
+              v4_adversarial_arcs v4_recall_plasticity_run forge_cart_test inspector_test \
               web_presence_test v5_transcript_quality_run v5_believability_run \
               v4_firewall_run lint_test
 	@echo "--- V4 tests: green ---"
