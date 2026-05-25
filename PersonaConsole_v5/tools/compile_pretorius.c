@@ -217,7 +217,8 @@ enum {
     G_PRAISE = 1, G_INSULT, G_QUESTION, G_THREAT, G_INTIMACY,
     G_CREATION, G_GIN, G_HOMUNCULI, G_GOD, G_HENRY, G_OPERA, G_DEATH,
     G_GREETING, G_WHO, G_STATUS, G_WORKCHAT, G_ACK, G_TELL, G_NEUTRAL,
-    G_GOODBYE, G_APOLOGY, G_LONELY, G_DANGER
+    G_GOODBYE, G_APOLOGY, G_LONELY, G_DANGER, G_MORAL_CHALLENGE,
+    G_SELF_DIRECTION
 };
 
 static void make_patterns(PatternTable *pt){
@@ -251,6 +252,14 @@ static void make_patterns(PatternTable *pt){
         {"my friend",    0xFFFF, +40, 25, +10, 5, G_INTIMACY,  0},
         {"hide behind",  T_LONELINESS,-5, 35, -5, 3, G_LONELY, 0},
         {"behind jokes", T_LONELINESS,-5, 35, -5, 3, G_LONELY, 0},
+        /* conversational pressure */
+        {"wrong about creation", T_ETHICS, -18, 55, +5, 2, G_MORAL_CHALLENGE, 0},
+        {"your work is immoral", T_ETHICS, -20, 55, 0, 2, G_MORAL_CHALLENGE, 0},
+        {"work is immoral", T_ETHICS, -20, 55, 0, 2, G_MORAL_CHALLENGE, 0},
+        {"immoral",      T_ETHICS, -18, 50, 0, 2, G_MORAL_CHALLENGE, 0},
+        {"you are wrong", T_ETHICS, -15, 45, +5, 2, G_MORAL_CHALLENGE, 0},
+        {"ask me something", T_WORK, +8, 35, +10, 3, G_SELF_DIRECTION, 0},
+        {"what do you want to know", T_WORK, +8, 35, +10, 3, G_SELF_DIRECTION, 0},
         /* topical hooks */
         {"creation",     T_CREATION, +10, 60, +30, 0, G_CREATION,  0},
         {"create",       T_CREATION, +10, 55, +30, 0, G_CREATION,  0},
@@ -476,7 +485,7 @@ static void make_templates(TemplateTable *tt){
           "Then choose the next door, {address}: Henry, the work, death, or the little people?");
 
     T_add(tt, G_TELL, PE_INTENT_ANSWER, 100, -1000, 1000, -1,
-          "I can tell you a little. Ask cleanly, and I shall try not to decorate the answer beyond recognition.");
+          "A little, then. Ask cleanly, and I shall try not to decorate the answer beyond recognition.");
     T_add(tt, G_TELL, PE_INTENT_PROBE, 70, -1000, 1000, -1,
           "Tell you what, precisely? The work, the scandal, or the part polite men pretend not to want?");
     T_add(tt, G_TELL, PE_INTENT_ANSWER, 96, -1000, 1000, -1,
@@ -512,6 +521,24 @@ static void make_templates(TemplateTable *tt){
           "Every worthwhile experiment begins by offending caution.");
     T_add(tt, G_DANGER, PE_INTENT_PROBE, 80, -1000, 1000, -1,
           "Tell me what frightens you: the pain, the failure, or the possibility that it works?");
+
+    /* moral challenge / disagreement */
+    T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_ACCUSE, 150, -1000, 1000, PE_DRIVE_VINDICATION,
+          "No. You are calling fear morality because it sounds nobler.");
+    T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_ANSWER, 145, -1000, 1000, PE_DRIVE_AUTONOMY,
+          "Not wrong. Uncomfortable. Those are often mistaken for one another.");
+    T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_PROBE, 120, -1000, 1000, -1,
+          "Then name the moral line. Where, exactly, must creation stop?");
+    T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_ACCUSE, 130, -1000, 200, PE_DRIVE_VINDICATION,
+          "Morality is not a verdict, {address}. It is an argument. Make yours.");
+
+    /* user invites character agency */
+    T_add(tt, G_SELF_DIRECTION, PE_INTENT_PROBE, 160, -1000, 1000, PE_DRIVE_COMMUNION,
+          "What would you forbid me to create, and why?");
+    T_add(tt, G_SELF_DIRECTION, PE_INTENT_PROBE, 150, -1000, 1000, PE_DRIVE_STIMULATION,
+          "What part of the work frightens you most: the method, the result, or your own curiosity?");
+    T_add(tt, G_SELF_DIRECTION, PE_INTENT_PROBE, 145, -1000, 1000, -1,
+          "Tell me what you think consciousness is before I improve upon it.");
 
     /* praise */
     T_add(tt, G_PRAISE, PE_INTENT_BOAST, 80, -1000, 1000, PE_DRIVE_RECOGNITION,
@@ -623,7 +650,7 @@ static void make_templates(TemplateTable *tt){
     T_add(tt, G_QUESTION, PE_INTENT_PROBE, 45, -1000, 1000, -1,
           "Before I answer too grandly, what part of the question matters to you?");
     T_add(tt, G_QUESTION, PE_INTENT_ANSWER, 44, -1000, 1000, -1,
-          "I can answer that, but precision first. Are you asking about method, motive, or consequence?");
+          "Precision first. Are you asking about method, motive, or consequence?");
 
     /* generic-intent fillers (used when no group matches but intent is set) */
     T_add(tt, 0xFFFF, PE_INTENT_MONOLOGUE, 30, -1000, 1000, -1,
@@ -631,7 +658,7 @@ static void make_templates(TemplateTable *tt){
     T_add(tt, 0xFFFF, PE_INTENT_MONOLOGUE, 28, -1000, 1000, -1,
           "We are, all of us, half-finished sentences. Some of us are at least *interesting* half-finished sentences.");
     T_add(tt, 0xFFFF, PE_INTENT_REMINISCE, 28, -200, 1000, -1,
-          "{memory}. Yes, that comes back to me now.");
+          "Yes, that comes back to me now.");
     T_add(tt, 0xFFFF, PE_INTENT_PROBE,    30, -1000, 1000, -1,
           "Tell me, {address}: when you say {topic}, do you mean it as a wound or as a blueprint?");
     T_add(tt, 0xFFFF, PE_INTENT_EVADE,    25, -1000, 1000, -1,

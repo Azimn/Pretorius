@@ -73,6 +73,7 @@ global.alert   = () => {};
 const exposeNames = [
   'ARCHETYPES','defaultCharacter','applyArchetype','buildCart',
   'internalLifeForSeed','preflightCharacter',
+  'dialogueQualityReport','inferRelationshipPosture','relationshipPostureReport',
   'exportObject','CH','LMBuilder','LMRuntime','PE_LM_DEFAULT_ORDER',
   'LM_SAMPLE_PRETORIUS','LM_SAMPLE_KIKI'
 ];
@@ -90,7 +91,8 @@ try {
 }
 
 const { ARCHETYPES, defaultCharacter, buildCart, internalLifeForSeed,
-        preflightCharacter,
+        preflightCharacter, dialogueQualityReport,
+        inferRelationshipPosture, relationshipPostureReport,
         LMBuilder, LMRuntime, PE_LM_DEFAULT_ORDER,
         LM_SAMPLE_PRETORIUS } = moduleObj.exports;
 if (!buildCart){ console.error('buildCart not exported'); process.exit(2); }
@@ -133,6 +135,58 @@ if (!brokenPreflight.errors){
   process.exit(1);
 }
 console.log('preflight negative case catches dangling want target');
+
+const staleDialogue = defaultCharacter();
+staleDialogue.name = 'Stale Dialogue';
+staleDialogue.dialoguePack = {
+  templates: Array.from({ length: 12 }, (_, i) => ({
+    group: 0xFFFF, intent: 7, base: 30,
+    text: i % 2 === 0
+      ? 'Ah -- observe the magnificently overdetermined architecture of my suffering.'
+      : 'Ah -- observe the magnificently overdetermined architecture of my triumph.'
+  })),
+  patterns: null,
+  goals: null,
+  fallbacks: { tier1: ['...'], tier2: ['...'], tier3: ['...'] },
+};
+const staleReport = dialogueQualityReport(staleDialogue);
+if (!staleReport.warnings){
+  console.error('FAIL: dialogue quality report did not warn on stale dialogue');
+  process.exit(1);
+}
+console.log('dialogue quality negative case catches stale/ornate dialogue');
+
+const dominantPosture = defaultCharacter();
+dominantPosture.name = 'Septimus Halloway';
+dominantPosture.identity.A = 20;
+dominantPosture.identity.E = 80;
+dominantPosture.identity.voice_flags = ['SARDONIC','NO_DIRECT_AFFIRM','ALLOW_CONTRADICT'];
+dominantPosture.identity.obsessions = ['the work','homunculi','god'];
+dominantPosture.dialoguePack = {
+  templates: [{ group: 0xFFFF, intent: 0, base: 50, text: 'How can I help you today?' }],
+  fallbacks: { tier1: [], tier2: [], tier3: [] },
+};
+const dom = relationshipPostureReport(dominantPosture);
+if (dom.posture !== 'dominant' || !dom.warnings){
+  console.error('FAIL: dominant posture did not warn on assistant/service language', dom);
+  process.exit(1);
+}
+console.log('relationship posture catches subordinate language for dominant characters');
+
+const servingPosture = defaultCharacter();
+servingPosture.name = 'Kiki';
+servingPosture.identity.A = 82;
+servingPosture.identity.obsessions = ['helping','growth','listening'];
+servingPosture.dialoguePack = {
+  templates: [{ group: 0xFFFF, intent: 0, base: 50, text: 'How can I help, babe?' }],
+  fallbacks: { tier1: [], tier2: [], tier3: [] },
+};
+const srv = relationshipPostureReport(servingPosture);
+if (srv.posture !== 'serving' || srv.warnings){
+  console.error('FAIL: serving posture should allow helper language', srv);
+  process.exit(1);
+}
+console.log('relationship posture allows service language for serving characters');
 
 /* --- BUILD AN LM in the browser-equivalent path, embed in cart --- */
 console.log('--- building LM in JS from Pretorian sample corpus');

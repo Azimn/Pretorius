@@ -125,7 +125,8 @@ RENDER_HEADERS := \
         plasticity_test plasticity_run lm_build aether_test aether_run \
         host host_run host_test \
         forge_cart_test forge_bundle_test forge_dialogue_test \
-        forge_archetypes_test forge_parsers_test inspector_test
+        forge_archetypes_test forge_parsers_test inspector_test web_presence_test \
+        demo_package release_check
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
      build/compile_cartridge build/compile_pretorius build/compile_kiki \
@@ -229,6 +230,12 @@ profiles/kiki/kiki.cart: profiles/kiki/manifest.json profiles/kiki/.bins.stamp b
 
 cartridges: profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart
 
+demo_package: build/persona_host profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart
+	powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/package_demo.ps1
+
+release_check: demo_package
+	powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/release_check.ps1
+
 # ----- REPL + host -----
 build/repl: tests/repl.c build/libpersona.a build/libplasticity.a build/liblsh.a build/libaether.a
 	$(CC) $(CFLAGS) tests/repl.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
@@ -298,6 +305,10 @@ forge_parsers_test:
 inspector_test: profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/inspector_test.js
+
+web_presence_test:
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/web_presence_test.js
 
 # ----- V4 architecture-hardening tests -----
 build/v4_modules_test: tests/replay/v4_modules_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
@@ -436,6 +447,10 @@ v5_transcript_quality_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/transcript_quality_test.js
 
+v5_believability_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/believability_trial.js
+
 lint_test: build/cartridge_lint profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart
 	./build/cartridge_lint profiles/pretorius/pretorius.cart
 	./build/cartridge_lint profiles/kiki/kiki.cart
@@ -459,7 +474,7 @@ v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v5_relationships_roster_run v5_offscreen_memory_render_run \
               v5_milestone_catchup_run v5_legacy_identity_migration_run \
               v4_adversarial_arcs v4_recall_plasticity_run inspector_test \
-              v5_transcript_quality_run \
+              web_presence_test v5_transcript_quality_run v5_believability_run \
               v4_firewall_run lint_test
 	@echo "--- V4 tests: green ---"
 

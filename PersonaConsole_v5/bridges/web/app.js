@@ -1,4 +1,4 @@
-/* app.js — minimal chat UI. */
+/* app.js -- lightweight chat UI with Sims-style presence cues. */
 
 const $ = (id) => document.getElementById(id);
 
@@ -20,17 +20,106 @@ const els = {
     exhaust:   $("exhaust"),
     delta:     $("voice-delta"),
     disp:      $("disp"),
+    presence:  $("presence"),
+    proactive: $("proactive-enabled"),
+    speakFirst:$("speak-first"),
+    idleDelay: $("idle-delay"),
+    thought:   $("current-thought"),
+    needFocus: $("need-focus"),
+    needEnergy:$("need-energy"),
+    needRapport:$("need-rapport"),
+    promptCharacter: $("prompt-character"),
 };
 
-const IDLE_PROBE_DELAY_MS = 45000;
+const SETTINGS_KEY = "persona_presence_settings_v1";
+const DEFAULT_SETTINGS = {
+    proactive: true,
+    speakFirst: true,
+    idleDelay: 45000,
+};
+
+let settings = loadSettings();
 let idleTimer = null;
 let idleProbeTurn = -1;
 let idleRequestInFlight = false;
+let speakFirstAttempted = false;
 let latestTurn = 0;
+let latestState = null;
+let manualProbeTurn = -1;
 
-/* Try to fetch the character's portrait.  On success, fade in the image
- * and hide the initial-letter placeholder.  On 404 (no portrait file in
- * the cartridge directory), keep the placeholder visible. */
+function clampPct(n) {
+    return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function loadSettings() {
+    try {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        return raw ? Object.assign({}, DEFAULT_SETTINGS, JSON.parse(raw))
+                   : {...DEFAULT_SETTINGS};
+    } catch (e) {
+        return {...DEFAULT_SETTINGS};
+    }
+}
+
+function saveSettings() {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function applySettingsToControls() {
+    els.proactive.checked = !!settings.proactive;
+    els.speakFirst.checked = !!settings.speakFirst;
+    els.idleDelay.value = String(settings.idleDelay);
+}
+
+function setPresence(text, active) {
+    els.presence.textContent = text;
+    els.presence.classList.toggle("active", !!active);
+}
+
+function presenceFromState(s) {
+    if (!s) return "waiting";
+    if (Number(s.exhaustion || 0) >= 700) return "tired";
+    if (Number(s.obsession_pressure || 0) >= 650) return "preoccupied";
+    if (s.last_reply_had_question) return "waiting on you";
+    if (s.intent === "initiate" || s.intent === "probe") return "restless";
+    if (Number(s.mood || 0) < -250) return "guarded";
+    if (Number(s.mood || 0) > 250) return "bright";
+    return "present";
+}
+
+function thoughtFromState(s) {
+    if (!s) return "gathering himself";
+    const mood = Number(s.mood || 0);
+    const obsession = Number(s.obsession_pressure || 0);
+    const unresolved = Number(s.unresolved_count || 0);
+    const sinceQuestion = Number(s.turns_since_question || 0);
+    const wantAges = Array.isArray(s.want_ages) ? s.want_ages : [];
+    const wantMax = wantAges.reduce((a, b) => Math.max(a, Number(b || 0)), 0);
+
+    if (unresolved > 0) return "holding an unfinished thread";
+    if (s.last_reply_had_question) return "waiting for your answer";
+    if (wantMax > 6) return "wanting to steer the subject";
+    if (obsession >= 700) return "circling a private fixation";
+    if (sinceQuestion >= 4) return "looking for a better question";
+    if (mood < -300) return "nursing an irritation";
+    if (mood > 300) return "pleased with the current direction";
+    return "turning something over";
+}
+
+function updateInnerLife(s) {
+    if (!s) return;
+    const focus = clampPct(Number(s.obsession_pressure || 0) / 10);
+    const energy = clampPct(100 - Number(s.exhaustion || 0) / 10);
+    const rapport = clampPct((Number(s.disposition || 500) - 400) / 4);
+    els.needFocus.style.width = `${focus}%`;
+    els.needEnergy.style.width = `${energy}%`;
+    els.needRapport.style.width = `${rapport}%`;
+    els.thought.textContent = thoughtFromState(s);
+    els.promptCharacter.disabled = idleRequestInFlight || manualProbeTurn === latestTurn;
+}
+
+/* Try to fetch the character's portrait. On 404, keep the initial-letter
+ * placeholder visible. */
 function loadPortrait() {
     const url = "/portrait?ts=" + Date.now();
     const probe = new Image();
@@ -61,7 +150,8 @@ function addMessage(role, text, meta) {
 }
 
 function setState(s) {
-    els.name.textContent    = s.name || "—";
+    latestState = s;
+    els.name.textContent    = s.name || "-";
     els.initial.textContent = (s.name || "?").charAt(0).toUpperCase();
     els.today.textContent   = s.today || "";
     els.mood.textContent    = s.mood;
@@ -73,6 +163,8 @@ function setState(s) {
     els.delta.textContent   = s.voice_delta;
     els.disp.textContent    = s.disposition;
     latestTurn = Number(s.turn_count || 0);
+    setPresence(presenceFromState(s), false);
+    updateInnerLife(s);
 }
 
 async function fetchState() {
@@ -84,10 +176,16 @@ async function fetchState() {
 
 function scheduleIdleProbe() {
     if (idleTimer) clearTimeout(idleTimer);
-    idleTimer = setTimeout(requestIdleProbe, IDLE_PROBE_DELAY_MS);
+    if (!settings.proactive) return;
+    const delay = Number(settings.idleDelay || DEFAULT_SETTINGS.idleDelay);
+    idleTimer = setTimeout(() => requestIdleProbe({ allowFresh: false, meta: "quiet" }), delay);
 }
 
-async function requestIdleProbe() {
+async function requestIdleProbe(opts = {}) {
+    const allowFresh = !!opts.allowFresh;
+    const allowManual = !!opts.allowManual;
+    const meta = opts.meta || "quiet";
+    if (!settings.proactive) return;
     if (idleRequestInFlight || els.send.disabled) {
         scheduleIdleProbe();
         return;
@@ -96,11 +194,15 @@ async function requestIdleProbe() {
         scheduleIdleProbe();
         return;
     }
-    if (latestTurn === 0 || idleProbeTurn === latestTurn) {
+    if ((!allowFresh && latestTurn === 0)
+        || (!allowManual && idleProbeTurn === latestTurn)
+        || (allowManual && manualProbeTurn === latestTurn)) {
         scheduleIdleProbe();
         return;
     }
     idleRequestInFlight = true;
+    els.promptCharacter.disabled = true;
+    setPresence("thinking", true);
     try {
         const r = await fetch("/idle_probe", {
             method: "POST",
@@ -110,15 +212,27 @@ async function requestIdleProbe() {
         const data = await r.json();
         if (data.state) setState(data.state);
         if (data.reply && idleProbeTurn !== latestTurn) {
-            idleProbeTurn = latestTurn;
-            addMessage("char idle", data.reply, "idle probe");
+            if (allowManual) manualProbeTurn = latestTurn;
+            else idleProbeTurn = latestTurn;
+            addMessage("char idle", data.reply, meta);
         }
     } catch (e) {
         console.error(e);
     } finally {
         idleRequestInFlight = false;
+        updateInnerLife(latestState);
         scheduleIdleProbe();
     }
+}
+
+function maybeSpeakFirst() {
+    if (speakFirstAttempted || !settings.proactive || !settings.speakFirst) return;
+    speakFirstAttempted = true;
+    setTimeout(() => {
+        if (!settings.proactive || !settings.speakFirst) return;
+        if (latestTurn !== 0 || els.input.value.trim() || document.hidden) return;
+        requestIdleProbe({ allowFresh: true, meta: "first move" });
+    }, 1800);
 }
 
 async function sendMessage(text) {
@@ -127,6 +241,7 @@ async function sendMessage(text) {
     els.send.disabled = true;
     els.input.value = "";
     els.portrait.classList.add("speaking");
+    setPresence("listening", true);
     try {
         const r = await fetch("/chat", {
             method: "POST",
@@ -138,11 +253,12 @@ async function sendMessage(text) {
             addMessage("char", `[error] ${data.error}`);
         } else {
             const meta = data.state
-                ? `intent: ${data.state.intent} · mode: ${data.state.rhetorical_mode} · mood: ${data.state.mood}`
+                ? `intent: ${data.state.intent} | mode: ${data.state.rhetorical_mode} | mood: ${data.state.mood}`
                 : "";
             if (!data.pause) addMessage("char", data.reply, meta);
             if (data.state) setState(data.state);
             idleProbeTurn = -1;
+            manualProbeTurn = -1;
         }
     } catch (e) {
         addMessage("char", `[network error] ${e.message}`);
@@ -160,6 +276,36 @@ els.form.addEventListener("submit", (e) => {
     if (text) sendMessage(text);
 });
 
-fetchState();
+els.proactive.addEventListener("change", () => {
+    settings.proactive = els.proactive.checked;
+    saveSettings();
+    if (settings.proactive) {
+        maybeSpeakFirst();
+        scheduleIdleProbe();
+    } else {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = null;
+        setPresence(presenceFromState(latestState), false);
+    }
+});
+
+els.speakFirst.addEventListener("change", () => {
+    settings.speakFirst = els.speakFirst.checked;
+    saveSettings();
+    maybeSpeakFirst();
+});
+
+els.idleDelay.addEventListener("change", () => {
+    settings.idleDelay = Number(els.idleDelay.value || DEFAULT_SETTINGS.idleDelay);
+    saveSettings();
+    scheduleIdleProbe();
+});
+
+els.promptCharacter.addEventListener("click", () => {
+    requestIdleProbe({ allowFresh: true, allowManual: true, meta: "prompted" });
+});
+
+applySettingsToControls();
+fetchState().then(maybeSpeakFirst);
 loadPortrait();
 scheduleIdleProbe();

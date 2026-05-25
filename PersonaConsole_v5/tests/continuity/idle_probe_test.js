@@ -75,7 +75,7 @@ async function probeAfter(label, text, regex){
 
   await probeAfter('work momentum',
     'Tell me about creation and your work.',
-    /work|creation|method|permission|forbid|appetite/i);
+    /work|creation|method|permission|forbid|appetite|coming with me|body|spark|mind/i);
 
   await probeAfter('loneliness momentum',
     'Do you ever feel loneliness?',
@@ -89,7 +89,7 @@ async function probeAfter(label, text, regex){
     { method: 'idle_probe' },
   ]);
   ok(typeof hostile[2].reply === 'string'
-     && /quiet|silence|conversation|fear|fatigue|wound|sharpen/i.test(hostile[2].reply),
+     && /quiet|silence|conversation|fear|fatigue|wound|sharpen|objection|injury|politeness/i.test(hostile[2].reply),
      'negative mood probe uses silence/withdrawal pool');
   ok(hostile[2].state.turn_count === 2 && hostile[3].state.turn_count === 2,
      'back-to-back idle probes remain read-only');

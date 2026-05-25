@@ -24,6 +24,7 @@
 
 #define PE_TEMPLATE_BLACKOUT_TURNS 48u
 #define PE_FALLBACK_BLACKOUT_TURNS 48u
+#define PE_MEMORY_BLACKOUT_TURNS   48u
 
 static uint32_t usage_id(uint32_t ns, uint32_t value){
     uint32_t h = value ^ ns;
@@ -181,14 +182,14 @@ static void fill_text_slots(Engine *eng, const char *src, uint32_t slot_seed, ch
     const MemoryNode *cb = NULL;
     if (eng->plan.callback_memory != 0xFFFF)
         cb = pe_active_node(eng, eng->plan.callback_memory);
-    if (cb && phrase_recently_used(eng, usage_id(PE_USAGE_MEMORY, cb->id), 6u))
+    if (cb && phrase_recently_used(eng, usage_id(PE_USAGE_MEMORY, cb->id), PE_MEMORY_BLACKOUT_TURNS))
         cb = NULL;
     if (cb) {
         mem_summary = render_memory_summary(eng, cb, rendered_memory, sizeof(rendered_memory));
     } else if (eng->active_count > 0) {
         for (uint16_t i = 0; i < eng->active_count; ++i){
             const MemoryNode *a = pe_active_node(eng, eng->active_memories[i]);
-            if (a && !phrase_recently_used(eng, usage_id(PE_USAGE_MEMORY, a->id), 6u)){
+            if (a && !phrase_recently_used(eng, usage_id(PE_USAGE_MEMORY, a->id), PE_MEMORY_BLACKOUT_TURNS)){
                 cb = a;
                 mem_summary = render_memory_summary(eng, a, rendered_memory, sizeof(rendered_memory));
                 break;
@@ -560,24 +561,35 @@ static const char *fallback_line(Engine *eng){
     int stim = eng->state.drive_values[PE_DRIVE_STIMULATION];
     int mood = eng->state.mood;
     const FallbackTable *fb = &eng->fallbacks;
-    const char (*pool)[PE_TEMPLATE_TEXT] = NULL;
-    uint8_t count = 0;
+    const char (*pools[3])[PE_TEMPLATE_TEXT] = { fb->tier3, fb->tier2, fb->tier1 };
+    uint8_t counts[3] = { fb->tier3_count, fb->tier2_count, fb->tier1_count };
+    int order[3] = { 0, 1, 2 };
+    int preferred = 0;
     if (stim > 700 && fb->tier1_count > 0) {
-        pool = fb->tier1; count = fb->tier1_count;
+        preferred = 2;
     } else if (mood >= 300 && fb->tier2_count > 0) {
-        pool = fb->tier2; count = fb->tier2_count;
-    } else if (fb->tier3_count > 0) {
-        pool = fb->tier3; count = fb->tier3_count;
+        preferred = 1;
     }
-    if (pool && count > 0){
+
+    order[0] = preferred;
+    order[1] = (preferred == 0) ? 1 : 0;
+    order[2] = (preferred == 2) ? 1 : 2;
+
+    for (int pass = 0; pass < 3; ++pass){
+        int tier = order[pass];
+        const char (*pool)[PE_TEMPLATE_TEXT] = pools[tier];
+        uint8_t count = counts[tier];
+        if (!pool || count == 0) continue;
         uint32_t start = persona_rng_u32(&eng->state) % count;
         for (uint8_t k = 0; k < count; ++k){
             const char *line = pool[(start + k) % count];
             uint32_t line_id = usage_id(PE_USAGE_FALLBACK, persona_hash(line));
             if (!phrase_recently_used(eng, line_id, PE_FALLBACK_BLACKOUT_TURNS)) return line;
         }
-        return pool[start];
     }
+
+    if (counts[preferred] > 0)
+        return pools[preferred][persona_rng_u32(&eng->state) % counts[preferred]];
     return "...";
 }
 
@@ -626,10 +638,62 @@ static int render_direct_callback_question(Engine *eng, const char *input,
         return 1;
     }
 
+    for (uint8_t step = 0; step < PE_SHORT_TERM_LEN; ++step){
+        uint8_t idx = (uint8_t)((eng->memory.short_term_pos + PE_SHORT_TERM_LEN - 1u - step)
+                                % PE_SHORT_TERM_LEN);
+        const ShortTermEntry *e = &eng->memory.short_term[idx];
+        if (!e->text[0]) continue;
+        if (!contains_ci(e->text, "remember this phrase")
+            && !contains_ci(e->text, "remember this:")) continue;
+        const char *phrase = strstr(e->text, "remember this phrase:");
+        if (!phrase) phrase = strstr(e->text, "remember this:");
+        if (!phrase) continue;
+        phrase = strchr(phrase, ':');
+        if (!phrase) continue;
+        phrase++;
+        while (*phrase == ' ') phrase++;
+        if (phrase[0]){
+            char clean[96];
+            snprintf(clean, sizeof(clean), "%s", phrase);
+            trim_terminal_punctuation(clean);
+            snprintf(out, n, "You asked me to remember %s.", clean);
+            return 1;
+        }
+    }
+
     for (uint16_t i = 0; i < eng->active_count; ++i){
         const MemoryNode *m = pe_active_node(eng, eng->active_memories[i]);
         if (!m) continue;
-        if (phrase_recently_used(eng, usage_id(PE_USAGE_MEMORY, m->id), 8u)) continue;
+        if (!contains_ci(m->summary, "remember this phrase")
+            && !contains_ci(m->summary, "remember this:")) continue;
+
+        const char *p = strchr(m->summary, ':');
+        if (!p) continue;
+        p++;
+        while (*p == ' ') p++;
+        const char *phrase = strstr(p, "remember this phrase:");
+        if (!phrase) phrase = strstr(p, "remember this:");
+        if (phrase){
+            phrase = strchr(phrase, ':');
+            if (phrase){
+                phrase++;
+                while (*phrase == ' ') phrase++;
+            }
+        }
+        if (phrase && phrase[0]){
+            char clean[96];
+            snprintf(clean, sizeof(clean), "%s", phrase);
+            trim_terminal_punctuation(clean);
+            snprintf(out, n, "You asked me to remember %s.", clean);
+            record_use(&eng->memory, usage_id(PE_USAGE_MEMORY, m->id), eng->state.turn_count);
+            return 1;
+        }
+    }
+
+    for (uint16_t i = 0; i < eng->active_count; ++i){
+        const MemoryNode *m = pe_active_node(eng, eng->active_memories[i]);
+        if (!m) continue;
+        if (phrase_recently_used(eng, usage_id(PE_USAGE_MEMORY, m->id), PE_MEMORY_BLACKOUT_TURNS)) continue;
         char rendered[256];
         const char *txt = render_memory_summary(eng, m, rendered, sizeof(rendered));
         if (!txt || !txt[0]) continue;
@@ -644,6 +708,24 @@ static int render_direct_callback_question(Engine *eng, const char *input,
     return 1;
 }
 
+static int render_direct_argument(Engine *eng, const char *input,
+                                  char *out, size_t n){
+    (void)eng;
+    if (!input || !out || n == 0) return 0;
+    if (contains_ci(input, "immoral") || contains_ci(input, "wrong about creation")
+        || (contains_ci(input, "you are wrong") && contains_ci(input, "creation"))){
+        static const char *pool[] = {
+            "No. You are calling fear morality because it sounds nobler.",
+            "Not wrong. Uncomfortable. Those are often mistaken for one another.",
+            "Then name the moral line. Where, exactly, must creation stop?"
+        };
+        uint32_t pick = eng ? (eng->state.today_seed ^ eng->state.turn_count) % 3u : 0u;
+        snprintf(out, n, "%s", pool[pick]);
+        return 1;
+    }
+    return 0;
+}
+
 /* ---------- main generator ---------- */
 
 int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
@@ -654,6 +736,11 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
     if (eng->state.current_intent == PE_INTENT_PAUSE){
         if (n > 0) out[0] = 0;
         eng->last_template_intent = PE_INTENT_PAUSE;
+        return 0;
+    }
+
+    if (render_direct_argument(eng, input, out, n)){
+        eng->last_template_intent = PE_INTENT_ACCUSE;
         return 0;
     }
 

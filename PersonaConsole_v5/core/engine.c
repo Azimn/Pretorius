@@ -1137,7 +1137,7 @@ post_render:;
             prefix[0] = 0;
             if (label) snprintf(prefix + strlen(prefix), sizeof(prefix) - strlen(prefix), "[%s] ", label);
             if (topic) snprintf(prefix + strlen(prefix), sizeof(prefix) - strlen(prefix), "[%s] ", topic);
-            snprintf(summary, sizeof(summary), "%s%s %s: %.48s",
+            snprintf(summary, sizeof(summary), "%s%s %s: %.96s",
                      prefix, speaker,
                      eng->input_class == 3 ? "asked" : "said",
                      input_text);

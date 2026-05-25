@@ -657,20 +657,26 @@ h3 { font-size: 16px; color: var(--muted); }
 
           <h3 style="margin-top: 22px;">V5 internal life</h3>
           <p class="muted" style="font-size:13px;">These fields drive proactive questions, offscreen self-events, return greetings, and relationship anniversaries. Keep them modest and conversational.</p>
+          <div class="row" style="gap:8px; margin:10px 0 14px; flex-wrap:wrap;">
+            <button class="primary" id="btn-internal-life-starter">Generate starter internal life</button>
+            <button class="ghost" id="btn-internal-life-defaults">Use safe defaults</button>
+          </div>
+          <p class="muted" style="font-size:13px;">Simple mode: add 3-5 obsessions and 3-8 core memories, then click the starter button. The Forge will draft wants, preoccupations, return lines, and milestones that you can edit.</p>
 
           <h4>Preoccupations</h4>
+          <p class="muted" style="font-size:13px;">What occupies them while the user is away. Examples: <code>the third bell jar</code>, <code>the joke I should not tell</code>, <code>why the case still bothers me</code>.</p>
           <div id="f-preoccupations"></div>
 
           <h4 style="margin-top: 18px;">Wants</h4>
-          <p class="muted" style="font-size:13px;">Each want needs a short name and a topic. The engine ages unmet wants and uses them to steer initiative.</p>
+          <p class="muted" style="font-size:13px;">Each want needs a short name and a topic. The engine ages unmet wants and uses them to steer initiative. Examples: <code>be understood</code>, <code>return to the work</code>, <code>test the user's courage</code>.</p>
           <div id="f-wants"></div>
 
           <h4 style="margin-top: 18px;">Resumption lines</h4>
-          <p class="muted" style="font-size:13px;">Gap buckets: 2h-1d, 1d-1w, 1w-30d, 30d+. Use <code>{address}</code> if desired. Very short gaps do not trigger a return line.</p>
+          <p class="muted" style="font-size:13px;">Gap buckets: 2h-1d, 1d-1w, 1w-30d, 30d+. Use <code>{address}</code> if desired. These should sound like the character noticed absence, not like an app notification.</p>
           <div id="f-resumption-lines"></div>
 
           <h4 style="margin-top: 18px;">Relationship milestones</h4>
-          <p class="muted" style="font-size:13px;">Milestones fire once when the relationship age reaches or passes the authored day.</p>
+          <p class="muted" style="font-size:13px;">Milestones fire once when the relationship age reaches or passes the authored day. Keep them short: recognition, not ceremony.</p>
           <div id="f-milestones"></div>
         </div>
 
@@ -1853,6 +1859,79 @@ function ensureInternalLife(target){
   }));
 }
 
+function cleanTopicName(s, fallback){
+  const t = String(s || '').trim();
+  return t || fallback;
+}
+
+function memoryFragment(mem, fallback){
+  const text = String((mem && (mem.text || mem.summary)) || '').trim();
+  if (!text) return fallback;
+  const words = text.replace(/[.?!]+$/,'').split(/\s+/).filter(Boolean);
+  if (words.length <= 7) return text.replace(/[.?!]+$/,'');
+  return words.slice(0, 7).join(' ');
+}
+
+function generateStarterInternalLife(ch, mode){
+  ensureInternalLife(ch);
+  const id = ch.identity;
+  const obs = (id.obsessions || []).map(s => cleanTopicName(s, '')).filter(Boolean);
+  const mems = (id.core_memories || []).filter(m => String((m && m.text) || '').trim());
+  const primary = cleanTopicName(obs[0], 'the conversation');
+  const secondary = cleanTopicName(obs[1], 'the work');
+  const third = cleanTopicName(obs[2], 'what remains unfinished');
+  const name = cleanTopicName(ch.name, 'this character');
+  const softer = (id.A || 50) >= 65;
+  const prickly = (id.A || 50) <= 35;
+
+  id.current_preoccupations = [
+    `turning over ${primary}`,
+    mems[0] ? `remembering ${memoryFragment(mems[0], secondary)}` : `testing an idea about ${secondary}`,
+    mems[1] ? `sorting what ${memoryFragment(mems[1], third)} still means` : `wondering where ${third} leads`
+  ];
+
+  if (mode === 'defaults' && obs.length === 0 && mems.length === 0){
+    id.current_preoccupations = ['the work','the conversation','what remains unfinished'];
+  }
+
+  id.wants = [
+    { name: softer ? 'be understood' : prickly ? 'be taken seriously' : 'be recognized clearly',
+      target_topic: primary, target_class: 3, intensity: 150 },
+    { name: `return to ${secondary}`, target_topic: secondary, target_class: 0, intensity: 135 },
+    { name: softer ? 'keep the conversation alive' : prickly ? 'test the user a little' : 'pull the user closer to the question',
+      target_topic: third, target_class: softer ? 5 : 0, intensity: 120 }
+  ];
+
+  id.resumption_lines = softer ? [
+    'There you are, {address}. I kept thinking about where we left this.',
+    'A day away, and still the thought held its shape.',
+    'You were gone long enough for me to reconsider a few things.',
+    'After all that time, I wondered what you would bring back with you.'
+  ] : prickly ? [
+    'Back, {address}? Good. I was beginning to accuse the silence.',
+    'A day gone. I used it better than you did, I suspect.',
+    'You vanish, and the room grows opinionated.',
+    'After that long, I expected either an apology or a better question.'
+  ] : [
+    'Back, {address}. I kept the thought warm.',
+    'There you are. A day gives a question room to change.',
+    'You were gone long enough for patterns to form.',
+    'After all that time, I wondered what would return first: you or the subject.'
+  ];
+
+  id.milestones = [
+    { day: 1, line: 'A second visit. That begins to resemble intention.' },
+    { day: 7, line: `A week, {address}. ${name} has begun expecting you.` },
+    { day: 30, line: 'A month. Some conversations acquire gravity.' },
+    { day: 100, line: 'A hundred days. That is no longer an accident.' },
+    { day: 365, line: 'A year. The thought has survived weather.' },
+    { day: 1000, line: 'A thousand days. Even memory has begun making room for you.' }
+  ];
+
+  ensureInternalLife(ch);
+  return id;
+}
+
 function buildInternalLife(){
   ensureInternalLife();
   const id = CH.identity;
@@ -1940,6 +2019,18 @@ function buildInternalLife(){
     ms.appendChild(row);
   }
 }
+
+$('btn-internal-life-starter').addEventListener('click', () => {
+  generateStarterInternalLife(CH, 'starter');
+  buildInternalLife();
+  updatePreview();
+});
+
+$('btn-internal-life-defaults').addEventListener('click', () => {
+  generateStarterInternalLife(CH, 'defaults');
+  buildInternalLife();
+  updatePreview();
+});
 
 function buildTags(rootId, arr){
   const root = $(rootId);
@@ -3946,6 +4037,172 @@ function buildCart(ch){
   return out;
 }
 
+function dialogueQualityReport(ch){
+  const dp = ch && ch.dialoguePack;
+  const templates = (dp && dp.templates && dp.templates.length) ? dp.templates : GENERIC_TEMPLATES;
+  const fallbacks = (dp && dp.fallbacks) ? dp.fallbacks : GENERIC_FALLBACKS;
+  const lines = templates.map(t => String(t.text || '')).filter(Boolean);
+  const issues = [];
+  const words = s => String(s || '').toLowerCase().match(/[a-z0-9']+/g) || [];
+  const opener = s => words(s).slice(0, 3).join(' ');
+  const shortN = lines.filter(s => {
+    const n = words(s).length;
+    return n >= 2 && n <= 14;
+  }).length;
+  const qN = lines.filter(s => /\?/.test(s)).length;
+  const dashN = lines.filter(s => /—|–|--/.test(s)).length;
+  const parenN = lines.filter(s => /\([^)]+\)/.test(s)).length;
+  const ornateN = lines.filter(s => words(s).length > 34 || /\*[^*]+\*/.test(s)).length;
+  const openerCounts = new Map();
+  for (const s of lines){
+    const op = opener(s);
+    if (!op) continue;
+    openerCounts.set(op, (openerCounts.get(op) || 0) + 1);
+  }
+  const repeatedOpeners = [...openerCounts.entries()].filter(([k,v]) => v >= 3);
+  const fbCounts = [
+    (fallbacks.tier1 || []).filter(Boolean).length,
+    (fallbacks.tier2 || []).filter(Boolean).length,
+    (fallbacks.tier3 || []).filter(Boolean).length
+  ];
+
+  function issue(level, msg){ issues.push({ level, msg }); }
+  if (lines.length < 24)
+    issue('warn', `Only ${lines.length} dialogue templates are available; users may notice the rotation.`);
+  if (shortN < Math.max(6, Math.ceil(lines.length * 0.15)))
+    issue('warn', 'Too few short replies; add acknowledgements, brief refusals, and plain answers.');
+  if (qN < Math.max(5, Math.ceil(lines.length * 0.12)))
+    issue('info', 'Add more question-asking lines so living characters sometimes hand the turn back.');
+  if (dashN > Math.max(2, Math.ceil(lines.length * 0.12)))
+    issue(dashN > Math.ceil(lines.length * 0.25) ? 'warn' : 'info',
+          'Many templates use em dash / double-dash punctuation; this can read as LLM-ish.');
+  if (parenN > Math.max(2, Math.ceil(lines.length * 0.10)))
+    issue('info', 'Parenthetical asides are frequent; use sparingly for contrast.');
+  if (ornateN > Math.ceil(lines.length * 0.35))
+    issue('warn', 'Many replies are long or highly ornate; add more plain speech to reduce template smell.');
+  if (repeatedOpeners.length)
+    issue('info', `Repeated openers detected: ${repeatedOpeners.slice(0,3).map(([k,v]) => `"${k}" x${v}`).join(', ')}.`);
+  if (fbCounts.some(n => n < 4))
+    issue('warn', 'Fallback tiers should have at least four lines each so unclear input does not loop.');
+
+  return {
+    template_count: lines.length,
+    short_count: shortN,
+    question_count: qN,
+    dash_count: dashN,
+    ornate_count: ornateN,
+    fallback_counts: fbCounts,
+    issues,
+    warnings: issues.filter(i => i.level === 'warn').length,
+    infos: issues.filter(i => i.level === 'info').length,
+  };
+}
+
+function inferRelationshipPosture(ch){
+  const id = (ch && ch.identity) || {};
+  const flags = new Set(id.voice_flags || []);
+  const obs = (id.obsessions || []).join(' ').toLowerCase();
+  const tabs = (id.taboos || []).join(' ').toLowerCase();
+  const name = String((ch && ch.name) || '').toLowerCase();
+  const corpus = String((ch && ch.lm_corpus) || '').toLowerCase();
+  const allText = [name, obs, tabs, corpus].join(' ');
+  const A = +(id.A || 50);
+  const E = +(id.E || 50);
+  const C = +(id.C || 50);
+  const N = +(id.N || 50);
+
+  let serving = 0, collaborative = 0, dominant = 0, rivalrous = 0, avoidant = 0;
+  if (A >= 75) serving += 3;
+  if (A >= 60) collaborative += 2;
+  if (A <= 35) dominant += 3;
+  if (A <= 45) rivalrous += 2;
+  if (E <= 35) avoidant += 2;
+  if (E >= 65 && A <= 45) dominant += 1;
+  if (C >= 70 && A >= 55) collaborative += 1;
+  if (N >= 70 && A <= 55) avoidant += 1;
+  if (flags.has('SARDONIC') || flags.has('NO_DIRECT_AFFIRM')) dominant += 1;
+  if (flags.has('ALLOW_CONTRADICT')) rivalrous += 1;
+  if (/mentor|caring|help|serve|service|support|healer|nurse|assistant|gratitude|growth|listening|small wins/.test(allText))
+    serving += 3;
+  if (/rival|leverage|power|control|dominat|command|position|authority|vindication|conquest/.test(allText))
+    dominant += 3;
+  if (/detective|partner|collaborat|work together|team|research|lab partner/.test(allText))
+    collaborative += 2;
+  if (/loner|recluse|avoid|distance|silence|privacy|withdraw/.test(allText))
+    avoidant += 2;
+  if (/pretorius|septimus|halloway|god|blasphemy|homunculi|the work/.test(allText))
+    dominant += 3;
+
+  const scores = { serving, collaborative, dominant, rivalrous, avoidant };
+  const posture = Object.entries(scores).sort((a,b) => b[1] - a[1])[0][0];
+  const confidence = Math.max(...Object.values(scores));
+  const rules = {
+    serving: [
+      'Helpful/service language is allowed if it feels sincere.',
+      'Ask what the user needs, but keep a personal voice.',
+      'Warm acknowledgement is not a weakness for this posture.'
+    ],
+    collaborative: [
+      'Use mutual language: we, let us, try this with me.',
+      'Avoid servant phrasing like "at your service".',
+      'Ask questions that make the user a partner, not a boss.'
+    ],
+    dominant: [
+      'Avoid assistant language such as "how can I help?"',
+      'Lead, challenge, recruit, instruct, or test the user.',
+      'Collaboration is allowed; subordination is not.'
+    ],
+    rivalrous: [
+      'Disagree cleanly when the user challenges the character.',
+      'Do not default to apology or compliance.',
+      'Let questions feel like tests, dares, or counters.'
+    ],
+    avoidant: [
+      'Use selective answers and controlled distance.',
+      'Do not over-ask or eagerly serve the user.',
+      'Let silence, refusal, or short replies carry personality.'
+    ]
+  }[posture];
+  return { posture, confidence, scores, rules };
+}
+
+function relationshipPostureReport(ch){
+  const posture = inferRelationshipPosture(ch);
+  const dp = ch && ch.dialoguePack;
+  const templates = (dp && dp.templates && dp.templates.length) ? dp.templates : GENERIC_TEMPLATES;
+  const fallbacks = (dp && dp.fallbacks) ? dp.fallbacks : GENERIC_FALLBACKS;
+  const lines = templates.map(t => String(t.text || '')).filter(Boolean)
+    .concat((fallbacks.tier1 || []), (fallbacks.tier2 || []), (fallbacks.tier3 || []))
+    .concat([String((ch && ch.lm_corpus) || '')]);
+  const helperPattern = /how can i help|what can i do for you|what would you like me to do|at your service|as you wish|happy to help|glad to help|i can assist/i;
+  const directivePattern = /\b(tell me|name the|ask me|come now|listen|say the|choose|what would you forbid|where exactly|answer carefully)\b/i;
+  const helperLines = lines.filter(s => helperPattern.test(s));
+  const directiveLines = lines.filter(s => directivePattern.test(s));
+  const issues = [];
+  function issue(level, msg){ issues.push({ level, msg }); }
+
+  if ((posture.posture === 'dominant' || posture.posture === 'rivalrous' || posture.posture === 'avoidant')
+      && helperLines.length){
+    issue('warn', `Relationship posture inferred as ${posture.posture}; ${helperLines.length} helper/service line(s) may break identity.`);
+  }
+  if ((posture.posture === 'dominant' || posture.posture === 'rivalrous') && directiveLines.length < 3){
+    issue('info', `Relationship posture inferred as ${posture.posture}; add more character-led prompts, challenges, or tests.`);
+  }
+  if (posture.posture === 'serving' && helperLines.length === 0){
+    issue('info', 'Relationship posture inferred as serving; gentle helper language is allowed for this character if desired.');
+  }
+  return {
+    posture: posture.posture,
+    confidence: posture.confidence,
+    rules: posture.rules,
+    helper_count: helperLines.length,
+    directive_count: directiveLines.length,
+    issues,
+    warnings: issues.filter(i => i.level === 'warn').length,
+    infos: issues.filter(i => i.level === 'info').length,
+  };
+}
+
 function preflightCharacter(ch){
   ensureInternalLife(ch);
   const id = ch.identity;
@@ -3961,6 +4218,8 @@ function preflightCharacter(ch){
     issue('warn', 'First address slot is empty; replies may fall back to generic address terms.');
   if (!id.obsessions || id.obsessions.filter(Boolean).length === 0)
     issue('warn', 'No obsessions are set; fixation pull and offscreen activity will feel weak.');
+  else if ((id.obsessions || []).filter(Boolean).length < 3)
+    issue('info', 'Suggestion: add 3-5 obsessions so proactive turns have more than one direction to pull.');
   for (const obs of id.obsessions || []){
     if (obs && !topicNames.has(obs)) issue('err', `Obsession "${obs}" is missing from the topic table.`);
   }
@@ -3980,10 +4239,14 @@ function preflightCharacter(ch){
   }
   if (liveWants === 0)
     issue('warn', 'No live wants are authored; proactive drives and offscreen autonomy will be inert.');
+  if (liveWants < 3)
+    issue('info', 'Suggestion: use Identity -> Generate starter internal life to draft three wants from obsessions and memories.');
 
   const preN = count(id.current_preoccupations, s => (s || '').trim());
   if (preN === 0)
     issue('warn', 'No preoccupations are set; offscreen activity falls back to generic work language.');
+  else if (preN < PE_PREOCCUPATION_COUNT)
+    issue('info', 'Suggestion: fill all three preoccupation slots so absence events vary.');
   const resN = count(id.resumption_lines, s => (s || '').trim());
   if (resN === 0)
     issue('warn', 'No resumption lines are set; returns after absence will use generic greetings.');
@@ -4003,10 +4266,14 @@ function preflightCharacter(ch){
     if (day) prevDay = day;
   }
   if (msN === 0) issue('info', 'No relationship milestones are authored.');
+  else if (msN < PE_MILESTONE_COUNT)
+    issue('info', 'Suggestion: fill day 1, 7, 30, 100, 365, and 1000 milestones for long-relationship texture.');
 
   const memN = id.core_memories ? id.core_memories.length : 0;
   if (memN === 0)
     issue('warn', 'No core memories are seeded; cold recall has no backstory to surface.');
+  else if (memN < 3)
+    issue('info', 'Suggestion: add at least three core memories before generating starter internal life.');
   if (memN > PE_CORE_SEED_MAX)
     issue('err', `Core memory count ${memN} exceeds ${PE_CORE_SEED_MAX}.`);
 
@@ -4016,6 +4283,15 @@ function preflightCharacter(ch){
     const topic = w && w.target_topic;
     if (topic && topicIds.has(0)) issue('err', `Want target "${topic}" resolved to invalid topic id 0.`);
   }
+
+  const dq = dialogueQualityReport(ch);
+  for (const q of dq.issues)
+    issue(q.level, `Dialogue quality: ${q.msg}`);
+
+  const posture = relationshipPostureReport(ch);
+  issue('info', `Relationship posture: ${posture.posture}. Rule: ${posture.rules[0]}`);
+  for (const q of posture.issues)
+    issue(q.level, `Relationship posture: ${q.msg}`);
 
   return {
     issues,
@@ -4646,6 +4922,7 @@ function applyAnalysis(stats){
     const picked = pickMemorableExchanges(LAST_PARSED_UTTERANCES);
     attachDeepMemories(CH, picked);
   }
+  generateStarterInternalLife(CH, 'starter');
 }
 
 /* Drop-zone wiring */

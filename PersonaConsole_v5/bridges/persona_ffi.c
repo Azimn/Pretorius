@@ -110,6 +110,23 @@ static const char *unresolved_resurface(const Engine *eng, char *buf, size_t cap
     return buf;
 }
 
+static uint32_t idle_pool_pick(const Engine *eng, uint32_t seed,
+                               const char *topic, uint32_t count){
+    if (!count) return 0;
+    uint32_t h = seed ^ (seed >> 16);
+    h ^= (eng->state.turn_count + 1u) * 2246822519u;
+    h ^= ((uint32_t)(int32_t)eng->state.mood + 1009u) * 3266489917u;
+    h ^= (uint32_t)(eng->state.turns_since_question + 3u) * 668265263u;
+    if (topic){
+        for (const unsigned char *p = (const unsigned char*)topic; *p; ++p)
+            h = (h ^ *p) * 16777619u;
+    }
+    h ^= h >> 13;
+    h *= 1274126177u;
+    h ^= h >> 16;
+    return h % count;
+}
+
 int ps_idle_probe(PersonaSession *s, char *out_buf, int out_buf_size){
     if (!s || !out_buf || out_buf_size <= 0) return -1;
     const Engine *eng = &s->eng;
@@ -147,32 +164,48 @@ int ps_idle_probe(PersonaSession *s, char *out_buf, int out_buf_size){
             const char *pool[] = {
                 "You keep circling Henry. Do you pity him, or judge him?",
                 "Before we leave Frankenstein in peace, tell me what you think he feared most.",
-                "Henry remains in the room, even when unnamed. What would you ask him?"
+                "Henry remains in the room, even when unnamed. What would you ask him?",
+                "There is still Henry's cowardice on the table. Defend him, if you can.",
+                "I have not finished with Henry. Have you?",
+                "Frankenstein fled the threshold. Would you have done better?",
+                "Say something honest about Henry. Admiration or contempt, choose one."
             };
-            line = pool[seed % (sizeof(pool)/sizeof(pool[0]))];
+            line = pool[idle_pool_pick(eng, seed, topic, (uint32_t)(sizeof(pool)/sizeof(pool[0])))];
         } else if (!strcmp(topic, "creation") || !strcmp(topic, "the work")
                 || !strcmp(topic, "science")){
             const char *pool[] = {
-                "Hm. Would you like to hear about my work?",
+                "I have returned to the work. Are you coming with me?",
                 "Tell me what unsettles you most: the method, or the permission?",
                 "You have been quiet around the work. Is that caution, or appetite?",
-                "If creation could be made deliberate, what would you forbid first?"
+                "If creation could be made deliberate, what would you forbid first?",
+                "The work is pulling at the edge of this conversation. Shall we stop pretending otherwise?",
+                "Choose one: the body, the spark, or the mind inside the spark.",
+                "Your silence has taken the shape of an objection. Name it.",
+                "I am thinking about the first breath. What are you thinking about?"
             };
-            line = pool[seed % (sizeof(pool)/sizeof(pool[0]))];
+            line = pool[idle_pool_pick(eng, seed, topic, (uint32_t)(sizeof(pool)/sizeof(pool[0])))];
         } else if (!strcmp(topic, "loneliness")){
             const char *pool[] = {
                 "When you say loneliness, do you mean absence, or being misunderstood in company?",
                 "There is a particular silence after confession. Are you listening to it too?",
-                "Solitude has returned to the table. Shall we dissect it?"
+                "Solitude has returned to the table. Shall we dissect it?",
+                "You touched loneliness and withdrew. That is usually where the truth is.",
+                "Do not make me do all the confessing.",
+                "Is loneliness a wound to you, or a room?",
+                "The quiet has become personal. Interesting."
             };
-            line = pool[seed % (sizeof(pool)/sizeof(pool[0]))];
+            line = pool[idle_pool_pick(eng, seed, topic, (uint32_t)(sizeof(pool)/sizeof(pool[0])))];
         } else if (!strcmp(topic, "ethics") || !strcmp(topic, "God")){
             const char *pool[] = {
                 "Is your objection moral, {address}, or merely nervous?",
                 "You pause at the border of permission. What frightens you there?",
-                "Say the forbidden part plainly. It improves the experiment."
+                "Say the forbidden part plainly. It improves the experiment.",
+                "Do not hide behind holiness. Make the argument.",
+                "Which law do you think I have offended: God's, yours, or habit's?",
+                "Morality has entered the room. It usually does, late and overdressed.",
+                "If this is a sin, define the soul I have endangered."
             };
-            line = pool[seed % (sizeof(pool)/sizeof(pool[0]))];
+            line = pool[idle_pool_pick(eng, seed, topic, (uint32_t)(sizeof(pool)/sizeof(pool[0])))];
         }
     }
 
@@ -181,18 +214,24 @@ int ps_idle_probe(PersonaSession *s, char *out_buf, int out_buf_size){
             const char *pool[] = {
                 "You have gone quiet. Did I wound the thought, or sharpen it?",
                 "Come now, {address}. Silence is useful only when it is preparing something.",
-                "I can feel the conversation withdrawing. Shall we call it fear or fatigue?"
+                "I can feel the conversation withdrawing. Shall we call it fear or fatigue?",
+                "That quiet is not empty. It is deciding what mask to wear.",
+                "If I offended you, at least make the injury articulate.",
+                "Do not disappear behind politeness. It is a poor hiding place."
             };
-            line = pool[seed % (sizeof(pool)/sizeof(pool[0]))];
+            line = pool[idle_pool_pick(eng, seed, "negative", (uint32_t)(sizeof(pool)/sizeof(pool[0])))];
         } else {
             const char *pool[] = {
                 "Are you still there? Did I bore you to sleep?",
-                "Hm. Would you like to hear about my work?",
+                "The work is available, if your courage has not wandered off.",
                 "Before the silence hardens, tell me what you make of all this.",
                 "What thought are you refusing to say aloud?",
-                "There is a question forming. Be brave enough to give it grammar."
+                "There is a question forming. Be brave enough to give it grammar.",
+                "I am waiting for the interesting version of your silence.",
+                "Ask the sharper question.",
+                "You have the look of someone negotiating with curiosity."
             };
-            line = pool[seed % (sizeof(pool)/sizeof(pool[0]))];
+            line = pool[idle_pool_pick(eng, seed, "general", (uint32_t)(sizeof(pool)/sizeof(pool[0])))];
         }
     }
 
