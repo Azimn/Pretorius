@@ -25,10 +25,19 @@
 
 /* sort helpers */
 static int cmp_index_entry_sig(const void *a, const void *b){
-    uint64_t sa = ((const index_entry_t *)a)->signature;
-    uint64_t sb = ((const index_entry_t *)b)->signature;
-    if (sa < sb) return -1;
-    if (sa > sb) return  1;
+    const index_entry_t *ea = (const index_entry_t *)a;
+    const index_entry_t *eb = (const index_entry_t *)b;
+    if (ea->signature != eb->signature)
+        return ea->signature < eb->signature ? -1 : 1;
+    /* qsort is not stable: equal-signature entries (LSH collisions are real
+     * for near-duplicate memories) must order identically every run, or the
+     * on-disk bucket bytes — and the order a bucket scan returns matches —
+     * become platform-dependent, breaking behavioral holography. Tie-break
+     * on the unique (zone, offset) location of each event. */
+    if (ea->zone_id != eb->zone_id)
+        return ea->zone_id < eb->zone_id ? -1 : 1;
+    if (ea->event_offset != eb->event_offset)
+        return ea->event_offset < eb->event_offset ? -1 : 1;
     return 0;
 }
 

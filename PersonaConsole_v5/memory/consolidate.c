@@ -10,10 +10,14 @@ typedef struct {
 } cooc_pair_t;
 
 static int cmp_cooc_desc(const void *a, const void *b){
-    uint32_t ca = ((const cooc_pair_t*)a)->count;
-    uint32_t cb = ((const cooc_pair_t*)b)->count;
-    if (cb > ca) return  1;
-    if (cb < ca) return -1;
+    const cooc_pair_t *pa = (const cooc_pair_t *)a;
+    const cooc_pair_t *pb = (const cooc_pair_t *)b;
+    if (pa->count != pb->count) return pb->count > pa->count ? 1 : -1;
+    /* Deterministic tie-break: with qsort unstable, equal-count pairs could
+     * otherwise reorder across platforms and change which rules survive the
+     * PE_CONS_MAX_RULES cutoff. */
+    if (pa->key1 != pb->key1) return pa->key1 < pb->key1 ? -1 : 1;
+    if (pa->key2 != pb->key2) return pa->key2 < pb->key2 ? -1 : 1;
     return 0;
 }
 
