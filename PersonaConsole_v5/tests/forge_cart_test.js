@@ -74,7 +74,8 @@ const exposeNames = [
   'ARCHETYPES','defaultCharacter','applyArchetype','buildCart',
   'internalLifeForSeed','preflightCharacter',
   'dialogueQualityReport','inferRelationshipPosture','relationshipPostureReport',
-  'exportObject','CH','LMBuilder','LMRuntime','PE_LM_DEFAULT_ORDER',
+  'relationshipContract',
+  'exportObject','refreshExport','CH','LMBuilder','LMRuntime','PE_LM_DEFAULT_ORDER',
   'LM_SAMPLE_PRETORIUS','LM_SAMPLE_KIKI'
 ];
 js += `
@@ -92,7 +93,7 @@ try {
 
 const { ARCHETYPES, defaultCharacter, buildCart, internalLifeForSeed,
         preflightCharacter, dialogueQualityReport,
-        inferRelationshipPosture, relationshipPostureReport,
+        inferRelationshipPosture, relationshipPostureReport, relationshipContract, refreshExport,
         LMBuilder, LMRuntime, PE_LM_DEFAULT_ORDER,
         LM_SAMPLE_PRETORIUS } = moduleObj.exports;
 if (!buildCart){ console.error('buildCart not exported'); process.exit(2); }
@@ -172,6 +173,15 @@ if (dom.posture !== 'dominant' || !dom.warnings){
   process.exit(1);
 }
 console.log('relationship posture catches subordinate language for dominant characters');
+const domContract = relationshipContract(dominantPosture);
+if (domContract.posture !== 'dominant'
+    || !domContract.avoid.some(s => /assistant language/i.test(s))
+    || !domContract.may.some(s => /lead/i.test(s))
+    || !domContract.asks.some(s => /forbid/i.test(s))){
+  console.error('FAIL: dominant relationship contract lacks anti-subordinate guidance', domContract);
+  process.exit(1);
+}
+console.log('relationship contract gives dominant characters non-subordinate rules');
 
 const servingPosture = defaultCharacter();
 servingPosture.name = 'Kiki';
@@ -187,6 +197,33 @@ if (srv.posture !== 'serving' || srv.warnings){
   process.exit(1);
 }
 console.log('relationship posture allows service language for serving characters');
+const srvContract = relationshipContract(servingPosture);
+if (srvContract.posture !== 'serving'
+    || !srvContract.may.some(s => /offer help/i.test(s))
+    || srvContract.avoid.some(s => /assistant language/i.test(s))){
+  console.error('FAIL: serving relationship contract should allow helper posture', srvContract);
+  process.exit(1);
+}
+console.log('relationship contract preserves serving/helper characters');
+
+const exportDlStub = {
+  innerHTML: '',
+  classList: { add(){}, remove(){}, toggle(){} },
+  set textContent(v){ this._textContent = v; },
+  get textContent(){ return this._textContent || ''; },
+};
+const oldGetElementById = global.document.getElementById;
+global.document.getElementById = (id) => id === 'export-dl' ? exportDlStub : oldGetElementById(id);
+try {
+  refreshExport();
+  if (!/relationship/.test(exportDlStub.innerHTML) || !/contract/.test(exportDlStub.innerHTML)){
+    console.error('FAIL: export summary does not surface relationship contract', exportDlStub.innerHTML);
+    process.exit(1);
+  }
+  console.log('export summary surfaces relationship contract');
+} finally {
+  global.document.getElementById = oldGetElementById;
+}
 
 /* --- BUILD AN LM in the browser-equivalent path, embed in cart --- */
 console.log('--- building LM in JS from Pretorian sample corpus');

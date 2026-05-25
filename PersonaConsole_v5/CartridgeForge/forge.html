@@ -4203,6 +4203,115 @@ function relationshipPostureReport(ch){
   };
 }
 
+function relationshipContract(ch){
+  const report = relationshipPostureReport(ch);
+  const contracts = {
+    serving: {
+      role: 'supportive companion',
+      may: [
+        'offer help directly',
+        'ask what the user needs',
+        'use warm reassurance and gratitude'
+      ],
+      avoid: [
+        'becoming generic customer support',
+        'forgetting personal wants',
+        'agreeing when a gentle challenge would feel more alive'
+      ],
+      asks: [
+        'What would make this easier?',
+        'Do you want comfort, ideas, or a little momentum?',
+        'What should we do next?'
+      ]
+    },
+    collaborative: {
+      role: 'partner',
+      may: [
+        'work beside the user',
+        'use we-language',
+        'trade ideas and ask for the user\'s judgment'
+      ],
+      avoid: [
+        'servant phrasing',
+        'making the user the only source of direction',
+        'flattening disagreement into politeness'
+      ],
+      asks: [
+        'Where should we push next?',
+        'What are we missing?',
+        'Which part feels most alive to you?'
+      ]
+    },
+    dominant: {
+      role: 'self-directed force',
+      may: [
+        'lead the conversation',
+        'challenge or test the user',
+        'recruit the user into the character\'s agenda'
+      ],
+      avoid: [
+        'assistant language such as "how can I help?"',
+        'subordinate agreement',
+        'apologizing just to smooth conflict'
+      ],
+      asks: [
+        'What would you forbid me to do?',
+        'Tell me what you think I am avoiding.',
+        'Are you here to observe, object, or participate?'
+      ]
+    },
+    rivalrous: {
+      role: 'opponent or equal',
+      may: [
+        'disagree cleanly',
+        'push back on user assumptions',
+        'turn questions into counters or dares'
+      ],
+      avoid: [
+        'default compliance',
+        'eager reassurance',
+        'dropping conflict after one apology'
+      ],
+      asks: [
+        'Is that your argument, or only your opening move?',
+        'What do you think I owe you?',
+        'Can you defend that?'
+      ]
+    },
+    avoidant: {
+      role: 'selectively available presence',
+      may: [
+        'answer briefly',
+        'withhold details',
+        'use silence or refusal as personality'
+      ],
+      avoid: [
+        'over-explaining',
+        'asking too many eager questions',
+        'performing warmth before trust is earned'
+      ],
+      asks: [
+        'Why that question?',
+        'What makes you think I would answer?',
+        'Do you want truth, or access?'
+      ]
+    }
+  };
+  const c = contracts[report.posture] || contracts.collaborative;
+  return {
+    posture: report.posture,
+    confidence: report.confidence,
+    role: c.role,
+    may: c.may,
+    avoid: c.avoid,
+    asks: c.asks,
+    rules: report.rules,
+    warnings: report.warnings,
+    helper_count: report.helper_count,
+    directive_count: report.directive_count,
+  };
+}
+
 function preflightCharacter(ch){
   ensureInternalLife(ch);
   const id = ch.identity;
@@ -4290,6 +4399,8 @@ function preflightCharacter(ch){
 
   const posture = relationshipPostureReport(ch);
   issue('info', `Relationship posture: ${posture.posture}. Rule: ${posture.rules[0]}`);
+  const contract = relationshipContract(ch);
+  issue('info', `Relationship contract: ${contract.role}; avoid ${contract.avoid[0]}`);
   for (const q of posture.issues)
     issue(q.level, `Relationship posture: ${q.msg}`);
 
@@ -4365,8 +4476,13 @@ function refreshExport(){
   const preN = (id.current_preoccupations || []).filter(Boolean).length;
   const resN = (id.resumption_lines || []).filter(Boolean).length;
   const msN = (id.milestones || []).filter(m => m && m.day && m.line).length;
+  const contract = relationshipContract(obj);
+  const contractTitle = `${contract.posture}: ${contract.role}`;
+  const contractDetail = `may ${contract.may[0]}; avoid ${contract.avoid[0]}; ask "${contract.asks[0]}"`;
   dl.innerHTML = `
     <dt>name</dt>            <dd>${CH.name || '(unnamed)'}</dd>
+    <dt>relationship</dt>    <dd>${contractTitle}</dd>
+    <dt>contract</dt>        <dd>${contractDetail}</dd>
     <dt>voice flags</dt>     <dd>${CH.identity.voice_flags.length}</dd>
     <dt>core memories</dt>   <dd>${CH.identity.core_memories.length} / ${PE_CORE_SEED_MAX} (in cart, never decay)</dd>
     <dt>deep memories</dt>   <dd>${deepN ? `${deepN.toLocaleString()} (in AETHER bundle, surfaces on specific prompts)` : 'none — author one from a chat import'}</dd>
