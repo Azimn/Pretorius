@@ -112,6 +112,103 @@ Write-Host "To stop it, run Stop_Server.ps1"
 Write-Utf8NoBom (Join-Path $OutDir "Run_Pretorius.ps1") ($runTemplate.Replace("__CART__", "characters/pretorius/pretorius.cart"))
 Write-Utf8NoBom (Join-Path $OutDir "Run_Kiki.ps1") ($runTemplate.Replace("__CART__", "characters/kiki/kiki.cart"))
 
+$healthScript = @'
+param(
+  [int]$Port = 7798
+)
+
+$ErrorActionPreference = "Stop"
+$Here = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location -LiteralPath $Here
+$env:PATH = "$Here;$env:PATH"
+
+$out = Join-Path $Here "PersonaConsole_Health_Check.txt"
+$hostExe = Join-Path $Here "persona_host.exe"
+$cart = Join-Path $Here "characters\pretorius\pretorius.cart"
+$webRoot = Join-Path $Here "host\web"
+$base = "http://127.0.0.1:$Port"
+$proc = $null
+$lines = New-Object System.Collections.Generic.List[string]
+
+function Add-Line($Text) {
+  $lines.Add($Text)
+  Write-Host $Text
+}
+
+function Fail-Health($Text) {
+  Add-Line "FAIL: $Text"
+  [System.IO.File]::WriteAllLines($out, $lines, [System.Text.UTF8Encoding]::new($false))
+  throw $Text
+}
+
+function Invoke-JsonPost($Uri, $Body) {
+  Invoke-WebRequest -Uri $Uri -Method POST -ContentType "application/json" -Body $Body -UseBasicParsing -TimeoutSec 5
+}
+
+Add-Line "PersonaConsole V5 Health Check"
+Add-Line "Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz')"
+Add-Line ""
+Add-Line "Privacy note: this health check uses canned test prompts only. It does not export your conversations or character memory."
+Add-Line ""
+
+try {
+  if (-not (Test-Path -LiteralPath $hostExe)) { Fail-Health "persona_host.exe missing" }
+  if (-not (Test-Path -LiteralPath $cart)) { Fail-Health "Pretorius cartridge missing" }
+  if (-not (Test-Path -LiteralPath $webRoot -PathType Container)) { Fail-Health "web folder missing" }
+
+  $proc = Start-Process -FilePath $hostExe `
+    -ArgumentList @("--port", "$Port", "--web-root", $webRoot, $cart) `
+    -WorkingDirectory $Here -WindowStyle Hidden -PassThru
+
+  $ready = $false
+  for ($i = 0; $i -lt 30; $i++) {
+    Start-Sleep -Milliseconds 250
+    try {
+      $state = Invoke-WebRequest -Uri "$base/state" -UseBasicParsing -TimeoutSec 2
+      if ($state.StatusCode -eq 200 -and $state.Content -match '"mood"') {
+        $ready = $true
+        break
+      }
+    } catch {
+      $ready = $false
+    }
+  }
+  if (-not $ready) { Fail-Health "local host did not answer /state on port $Port" }
+  Add-Line "OK: local host answered /state"
+
+  $html = Invoke-WebRequest -Uri "$base/" -UseBasicParsing -TimeoutSec 3
+  if ($html.StatusCode -ne 200 -or $html.Content -notmatch "PersonaHost - chat") {
+    Fail-Health "web UI did not load"
+  }
+  Add-Line "OK: web UI loaded"
+
+  $chat = Invoke-JsonPost "$base/chat" '{"text":"Good morning, Doctor."}'
+  if ($chat.StatusCode -ne 200 -or $chat.Content -notmatch '"reply"') {
+    Fail-Health "chat endpoint did not return a reply"
+  }
+  Add-Line "OK: chat endpoint returned a reply"
+
+  $idle = Invoke-JsonPost "$base/idle_probe" '{}'
+  if ($idle.StatusCode -ne 200 -or $idle.Content -notmatch '"reply"') {
+    Fail-Health "idle_probe endpoint did not return JSON"
+  }
+  Add-Line "OK: idle_probe endpoint returned JSON"
+
+  $proc.Refresh()
+  Add-Line "OK: persona_host working set MB: $([math]::Round($proc.WorkingSet64 / 1MB, 2))"
+  Add-Line ""
+  Add-Line "PASSED: PersonaConsole demo is working on this machine."
+}
+finally {
+  if ($proc -and -not $proc.HasExited) {
+    Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+  }
+  [System.IO.File]::WriteAllLines($out, $lines, [System.Text.UTF8Encoding]::new($false))
+  Write-Host "Wrote $out"
+}
+'@
+Write-Utf8NoBom (Join-Path $OutDir "Health_Check.ps1") $healthScript
+
 $diagScript = @'
 $ErrorActionPreference = "SilentlyContinue"
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -204,6 +301,7 @@ foreach ($char in @("pretorius", "kiki")) {
 }
 
 Remove-Item -LiteralPath (Join-Path $Here "PersonaConsole_Diagnostics.txt") -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath (Join-Path $Here "PersonaConsole_Health_Check.txt") -Force -ErrorAction SilentlyContinue
 Write-Host "PersonaConsole demo state reset. Cartridges were not changed."
 '@
 Write-Utf8NoBom (Join-Path $OutDir "Reset_Demo_State.ps1") $resetScript
@@ -242,6 +340,10 @@ $cmdDiag = '@echo off
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Collect_Diagnostics.ps1"
 pause
 '
+$cmdHealth = '@echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Health_Check.ps1"
+pause
+'
 $cmdReset = '@echo off
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Reset_Demo_State.ps1"
 pause
@@ -250,6 +352,7 @@ Write-Utf8NoBom (Join-Path $OutDir "Run_Pretorius.cmd") $cmdPretorius
 Write-Utf8NoBom (Join-Path $OutDir "Run_Kiki.cmd") $cmdKiki
 Write-Utf8NoBom (Join-Path $OutDir "Stop_Server.cmd") $cmdStop
 Write-Utf8NoBom (Join-Path $OutDir "Collect_Diagnostics.cmd") $cmdDiag
+Write-Utf8NoBom (Join-Path $OutDir "Health_Check.cmd") $cmdHealth
 Write-Utf8NoBom (Join-Path $OutDir "Reset_Demo_State.cmd") $cmdReset
 
 $startHere = @'
@@ -274,6 +377,7 @@ $startHere = @'
     <a href="Forge/forge.html"><strong>Open Cartridge Forge</strong><br><span class="muted">Create or edit a V5 character cartridge.</span></a>
     <a href="Inspector/cartridge_inspector.html"><strong>Open Cartridge Inspector</strong><br><span class="muted">Check a cartridge before sharing it.</span></a>
     <a href="TESTER_GUIDE.html"><strong>Tester Guide</strong><br><span class="muted">Prompts and feedback questions for real-user testing.</span></a>
+    <div class="card"><strong>Health check</strong><br><span class="muted">Run <code>Health_Check.cmd</code> to verify the demo works.</span></div>
     <div class="card"><strong>Collect diagnostics</strong><br><span class="muted">Run <code>Collect_Diagnostics.cmd</code> if something breaks.</span></div>
     <div class="card"><strong>Reset local memory</strong><br><span class="muted">Run <code>Reset_Demo_State.cmd</code> to start fresh.</span></div>
     <div class="card"><strong>Stop the server</strong><br><span class="muted">Run <code>Stop_Server.cmd</code> when finished.</span></div>
@@ -297,6 +401,7 @@ Other files:
 - Forge/forge.html builds V5 cartridges in the browser.
 - Inspector/cartridge_inspector.html checks cartridge health.
 - TESTER_GUIDE.html has prompts and a feedback template.
+- Health_Check.cmd verifies the local demo can start, chat, and idle-probe.
 - Collect_Diagnostics.cmd writes PersonaConsole_Diagnostics.txt for bug reports.
 - Reset_Demo_State.cmd clears local demo memory/state without changing cartridges.
 - characters/ contains the included Pretorius and Kiki cartridges.

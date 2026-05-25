@@ -60,6 +60,8 @@ Require-File (Join-Path $DemoDir "TESTER_GUIDE.html")
 Require-File (Join-Path $DemoDir "Run_Pretorius.cmd")
 Require-File (Join-Path $DemoDir "Run_Kiki.cmd")
 Require-File (Join-Path $DemoDir "Stop_Server.cmd")
+Require-File (Join-Path $DemoDir "Health_Check.cmd")
+Require-File (Join-Path $DemoDir "Health_Check.ps1")
 Require-File (Join-Path $DemoDir "Collect_Diagnostics.cmd")
 Require-File (Join-Path $DemoDir "Collect_Diagnostics.ps1")
 Require-File (Join-Path $DemoDir "Reset_Demo_State.cmd")
@@ -88,6 +90,9 @@ if ($readme -notmatch "No GPU" -or $readme -notmatch "internet") {
 if ($readme -notmatch "Collect_Diagnostics") {
   Fail "README_FIRST.txt must mention diagnostics collection"
 }
+if ($readme -notmatch "Health_Check") {
+  Fail "README_FIRST.txt must mention the one-click health check"
+}
 if ($readme -notmatch "Reset_Demo_State") {
   Fail "README_FIRST.txt must mention resetting local state"
 }
@@ -108,7 +113,7 @@ if ($testerGuideHtml -notmatch "export transcript" -or $testerGuideHtml -notmatc
 }
 
 $start = Get-Content -LiteralPath (Join-Path $DemoDir "START_HERE.html") -Raw
-if ($start -notmatch "Run_Pretorius\.cmd" -or $start -notmatch "Forge/forge\.html" -or $start -notmatch "Inspector/cartridge_inspector\.html" -or $start -notmatch "TESTER_GUIDE\.html" -or $start -notmatch "Collect_Diagnostics\.cmd" -or $start -notmatch "Reset_Demo_State\.cmd") {
+if ($start -notmatch "Run_Pretorius\.cmd" -or $start -notmatch "Forge/forge\.html" -or $start -notmatch "Inspector/cartridge_inspector\.html" -or $start -notmatch "TESTER_GUIDE\.html" -or $start -notmatch "Health_Check\.cmd" -or $start -notmatch "Collect_Diagnostics\.cmd" -or $start -notmatch "Reset_Demo_State\.cmd") {
   Fail "START_HERE.html does not expose first-run, Forge, and Inspector paths"
 }
 
@@ -173,9 +178,20 @@ try {
     Fail "diagnostics output appears to include chat text"
   }
 
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $DemoDir "Health_Check.ps1") -Port ($Port + 1) | Out-Null
+  $healthPath = Join-Path $DemoDir "PersonaConsole_Health_Check.txt"
+  Require-File $healthPath
+  $health = Get-Content -LiteralPath $healthPath -Raw
+  if ($health -notmatch "PASSED: PersonaConsole demo is working" -or $health -notmatch "Privacy note") {
+    Fail "health check output is missing pass/privacy text"
+  }
+
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $DemoDir "Reset_Demo_State.ps1") | Out-Null
   if (Test-Path -LiteralPath $diagPath) {
     Fail "reset script did not remove diagnostics output"
+  }
+  if (Test-Path -LiteralPath $healthPath) {
+    Fail "reset script did not remove health check output"
   }
   foreach ($stateFile in @("state.bin", "memory.bin", "chapters.bin", "reflections.bin")) {
     if (Test-Path -LiteralPath (Join-Path $charDir $stateFile)) {

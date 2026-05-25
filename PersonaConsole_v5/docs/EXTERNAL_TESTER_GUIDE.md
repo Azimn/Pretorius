@@ -4,12 +4,13 @@ Thank you for testing PersonaConsole. This build is intentionally local and ligh
 
 ## What To Test First
 
-1. Double-click `Run_Pretorius.cmd`.
-2. Confirm your browser opens to `http://127.0.0.1:7777/`.
-3. Send 10-20 normal chat messages.
-4. Stop typing for a bit and see whether proactive speech feels alive or annoying.
-5. Run `Stop_Server.cmd`.
-6. Repeat once with `Run_Kiki.cmd`.
+1. Optional: double-click `Health_Check.cmd` to confirm the local demo works on your machine.
+2. Double-click `Run_Pretorius.cmd`.
+3. Confirm your browser opens to `http://127.0.0.1:7777/`.
+4. Send 10-20 normal chat messages.
+5. Stop typing for a bit and see whether proactive speech feels alive or annoying.
+6. Run `Stop_Server.cmd`.
+7. Repeat once with `Run_Kiki.cmd`.
 
 ## Hardware Notes
 
