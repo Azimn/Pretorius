@@ -56,6 +56,7 @@ Require-File $ZipPath
 Require-File (Join-Path $DemoDir "START_HERE.html")
 Require-File (Join-Path $DemoDir "README_FIRST.txt")
 Require-File (Join-Path $DemoDir "TESTER_GUIDE.md")
+Require-File (Join-Path $DemoDir "TESTER_GUIDE.html")
 Require-File (Join-Path $DemoDir "Run_Pretorius.cmd")
 Require-File (Join-Path $DemoDir "Run_Kiki.cmd")
 Require-File (Join-Path $DemoDir "Stop_Server.cmd")
@@ -85,9 +86,13 @@ $testerGuide = Get-Content -LiteralPath (Join-Path $DemoDir "TESTER_GUIDE.md") -
 if ($testerGuide -notmatch "Most alive moment" -or $testerGuide -notmatch "Most fake moment" -or $testerGuide -notmatch "Pretorius felt") {
   Fail "TESTER_GUIDE.md must include structured feedback prompts"
 }
+$testerGuideHtml = Get-Content -LiteralPath (Join-Path $DemoDir "TESTER_GUIDE.html") -Raw
+if ($testerGuideHtml -notmatch "Most alive moment" -or $testerGuideHtml -notmatch "Most fake moment" -or $testerGuideHtml -notmatch "Pretorius felt") {
+  Fail "TESTER_GUIDE.html must include structured feedback prompts"
+}
 
 $start = Get-Content -LiteralPath (Join-Path $DemoDir "START_HERE.html") -Raw
-if ($start -notmatch "Run_Pretorius\.cmd" -or $start -notmatch "Forge/forge\.html" -or $start -notmatch "Inspector/cartridge_inspector\.html" -or $start -notmatch "TESTER_GUIDE\.md") {
+if ($start -notmatch "Run_Pretorius\.cmd" -or $start -notmatch "Forge/forge\.html" -or $start -notmatch "Inspector/cartridge_inspector\.html" -or $start -notmatch "TESTER_GUIDE\.html") {
   Fail "START_HERE.html does not expose first-run, Forge, and Inspector paths"
 }
 

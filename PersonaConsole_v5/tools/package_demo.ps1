@@ -53,6 +53,7 @@ if (Test-Path -LiteralPath (Join-Path $Root "CartridgeInspector\README.md")) {
   Copy-RequiredFile (Join-Path $Root "CartridgeInspector\README.md") (Join-Path $OutDir "Inspector\README.md")
 }
 Copy-RequiredFile (Join-Path $Root "docs\EXTERNAL_TESTER_GUIDE.md") (Join-Path $OutDir "TESTER_GUIDE.md")
+Copy-RequiredFile (Join-Path $Root "docs\EXTERNAL_TESTER_GUIDE.html") (Join-Path $OutDir "TESTER_GUIDE.html")
 
 $runTemplate = @'
 param(
@@ -156,7 +157,7 @@ $startHere = @'
   <div class="grid">
     <a href="Forge/forge.html"><strong>Open Cartridge Forge</strong><br><span class="muted">Create or edit a V5 character cartridge.</span></a>
     <a href="Inspector/cartridge_inspector.html"><strong>Open Cartridge Inspector</strong><br><span class="muted">Check a cartridge before sharing it.</span></a>
-    <a href="TESTER_GUIDE.md"><strong>Tester Guide</strong><br><span class="muted">Prompts and feedback questions for real-user testing.</span></a>
+    <a href="TESTER_GUIDE.html"><strong>Tester Guide</strong><br><span class="muted">Prompts and feedback questions for real-user testing.</span></a>
     <div class="card"><strong>Stop the server</strong><br><span class="muted">Run <code>Stop_Server.cmd</code> when finished.</span></div>
   </div>
   <p>Each character stores its own local memory beside its cartridge in <code>characters/</code>. This demo is local-first: no account, no network service, no GPU, and no LLM are required for the included cartridges.</p>
@@ -177,7 +178,7 @@ Other files:
 - Run_Kiki.cmd starts the Kiki cartridge.
 - Forge/forge.html builds V5 cartridges in the browser.
 - Inspector/cartridge_inspector.html checks cartridge health.
-- TESTER_GUIDE.md has prompts and a feedback template.
+- TESTER_GUIDE.html has prompts and a feedback template.
 - characters/ contains the included Pretorius and Kiki cartridges.
 
 Hardware:

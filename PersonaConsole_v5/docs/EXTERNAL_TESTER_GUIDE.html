@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PersonaConsole V5 Tester Guide</title>
+<style>
+  :root{--bg:#101114;--panel:#191a1e;--border:#39342f;--text:#f2eee7;--muted:#cfc8bd;--accent:#d4a574}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:Segoe UI,Arial,sans-serif;line-height:1.55}
+  main{max-width:920px;margin:0 auto;padding:38px 22px 64px}
+  h1{font-size:34px;margin:0 0 8px}
+  h2{font-size:20px;margin:30px 0 10px;color:var(--accent)}
+  h3{font-size:16px;margin:18px 0 8px}
+  p,li{color:var(--muted)}
+  code,pre{background:#24262b;border-radius:6px}
+  code{padding:2px 5px}
+  pre{padding:14px;overflow:auto;color:#f7f1e8}
+  section{border-top:1px solid var(--border);padding-top:18px;margin-top:22px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px}
+  .callout{border-left:3px solid var(--accent);background:var(--panel);padding:12px 14px;border-radius:6px}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+  <h1>PersonaConsole V5 Tester Guide</h1>
+  <p>This build is intentionally local and lightweight. It does not use a cloud AI service or a bundled LLM.</p>
+
+  <section>
+    <h2>What To Test First</h2>
+    <ol>
+      <li>Double-click <code>Run_Pretorius.cmd</code>.</li>
+      <li>Confirm your browser opens to <code>http://127.0.0.1:7777/</code>.</li>
+      <li>Send 10-20 normal chat messages.</li>
+      <li>Stop typing for a bit and see whether proactive speech feels alive or annoying.</li>
+      <li>Run <code>Stop_Server.cmd</code>.</li>
+      <li>Repeat once with <code>Run_Kiki.cmd</code>.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Hardware Notes</h2>
+    <div class="callout">
+      Expected default behavior: no GPU, no account, no internet after you have this folder, no model download, and a tiny local runtime.
+    </div>
+    <p>Please tell us your Windows version, CPU/RAM if known, whether the browser felt slow, and whether character responses felt instant, acceptable, or slow.</p>
+  </section>
+
+  <section>
+    <h2>Conversation Prompts</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Pretorius</h3>
+        <ul>
+          <li>Good morning, doctor.</li>
+          <li>What are you working on?</li>
+          <li>I think your work is immoral.</li>
+          <li>Ask me something you actually want to know.</li>
+          <li>Remember this phrase: the blue bell jar.</li>
+          <li>What did I ask you to remember?</li>
+          <li>You sound like you are performing.</li>
+          <li>Can you speak plainly for a moment?</li>
+          <li>I am going quiet now.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Kiki</h3>
+        <ul>
+          <li>Hi Kiki.</li>
+          <li>How are you?</li>
+          <li>Can you help me think through something?</li>
+          <li>What are you curious about today?</li>
+          <li>I need a softer answer.</li>
+          <li>Ask me something fun.</li>
+          <li>Remember that I like weird science.</li>
+          <li>What should we talk about next time?</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What We Need Feedback On</h2>
+    <ul>
+      <li>Did double-clicking the run script work?</li>
+      <li>Did Windows show a warning that confused you?</li>
+      <li>Could you stop the server?</li>
+      <li>Did either character repeat exact lines?</li>
+      <li>Did proactive speech feel alive, or did it interrupt?</li>
+      <li>Did Pretorius feel too helpful or assistant-like?</li>
+      <li>Did Kiki feel warm/helpful enough?</li>
+      <li>Did memory callbacks feel impressive, wrong, or creepy?</li>
+      <li>Did the Forge preflight suggestions make sense?</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Report Template</h2>
+<pre>PersonaConsole V5 tester notes
+
+Machine:
+Windows:
+RAM:
+Started by double-clicking:
+Browser opened:
+Stop script worked:
+
+Pretorius felt:
+Kiki felt:
+
+Most alive moment:
+Most fake moment:
+Most confusing moment:
+
+Repeated lines noticed:
+Assistant-like lines noticed:
+Memory/callback issues:
+Proactive speech issues:
+Forge/authoring issues:
+
+Would you try another character? yes/no
+Would you give this to a non-technical friend? yes/no
+One thing to fix first:</pre>
+  </section>
+
+  <section>
+    <h2>Privacy</h2>
+    <p>This demo runs locally. It writes character state beside each cartridge under <code>characters/</code>. Do not send private conversations back unless you are comfortable sharing them.</p>
+  </section>
+</main>
+</body>
+</html>
