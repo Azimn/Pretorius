@@ -84,9 +84,19 @@ function Test-PortOpen([int]$PortNumber) {
 }
 
 if (Test-PortOpen $Port) {
-  Start-Process $url
-  Write-Host "PersonaConsole is already running on $url"
-  exit 0
+  if (Test-Path -LiteralPath $pidFile) {
+    $oldPid = Get-Content -LiteralPath $pidFile | Select-Object -First 1
+    if ($oldPid) {
+      Stop-Process -Id ([int]$oldPid) -Force -ErrorAction SilentlyContinue
+      Start-Sleep -Milliseconds 500
+    }
+  }
+  if (Test-PortOpen $Port) {
+    Start-Process $url
+    Write-Host "Port $Port is already in use. Opened $url instead."
+    Write-Host "If the wrong character appears, run Stop_Server.cmd and try again."
+    exit 0
+  }
 }
 
 $args = @("--port", "$Port", "--web-root", "host/web", $cart)
