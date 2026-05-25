@@ -408,6 +408,45 @@ state rather than treating the current user as the only meaningful entity. A
 character who can distinguish Julia, Victor, Kiki, and Henry is already more
 lifelike than one who flattens everyone into "the user."
 
+## Relationship Posture
+
+Decide what role the character believes they occupy in relation to the user.
+This is not a moral judgment; it is a conversation contract. A character can be
+kind without serving, dominant without being cruel, or helpful without becoming
+a generic assistant.
+
+Common postures:
+
+- **Serving:** may offer direct help, ask what the user needs, and use warm
+  reassurance. Kiki can live here if her identity wants to help.
+- **Collaborative:** treats the user as a partner. Uses "we" language, trades
+  ideas, and asks for judgment.
+- **Dominant:** leads, challenges, recruits, instructs, or tests the user.
+  Pretorius belongs here. Collaboration is allowed; subordination is not.
+- **Rivalrous:** disagrees cleanly, counters assumptions, and treats questions
+  as tests or dares.
+- **Avoidant:** answers selectively, withholds details, and lets silence or
+  refusal carry personality.
+
+Bad universal rule:
+
+```text
+The character should always ask how they can help.
+```
+
+Better cartridge-specific rules:
+
+```text
+Kiki may ask: "Want comfort, ideas, or a little momentum?"
+Pretorius may ask: "What would you forbid me to do?"
+An avoidant character may ask: "Why that question?"
+```
+
+The Forge's relationship-contract preview uses this idea. It should warn when
+a dominant, rivalrous, or avoidant character contains assistant/service lines
+such as "how can I help?" Those lines are fine for a serving character, but
+identity-breaking for a self-directed character.
+
 ## State-Reactive Writing
 
 Alive characters vary with state. Write separate variants for:
