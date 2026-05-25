@@ -518,6 +518,37 @@ h3 { font-size: 16px; color: var(--muted); }
 .preflight li.err { color: var(--err); }
 .preflight li.warn { color: var(--warn); }
 .preflight li.info { color: var(--muted); }
+.living-checklist {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 14px 0 18px;
+  background: var(--panel);
+}
+.living-checklist .title { font-weight: 600; margin-bottom: 8px; }
+.living-checklist ul { list-style: none; margin: 0; padding: 0; }
+.living-checklist li {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.living-checklist li:first-child { border-top: 0; }
+.living-checklist .badge {
+  align-self: start;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 11px;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+.living-checklist .pass .badge { color: #9ee0a2; border: 1px solid rgba(111,191,115,0.55); }
+.living-checklist .warn .badge { color: var(--warn); border: 1px solid rgba(212,157,74,0.55); }
+.living-checklist .fail .badge { color: var(--err); border: 1px solid rgba(212,102,102,0.55); }
+.living-checklist .item-title { color: var(--text); font-size: 13px; }
+.living-checklist .item-help { color: var(--muted); font-size: 12px; margin-top: 2px; }
 
 @media (max-width: 720px) {
   .editor { grid-template-columns: 1fr; }
@@ -840,6 +871,7 @@ h3 { font-size: 16px; color: var(--muted); }
           <div class="export-summary">
             <dl id="export-dl"></dl>
           </div>
+          <div id="living-checklist" class="living-checklist"></div>
           <div id="export-preflight" class="preflight"></div>
 
           <button class="primary" id="btn-export-bundle">Download bundle.zip (recommended)</button>
@@ -4312,6 +4344,78 @@ function relationshipContract(ch){
   };
 }
 
+function livingCharacterChecklist(ch){
+  ensureInternalLife(ch);
+  const id = ch.identity || {};
+  const contract = relationshipContract(ch);
+  const posture = relationshipPostureReport(ch);
+  const dq = dialogueQualityReport(ch);
+  function count(list, pred){ let n = 0; for (const x of list || []) if (pred(x)) ++n; return n; }
+  function item(status, title, help){ return { status, title, help }; }
+  function statusFor(n, full, warnAt){
+    if (n >= full) return 'pass';
+    if (n >= warnAt) return 'warn';
+    return 'fail';
+  }
+
+  const wants = count(id.wants, w => w && w.name && w.target_topic);
+  const pre = count(id.current_preoccupations, s => (s || '').trim());
+  const res = count(id.resumption_lines, s => (s || '').trim());
+  const milestones = count(id.milestones, m => m && (+m.day || 0) > 0 && (m.line || '').trim());
+  const memories = count(id.core_memories, m => m && (m.summary || '').trim());
+  const obsessions = count(id.obsessions, s => (s || '').trim());
+  const helperConflict = posture.warnings > 0;
+
+  return [
+    item(contract.posture ? 'pass' : 'warn',
+      `Relationship posture: ${contract.posture} (${contract.role})`,
+      `May ${contract.may[0]}; avoid ${contract.avoid[0]}.`),
+    item(helperConflict ? 'warn' : 'pass',
+      helperConflict ? 'Assistant-language conflict detected' : 'Assistant-language posture is consistent',
+      helperConflict
+        ? 'Revise service/helper lines if this character should lead, resist, or keep distance.'
+        : `Example question: "${contract.asks[0]}"`),
+    item(statusFor(wants, PE_WANT_COUNT, 2),
+      `Wants: ${wants} / ${PE_WANT_COUNT}`,
+      wants >= PE_WANT_COUNT ? 'The character has proactive drives.' : 'Add wants such as be understood, prove the theory, protect someone, or test the user.'),
+    item(statusFor(pre, PE_PREOCCUPATION_COUNT, 2),
+      `Preoccupations: ${pre} / ${PE_PREOCCUPATION_COUNT}`,
+      pre >= PE_PREOCCUPATION_COUNT ? 'Absence events have enough variety.' : 'Add concrete private concerns the character can think about while away.'),
+    item(statusFor(res, PE_RESUMPTION_BUCKETS, 2),
+      `Return lines: ${res} / ${PE_RESUMPTION_BUCKETS}`,
+      res >= PE_RESUMPTION_BUCKETS ? 'Returns after absence have authored texture.' : 'Add lines for 2h, 1d, 1w, and long absences.'),
+    item(statusFor(milestones, PE_MILESTONE_COUNT, 3),
+      `Milestones: ${milestones} / ${PE_MILESTONE_COUNT}`,
+      milestones >= PE_MILESTONE_COUNT ? 'Long relationships can change texture over time.' : 'Use days 1, 7, 30, 100, 365, and 1000.'),
+    item(statusFor(memories, 8, 3),
+      `Core memories: ${memories}`,
+      memories >= 8 ? 'The character has a useful autobiographical base.' : 'Add identity-shaping memories, not only facts.'),
+    item(statusFor(obsessions, 3, 2),
+      `Obsessions: ${obsessions}`,
+      obsessions >= 3 ? 'Topic gravity has multiple directions.' : 'Add 3-5 recurring topics that can pull initiative.'),
+    item(dq.overall >= 75 ? 'pass' : dq.overall >= 55 ? 'warn' : 'fail',
+      `Dialogue quality: ${dq.overall || 0} / 100`,
+      dq.overall >= 75 ? 'Surface text has enough variety for first tests.' : 'Add short replies, plain acknowledgements, and more ordinary-chat variants.'),
+  ];
+}
+
+function renderLivingChecklist(ch){
+  const el = $('living-checklist');
+  if (!el) return;
+  const items = livingCharacterChecklist(ch);
+  const pass = items.filter(i => i.status === 'pass').length;
+  const warn = items.filter(i => i.status === 'warn').length;
+  const fail = items.filter(i => i.status === 'fail').length;
+  el.innerHTML = `
+    <div class="title">Living Character Checklist: ${pass}/${items.length} ready${warn ? `, ${warn} needs attention` : ''}${fail ? `, ${fail} missing` : ''}</div>
+    <ul>${items.map(i => `
+      <li class="${i.status}">
+        <span class="badge">${i.status}</span>
+        <span><span class="item-title">${i.title}</span><div class="item-help">${i.help}</div></span>
+      </li>`).join('')}</ul>
+  `;
+}
+
 function preflightCharacter(ch){
   ensureInternalLife(ch);
   const id = ch.identity;
@@ -4498,6 +4602,7 @@ function refreshExport(){
     <dt>.cart size</dt>      <dd>${cartSize > 0 ? (cartSize / 1024).toFixed(1) + ' KB' : 'error'}</dd>
     <dt>bundle size</dt>     <dd>${deepN ? `~${((cartSize + walSize)/1024).toFixed(1)} KB (cart + ${(walSize/1024).toFixed(1)} KB AETHER WAL)` : '(no bundle — .cart only)'}</dd>
   `;
+  renderLivingChecklist(obj);
   renderPreflight(preflight);
   /* Toggle bundle vs cart-only primary button label appropriately. */
   const bb = $('btn-export-bundle');

@@ -74,7 +74,7 @@ const exposeNames = [
   'ARCHETYPES','defaultCharacter','applyArchetype','buildCart',
   'internalLifeForSeed','preflightCharacter',
   'dialogueQualityReport','inferRelationshipPosture','relationshipPostureReport',
-  'relationshipContract',
+  'relationshipContract','livingCharacterChecklist',
   'exportObject','refreshExport','CH','LMBuilder','LMRuntime','PE_LM_DEFAULT_ORDER',
   'LM_SAMPLE_PRETORIUS','LM_SAMPLE_KIKI'
 ];
@@ -93,7 +93,8 @@ try {
 
 const { ARCHETYPES, defaultCharacter, buildCart, internalLifeForSeed,
         preflightCharacter, dialogueQualityReport,
-        inferRelationshipPosture, relationshipPostureReport, relationshipContract, refreshExport,
+        inferRelationshipPosture, relationshipPostureReport, relationshipContract,
+        livingCharacterChecklist, refreshExport,
         LMBuilder, LMRuntime, PE_LM_DEFAULT_ORDER,
         LM_SAMPLE_PRETORIUS } = moduleObj.exports;
 if (!buildCart){ console.error('buildCart not exported'); process.exit(2); }
@@ -206,21 +207,58 @@ if (srvContract.posture !== 'serving'
 }
 console.log('relationship contract preserves serving/helper characters');
 
+const checklist = livingCharacterChecklist(ch);
+if (!Array.isArray(checklist)
+    || !checklist.some(i => /Wants: 3 \/ 3/.test(i.title) && i.status === 'pass')
+    || !checklist.some(i => /Return lines: 4 \/ 4/.test(i.title) && i.status === 'pass')
+    || !checklist.some(i => /Relationship posture/.test(i.title))){
+  console.error('FAIL: living character checklist did not summarize internal life readiness', checklist);
+  process.exit(1);
+}
+console.log('living character checklist summarizes internal-life readiness');
+
+const thinCharacter = defaultCharacter();
+thinCharacter.name = 'Thin Character';
+thinCharacter.identity.wants = [];
+thinCharacter.identity.current_preoccupations = [];
+thinCharacter.identity.resumption_lines = [];
+thinCharacter.identity.milestones = [];
+thinCharacter.identity.core_memories = [];
+thinCharacter.identity.obsessions = [];
+const thinChecklist = livingCharacterChecklist(thinCharacter);
+if (!thinChecklist.some(i => /Wants: 0 \/ 3/.test(i.title) && i.status === 'fail')
+    || !thinChecklist.some(i => /Core memories: 0/.test(i.title) && i.status === 'fail')){
+  console.error('FAIL: living character checklist did not flag thin character', thinChecklist);
+  process.exit(1);
+}
+console.log('living character checklist flags thin characters');
+
 const exportDlStub = {
   innerHTML: '',
   classList: { add(){}, remove(){}, toggle(){} },
   set textContent(v){ this._textContent = v; },
   get textContent(){ return this._textContent || ''; },
 };
+const livingChecklistStub = { innerHTML: '' };
 const oldGetElementById = global.document.getElementById;
-global.document.getElementById = (id) => id === 'export-dl' ? exportDlStub : oldGetElementById(id);
+global.document.getElementById = (id) => {
+  if (id === 'export-dl') return exportDlStub;
+  if (id === 'living-checklist') return livingChecklistStub;
+  return oldGetElementById(id);
+};
 try {
   refreshExport();
   if (!/relationship/.test(exportDlStub.innerHTML) || !/contract/.test(exportDlStub.innerHTML)){
     console.error('FAIL: export summary does not surface relationship contract', exportDlStub.innerHTML);
     process.exit(1);
   }
+  if (!/Living Character Checklist/.test(livingChecklistStub.innerHTML)
+      || !/Wants:/.test(livingChecklistStub.innerHTML)){
+    console.error('FAIL: export tab does not render living character checklist', livingChecklistStub.innerHTML);
+    process.exit(1);
+  }
   console.log('export summary surfaces relationship contract');
+  console.log('export tab renders living character checklist');
 } finally {
   global.document.getElementById = oldGetElementById;
 }
