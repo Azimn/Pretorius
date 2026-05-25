@@ -1,0 +1,58 @@
+# .gitattributes — cross-platform line-ending + binary policy.
+#
+# The runtime is C99 + POSIX. It builds with gcc on Linux and with the Cygwin
+# gcc toolchain on Windows; both expect LF. Storing every text file as LF in
+# the repository keeps Linux and Windows checkouts byte-identical and ends the
+# spurious CRLF-vs-LF churn that otherwise floods diffs between contributors on
+# different operating systems.
+
+# Default: treat as text and normalize to LF in the repo and the working tree.
+* text=auto eol=lf
+
+# --- Explicit text formats (defensive; already covered by the default) ---
+*.c      text eol=lf
+*.h      text eol=lf
+*.js     text eol=lf
+*.mjs    text eol=lf
+*.json   text eol=lf
+*.html   text eol=lf
+*.css    text eol=lf
+*.md     text eol=lf
+*.txt    text eol=lf
+*.svg    text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.mk     text eol=lf
+Makefile text eol=lf
+
+# --- Windows shell tooling: keep CRLF so it runs under native cmd/PowerShell ---
+*.ps1    text eol=crlf
+*.cmd    text eol=crlf
+*.bat    text eol=crlf
+
+# --- Binary: never apply EOL conversion or attempt text diffs/merges. ---
+# Cartridge and language-model artifacts are a packed-struct binary ABI;
+# any EOL munging would silently corrupt them.
+*.bin    binary
+*.cart   binary
+*.lm     binary
+# Archives and build outputs
+*.zip    binary
+*.exe    binary
+*.dll    binary
+*.a      binary
+*.o      binary
+*.so     binary
+*.dylib  binary
+*.wasm   binary
+# Images / fonts / media
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.icns   binary
+*.pdf    binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary

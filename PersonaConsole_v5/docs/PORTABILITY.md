@@ -2,6 +2,32 @@
 
 PersonaConsole_c99 is currently a small C99/POSIX-style runtime. The core engine keeps its hot path allocation-free, but the project is not yet platform-neutral.
 
+## Supported Build Platforms
+
+The runtime is built with the same toolchain on both supported systems:
+
+- **Linux** — native `gcc`/`cc`. `make`, `make host`, `make v4_all_tests`.
+- **Windows** — the **Cygwin** `gcc` toolchain (run `make` from a Cygwin
+  shell; the PowerShell release scripts add `C:\cygwin64\bin` to `PATH`).
+  Cygwin supplies the POSIX interfaces listed below (sockets, `mmap`,
+  `fcntl` locks, `usleep`), so no `_WIN32` code paths are required and the
+  sources contain none. The resulting `persona_host.exe` ships with the
+  Cygwin runtime DLL in the demo package.
+
+Native MSVC is **not** a target (it lacks the POSIX layer). macOS works as a
+POSIX system where the interfaces below are available.
+
+### Line endings
+
+All text is stored **LF** in the repository and checked out LF on every
+platform; this is enforced by the top-level `.gitattributes` (with
+`.editorconfig` as editor-level backup). Windows shell tooling (`*.ps1`,
+`*.cmd`, `*.bat`) is the only exception and is checked out CRLF. Cartridge and
+model artifacts (`*.bin`, `*.cart`, `*.lm`) are marked `binary` so end-of-line
+conversion can never corrupt their packed-struct ABI. Keeping endings
+consistent is what allows the same source tree to build byte-identically on
+Linux and Windows and avoids spurious whole-file diffs between contributors.
+
 ## Required Interfaces
 
 - Standard C99 file I/O: `fopen`, `fread`, `fwrite`, `fflush`, `fclose`, `rename`, `remove`.
