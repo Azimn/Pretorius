@@ -29,6 +29,7 @@ const els = {
     needEnergy:$("need-energy"),
     needRapport:$("need-rapport"),
     promptCharacter: $("prompt-character"),
+    exportTranscript: $("export-transcript"),
 };
 
 const SETTINGS_KEY = "persona_presence_settings_v1";
@@ -46,6 +47,7 @@ let speakFirstAttempted = false;
 let latestTurn = 0;
 let latestState = null;
 let manualProbeTurn = -1;
+let transcript = [];
 
 function clampPct(n) {
     return Math.max(0, Math.min(100, Math.round(n)));
@@ -147,6 +149,44 @@ function addMessage(role, text, meta) {
     }
     els.messages.appendChild(div);
     els.messages.scrollTop = els.messages.scrollHeight;
+    transcript.push({
+        time: new Date().toISOString(),
+        turn: latestTurn,
+        role,
+        text,
+        meta: meta || "",
+    });
+    els.exportTranscript.disabled = transcript.length === 0;
+}
+
+function exportTranscript() {
+    const character = (els.name.textContent || "PersonaConsole").trim();
+    const lines = [
+        "PersonaConsole V5 Transcript",
+        `Character: ${character}`,
+        `Exported: ${new Date().toISOString()}`,
+        "",
+        "Privacy note: this file contains the visible conversation from this browser session because you clicked export. Review it before sharing.",
+        "",
+    ];
+    for (const row of transcript) {
+        const label = row.role.includes("user") ? "User" : character;
+        const meta = row.meta ? ` [${row.meta}]` : "";
+        lines.push(`${row.time} turn ${row.turn} ${label}${meta}:`);
+        lines.push(row.text);
+        lines.push("");
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `PersonaConsole_Transcript_${stamp}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+        URL.revokeObjectURL(a.href);
+        a.remove();
+    }, 0);
 }
 
 function setState(s) {
@@ -304,6 +344,9 @@ els.idleDelay.addEventListener("change", () => {
 els.promptCharacter.addEventListener("click", () => {
     requestIdleProbe({ allowFresh: true, allowManual: true, meta: "prompted" });
 });
+
+els.exportTranscript.addEventListener("click", exportTranscript);
+els.exportTranscript.disabled = true;
 
 applySettingsToControls();
 fetchState().then(maybeSpeakFirst);

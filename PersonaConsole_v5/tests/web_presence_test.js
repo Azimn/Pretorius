@@ -26,6 +26,7 @@ ok(/id="need-focus"/.test(html), 'focus meter exists');
 ok(/id="need-energy"/.test(html), 'energy meter exists');
 ok(/id="need-rapport"/.test(html), 'rapport meter exists');
 ok(/id="prompt-character"/.test(html), 'manual prompt button exists');
+ok(/id="export-transcript"/.test(html), 'transcript export button exists');
 ok(/id="proactive-enabled"/.test(html), 'proactive toggle exists');
 ok(/id="speak-first"/.test(html), 'speak-first toggle exists');
 ok(/id="idle-delay"/.test(html), 'idle delay selector exists');
@@ -40,6 +41,9 @@ ok(/presenceFromState/.test(js), 'presence label derives from engine state');
 ok(/thoughtFromState/.test(js), 'inner-loop thought derives from engine state');
 ok(/updateInnerLife/.test(js), 'inner-loop meters derive from engine state');
 ok(/manualProbeTurn/.test(js), 'manual prompt has per-turn cooldown');
+ok(/transcript = \[\]/.test(js), 'visible transcript is tracked in memory');
+ok(/exportTranscript/.test(js) && /PersonaConsole_Transcript_/.test(js), 'UI can export an opt-in transcript');
+ok(/Privacy note: this file contains the visible conversation/.test(js), 'transcript export includes privacy note');
 ok(/obsession_pressure/.test(js), 'presence can surface preoccupation');
 ok(/last_reply_had_question/.test(js), 'presence can surface waiting-on-user state');
 
@@ -48,6 +52,7 @@ ok(/\.inner-life/.test(css), 'inner-loop panel has CSS');
 ok(/\.meter/.test(css), 'need meters have CSS');
 ok(/\.ghost-button/.test(css), 'manual prompt button has CSS');
 ok(/\.settings/.test(css), 'presence settings have CSS');
+ok(/\.session-tools/.test(css), 'session tools have CSS');
 ok(/\.msg\.idle/.test(css), 'idle messages are visually distinct');
 
 if (fails){

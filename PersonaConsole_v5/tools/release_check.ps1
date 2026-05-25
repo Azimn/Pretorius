@@ -96,14 +96,26 @@ $testerGuide = Get-Content -LiteralPath (Join-Path $DemoDir "TESTER_GUIDE.md") -
 if ($testerGuide -notmatch "Most alive moment" -or $testerGuide -notmatch "Most fake moment" -or $testerGuide -notmatch "Pretorius felt") {
   Fail "TESTER_GUIDE.md must include structured feedback prompts"
 }
+if ($testerGuide -notmatch "export transcript" -or $testerGuide -notmatch "Collect_Diagnostics.cmd.*does not include chat text") {
+  Fail "TESTER_GUIDE.md must explain opt-in transcript export vs diagnostics privacy"
+}
 $testerGuideHtml = Get-Content -LiteralPath (Join-Path $DemoDir "TESTER_GUIDE.html") -Raw
 if ($testerGuideHtml -notmatch "Most alive moment" -or $testerGuideHtml -notmatch "Most fake moment" -or $testerGuideHtml -notmatch "Pretorius felt") {
   Fail "TESTER_GUIDE.html must include structured feedback prompts"
+}
+if ($testerGuideHtml -notmatch "export transcript" -or $testerGuideHtml -notmatch "Collect_Diagnostics.cmd.*does not include chat text") {
+  Fail "TESTER_GUIDE.html must explain opt-in transcript export vs diagnostics privacy"
 }
 
 $start = Get-Content -LiteralPath (Join-Path $DemoDir "START_HERE.html") -Raw
 if ($start -notmatch "Run_Pretorius\.cmd" -or $start -notmatch "Forge/forge\.html" -or $start -notmatch "Inspector/cartridge_inspector\.html" -or $start -notmatch "TESTER_GUIDE\.html" -or $start -notmatch "Collect_Diagnostics\.cmd" -or $start -notmatch "Reset_Demo_State\.cmd") {
   Fail "START_HERE.html does not expose first-run, Forge, and Inspector paths"
+}
+
+$webIndex = Get-Content -LiteralPath (Join-Path $DemoDir "host\web\index.html") -Raw
+$webApp = Get-Content -LiteralPath (Join-Path $DemoDir "host\web\app.js") -Raw
+if ($webIndex -notmatch "export-transcript" -or $webApp -notmatch "PersonaConsole_Transcript_" -or $webApp -notmatch "Review it before sharing") {
+  Fail "web UI must include opt-in transcript export with privacy wording"
 }
 
 $hostExe = Join-Path $DemoDir "persona_host.exe"

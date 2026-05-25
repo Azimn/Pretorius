@@ -75,6 +75,7 @@ Conversation:
 - Did memory callbacks feel impressive, wrong, or creepy?
 - Did the character ask enough questions?
 - Did replies feel too ornate, too short, or too canned?
+- If you are comfortable sharing the exact chat, click `export transcript` in the sidebar and review the file before sending it.
 
 Authoring:
 
@@ -118,3 +119,5 @@ One thing to fix first:
 ## Privacy
 
 This demo runs locally. It writes character state beside each cartridge under `characters/`. Do not send private conversations back unless you are comfortable sharing them.
+
+`Collect_Diagnostics.cmd` does not include chat text. The web UI's `export transcript` button is separate and opt-in; it exports only the visible browser-session conversation when you click it.
