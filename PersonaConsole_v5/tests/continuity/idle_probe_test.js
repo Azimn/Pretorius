@@ -8,7 +8,7 @@ const HOST = path.join(__dirname, '..', '..', 'build', 'persona_host');
 const CART = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretorius.cart');
 const CHDIR = path.dirname(CART);
 
-if (!fs.existsSync(HOST)){ console.error('persona_host not built'); process.exit(2); }
+if (!fs.existsSync(HOST) && !fs.existsSync(HOST + '.exe')){ console.error('persona_host not built'); process.exit(2); }
 if (!fs.existsSync(CART)){ console.error('cart not found:', CART); process.exit(2); }
 
 function wipeState(){
@@ -24,7 +24,9 @@ function run(commands){
   return new Promise((resolve, reject) => {
     const stdin = commands.map(c => JSON.stringify(c)).join('\n')
                 + '\n{"method":"close"}\n';
-    const proc = spawn(HOST, [CART, '--stdio']);
+    const proc = spawn(HOST, [CART, '--stdio'], {
+      env: { ...process.env, PE_TODAY_SEED: '0x1D1E' }
+    });
     let stdout = '', stderr = '';
     proc.stdout.on('data', d => stdout += d.toString('utf-8'));
     proc.stderr.on('data', d => stderr += d.toString('utf-8'));
@@ -35,7 +37,7 @@ function run(commands){
     });
     proc.stdin.write(stdin);
     proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 30000);
+    setTimeout(() => proc.kill('SIGKILL'), 30000).unref();
   });
 }
 
@@ -56,7 +58,7 @@ async function probeAfter(label, text, regex){
   ]);
   const probe = rows[1];
   ok(probe && typeof probe.reply === 'string' && regex.test(probe.reply),
-     `${label}: idle probe is topic/state appropriate`);
+     `${label}: idle probe is topic/state appropriate (${probe && probe.reply})`);
   ok(probe.state.turn_count === 1,
      `${label}: idle probe does not increment turn_count`);
 }

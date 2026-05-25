@@ -36,7 +36,7 @@ for (let i = 0; i < args.length; ++i){
   else if (!a.startsWith('--') && !ARC_FILTER) ARC_FILTER = a;
 }
 
-if (!fs.existsSync(HOST)){ console.error('persona_host not built'); process.exit(2); }
+if (!fs.existsSync(HOST) && !fs.existsSync(HOST + '.exe')){ console.error('persona_host not built'); process.exit(2); }
 if (!fs.existsSync(CART)){ console.error('cart not found:', CART); process.exit(2); }
 
 const CHDIR = path.dirname(CART);
@@ -74,7 +74,7 @@ function chatRows(commands){
     proc.stdout.on('data', d => stdout += d.toString('utf8'));
     proc.stderr.on('data', d => stderr += d.toString('utf8'));
     proc.on('error', reject);
-    const killTimer = setTimeout(() => proc.kill('SIGKILL'), 45000);
+    const killTimer = setTimeout(() => proc.kill('SIGKILL'), 45000).unref();
     proc.on('close', status => {
       clearTimeout(killTimer);
       if (status !== 0) reject(new Error(`host exited ${status}: ${stderr}`));

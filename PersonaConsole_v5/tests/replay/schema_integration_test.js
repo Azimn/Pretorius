@@ -17,7 +17,7 @@ const HOST  = path.join(__dirname, '..', '..', 'build', 'persona_host');
 const CART  = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretorius.cart');
 const CHDIR = path.join(__dirname, '..', '..', 'profiles', 'pretorius');
 
-if (!fs.existsSync(HOST)){ console.error('persona_host not built'); process.exit(2); }
+if (!fs.existsSync(HOST) && !fs.existsSync(HOST + '.exe')){ console.error('persona_host not built'); process.exit(2); }
 
 function wipeState(){
   for (const f of ['state.bin', 'memory.bin', 'chapters.bin']){
@@ -36,7 +36,7 @@ function runHost(scriptLines){
     proc.on('close', code => resolve({ stdout, stderr, status: code }));
     proc.stdin.write(scriptLines.join('\n') + '\n');
     proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 10000);
+    setTimeout(() => proc.kill('SIGKILL'), 10000).unref();
   });
 }
 

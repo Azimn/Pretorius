@@ -37,7 +37,7 @@ for (let i = 0; i < args.length; ++i){
   else if (!args[i].startsWith('--')){ CART = args[i]; }
 }
 
-if (!fs.existsSync(HOST)){ console.error('persona_host not built'); process.exit(2); }
+if (!fs.existsSync(HOST) && !fs.existsSync(HOST + '.exe')){ console.error('persona_host not built'); process.exit(2); }
 if (!fs.existsSync(CART)){ console.error('cart not found:', CART); process.exit(2); }
 
 const CHDIR = CART.endsWith('.cart') ? path.dirname(CART) : CART;
@@ -92,7 +92,7 @@ function runHost(env){
     proc.on('close', code => resolve({ stdout, stderr, status: code }));
     proc.stdin.write(stdin);
     proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 30000);
+    setTimeout(() => proc.kill('SIGKILL'), 30000).unref();
   });
 }
 

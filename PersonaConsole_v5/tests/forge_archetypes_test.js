@@ -73,7 +73,7 @@ const {
   internalLifeForSeed, LMBuilder, PE_LM_DEFAULT_ORDER, GENERIC_TEMPLATES,
 } = moduleObj.exports;
 
-if (!fs.existsSync(HOST)){
+if (!fs.existsSync(HOST) && !fs.existsSync(HOST + '.exe')){
   console.error('persona_host not built'); process.exit(2);
 }
 if (!fs.existsSync(LINT)){

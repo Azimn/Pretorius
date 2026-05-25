@@ -50,7 +50,7 @@ for (let i = 0; i < args.length; ++i){
   else if (args[i] === '--verbose') VERBOSE = true;
 }
 
-if (!fs.existsSync(HOST)){ console.error('persona_host not built'); process.exit(2); }
+if (!fs.existsSync(HOST) && !fs.existsSync(HOST + '.exe')){ console.error('persona_host not built'); process.exit(2); }
 
 function wipeState(){
   for (const f of ['state.bin', 'memory.bin', 'chapters.bin']){
@@ -83,7 +83,7 @@ function runHost(env){
     proc.on('close', code => resolve({ stdout, stderr, status: code }));
     proc.stdin.write(stdin);
     proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 30000);
+    setTimeout(() => proc.kill('SIGKILL'), 30000).unref();
   });
 }
 

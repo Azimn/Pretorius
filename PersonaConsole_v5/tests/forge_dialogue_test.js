@@ -111,7 +111,7 @@ const cart = buildCart(ch);
 fs.writeFileSync(OUT, Buffer.from(cart));
 console.log(`wrote ${OUT} (${cart.length} B)`);
 
-if (!fs.existsSync(HOST)){
+if (!fs.existsSync(HOST) && !fs.existsSync(HOST + '.exe')){
   console.error('persona_host not built'); process.exit(2);
 }
 

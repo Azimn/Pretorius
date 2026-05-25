@@ -24,7 +24,7 @@ const CART  = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretori
 const CHDIR = path.join(__dirname, '..', '..', 'profiles', 'pretorius');
 const MARKER = 'MOCK-OLLAMA-REPLY';
 
-if (!fs.existsSync(HOST)){ console.error('persona_host not built'); process.exit(2); }
+if (!fs.existsSync(HOST) && !fs.existsSync(HOST + '.exe')){ console.error('persona_host not built'); process.exit(2); }
 
 function wipeState(){
   for (const f of ['state.bin', 'memory.bin', 'chapters.bin']){
@@ -84,6 +84,7 @@ function runHost(port, scriptLines){
       PE_OLLAMA_HOST:    '127.0.0.1',
       PE_OLLAMA_PORT:    String(port),
       PE_OLLAMA_TIMEOUT_MS: '3000',
+      PE_TODAY_SEED:     '0x0A11A4',
     });
     const proc = spawn(HOST, [CART, '--stdio'], { env });
     let stdout = '', stderr = '';
@@ -95,7 +96,7 @@ function runHost(port, scriptLines){
     proc.stdin.write(scriptLines.join('\n') + '\n');
     proc.stdin.end();
     /* hard timeout */
-    setTimeout(() => proc.kill('SIGKILL'), 15000);
+    setTimeout(() => proc.kill('SIGKILL'), 15000).unref();
   });
 }
 

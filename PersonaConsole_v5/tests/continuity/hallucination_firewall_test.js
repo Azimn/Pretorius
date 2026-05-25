@@ -116,12 +116,12 @@ function runHost(port){
     ].join('\n') + '\n';
     proc.stdin.write(stdin);
     proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 15000);
+    setTimeout(() => proc.kill('SIGKILL'), 15000).unref();
   });
 }
 
 async function main(){
-  if (!fs.existsSync(HOST)){ console.error('persona_host not built'); process.exit(2); }
+  if (!fs.existsSync(HOST) && !fs.existsSync(HOST + '.exe')){ console.error('persona_host not built'); process.exit(2); }
 
   console.log('╔════════════════════════════════════════════════════════╗');
   console.log('║   V4 HALLUCINATION FIREWALL TEST                       ║');

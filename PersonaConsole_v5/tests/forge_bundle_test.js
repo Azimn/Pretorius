@@ -131,7 +131,7 @@ execSync(`find ${OUTDIR} -type f -printf '  %p (%s B)\\n'`).toString().split('\n
 
 /* run persona_host against the extracted cart */
 const cartPath = `${OUTDIR}/${name}/${name}.cart`;
-if (!fs.existsSync(HOST)){
+if (!fs.existsSync(HOST) && !fs.existsSync(HOST + '.exe')){
   console.error('persona_host not built — run `make host` first'); process.exit(2);
 }
 

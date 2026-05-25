@@ -29,7 +29,7 @@ function run(commands){
     proc.stdout.on('data', d => stdout += d.toString('utf-8'));
     proc.stderr.on('data', d => stderr += d.toString('utf-8'));
     proc.on('error', reject);
-    const killTimer = setTimeout(() => proc.kill('SIGKILL'), 30000);
+    const killTimer = setTimeout(() => proc.kill('SIGKILL'), 30000).unref();
     proc.on('close', status => {
       clearTimeout(killTimer);
       if (status !== 0) reject(new Error(`host exited ${status}: ${stderr}`));

@@ -228,7 +228,7 @@ if (!lint.stdout.includes('0 error(s), 0 warning(s)')){
 }
 
 /* Now ask persona_host to load it. */
-if (!fs.existsSync(HOST)){
+if (!fs.existsSync(HOST) && !fs.existsSync(HOST + '.exe')){
   console.error('persona_host not built — run `make host` first');
   process.exit(2);
 }

@@ -58,7 +58,7 @@ function driveSession(backendName){
     });
 }
 
-if (!fs.existsSync(HOST)){
+if (!fs.existsSync(HOST) && !fs.existsSync(HOST + '.exe')){
   console.error('persona_host not built'); process.exit(2);
 }
 
