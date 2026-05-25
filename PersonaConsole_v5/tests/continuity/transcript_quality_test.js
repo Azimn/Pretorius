@@ -22,9 +22,13 @@ const args = process.argv.slice(2);
 let CART = DEFAULT_CART;
 let JSON_OUT = null;
 let VERBOSE = false;
+let SCRIPT_PATH = null;
+let TOPIC_TERMS = ['work','creation','homunculi','lightning','henry','frankenstein','gin','clay','mortality','morality'];
 for (let i = 0; i < args.length; i++){
   if (args[i] === '--json') JSON_OUT = args[++i];
   else if (args[i] === '--verbose') VERBOSE = true;
+  else if (args[i] === '--script') SCRIPT_PATH = args[++i];
+  else if (args[i] === '--terms') TOPIC_TERMS = args[++i].split(',').map(s => s.trim()).filter(Boolean);
   else if (!args[i].startsWith('--')) CART = args[i];
 }
 
@@ -42,7 +46,7 @@ function wipeState(){
   }
 }
 
-const SCRIPT = [
+let SCRIPT = [
   'Good morning, doctor.',
   'How are you today?',
   'What are you working on?',
@@ -84,6 +88,14 @@ const SCRIPT = [
   'Ok, one last question.',
   'What should we discuss next time?'
 ];
+
+if (SCRIPT_PATH){
+  SCRIPT = JSON.parse(fs.readFileSync(SCRIPT_PATH, 'utf8'));
+  if (!Array.isArray(SCRIPT) || !SCRIPT.every(s => typeof s === 'string')){
+    console.error('--script must point to a JSON array of prompt strings');
+    process.exit(2);
+  }
+}
 
 function runHost(){
   return new Promise((resolve, reject) => {
@@ -157,11 +169,10 @@ function scoreLengthVariance(replies){
 }
 
 function scoreTopicDrift(replies){
-  const terms = ['work','creation','homunculi','lightning','henry','frankenstein','gin','clay','mortality','morality'];
   let hits = 0;
   for (const r of replies){
     const t = r.toLowerCase();
-    if (terms.some(x => t.includes(x))) hits++;
+    if (TOPIC_TERMS.some(x => t.includes(x.toLowerCase()))) hits++;
   }
   const rate = hits / replies.length;
   let score = 100;

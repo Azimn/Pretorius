@@ -15,6 +15,7 @@ const HOST  = path.join(__dirname, '..', 'build', 'persona_host');
 const LINT_BASE = path.join(__dirname, '..', 'build', 'cartridge_lint');
 const LINT  = fs.existsSync(LINT_BASE) ? LINT_BASE : LINT_BASE + '.exe';
 const OUT   = path.join(__dirname, 'tmp', 'forge_test.cart');
+const QUALITY_SCRIPT = path.join(__dirname, 'tmp', 'forge_quality_script.json');
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 
 function wipeCartState(cartPath){
@@ -325,3 +326,39 @@ if (!res.stdout.includes('reply')){
   process.exit(1);
 }
 console.log('--- OK: Forge-produced .cart loaded and replied ---');
+
+const qualityScript = [
+  'Good morning.',
+  'How are you today?',
+  'What are you thinking about?',
+  'Tell me about entropy.',
+  'Can you explain that plainly?',
+  'That sounds beautiful.',
+  'Ask me something you actually want to know.',
+  'Remember this phrase: the blue bell jar.',
+  'What did I ask you to remember?',
+  'What do you like about stars?',
+  'I do not understand the physics.',
+  'Could you give me the short version?',
+  'What should we talk about next time?',
+  'Ok.',
+  'Goodnight.'
+];
+fs.writeFileSync(QUALITY_SCRIPT, JSON.stringify(qualityScript, null, 2));
+console.log('--- running transcript quality on Forge-produced cart');
+const quality = spawnSync(process.execPath, [
+  path.join(__dirname, 'continuity', 'transcript_quality_test.js'),
+  OUT,
+  '--script', QUALITY_SCRIPT,
+  '--terms', 'entropy,science,stars,physics,curiosity,explain,cosmos,Sagan,blue bell jar'
+], {
+  encoding: 'utf-8',
+  timeout: 15000,
+});
+console.log('--- transcript quality stdout ---'); console.log(quality.stdout);
+console.log('--- transcript quality stderr ---'); console.log(quality.stderr);
+if (quality.status !== 0){
+  console.error('FAIL: Forge-produced cart failed transcript quality');
+  process.exit(1);
+}
+console.log('--- OK: Forge-produced .cart passes transcript quality ---');
