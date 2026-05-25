@@ -60,6 +60,8 @@ Require-File (Join-Path $DemoDir "TESTER_GUIDE.html")
 Require-File (Join-Path $DemoDir "Run_Pretorius.cmd")
 Require-File (Join-Path $DemoDir "Run_Kiki.cmd")
 Require-File (Join-Path $DemoDir "Stop_Server.cmd")
+Require-File (Join-Path $DemoDir "Collect_Diagnostics.cmd")
+Require-File (Join-Path $DemoDir "Collect_Diagnostics.ps1")
 Require-File (Join-Path $DemoDir "persona_host.exe")
 Require-File (Join-Path $DemoDir "cygwin1.dll")
 Require-File (Join-Path $DemoDir "cyggcc_s-seh-1.dll")
@@ -81,6 +83,9 @@ $readme = Get-Content -LiteralPath (Join-Path $DemoDir "README_FIRST.txt") -Raw
 if ($readme -notmatch "No GPU" -or $readme -notmatch "internet") {
   Fail "README_FIRST.txt must state low-hardware/no-internet expectations"
 }
+if ($readme -notmatch "Collect_Diagnostics") {
+  Fail "README_FIRST.txt must mention diagnostics collection"
+}
 
 $testerGuide = Get-Content -LiteralPath (Join-Path $DemoDir "TESTER_GUIDE.md") -Raw
 if ($testerGuide -notmatch "Most alive moment" -or $testerGuide -notmatch "Most fake moment" -or $testerGuide -notmatch "Pretorius felt") {
@@ -92,7 +97,7 @@ if ($testerGuideHtml -notmatch "Most alive moment" -or $testerGuideHtml -notmatc
 }
 
 $start = Get-Content -LiteralPath (Join-Path $DemoDir "START_HERE.html") -Raw
-if ($start -notmatch "Run_Pretorius\.cmd" -or $start -notmatch "Forge/forge\.html" -or $start -notmatch "Inspector/cartridge_inspector\.html" -or $start -notmatch "TESTER_GUIDE\.html") {
+if ($start -notmatch "Run_Pretorius\.cmd" -or $start -notmatch "Forge/forge\.html" -or $start -notmatch "Inspector/cartridge_inspector\.html" -or $start -notmatch "TESTER_GUIDE\.html" -or $start -notmatch "Collect_Diagnostics\.cmd") {
   Fail "START_HERE.html does not expose first-run, Forge, and Inspector paths"
 }
 
@@ -138,6 +143,17 @@ try {
   $idle = Invoke-JsonPost "$base/idle_probe" '{}'
   if ($idle.StatusCode -ne 200 -or $idle.Content -notmatch '"reply"') {
     Fail "idle_probe endpoint did not return JSON"
+  }
+
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $DemoDir "Collect_Diagnostics.ps1") | Out-Null
+  $diagPath = Join-Path $DemoDir "PersonaConsole_Diagnostics.txt"
+  Require-File $diagPath
+  $diag = Get-Content -LiteralPath $diagPath -Raw
+  if ($diag -notmatch "Privacy note" -or $diag -notmatch "persona_host working set MB") {
+    Fail "diagnostics output is missing expected metadata/privacy text"
+  }
+  if ($diag -match "Good morning, Doctor") {
+    Fail "diagnostics output appears to include chat text"
   }
 
   $proc.Refresh()

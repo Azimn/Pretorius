@@ -102,6 +102,66 @@ Write-Host "To stop it, run Stop_Server.ps1"
 Write-Utf8NoBom (Join-Path $OutDir "Run_Pretorius.ps1") ($runTemplate.Replace("__CART__", "characters/pretorius/pretorius.cart"))
 Write-Utf8NoBom (Join-Path $OutDir "Run_Kiki.ps1") ($runTemplate.Replace("__CART__", "characters/kiki/kiki.cart"))
 
+$diagScript = @'
+$ErrorActionPreference = "SilentlyContinue"
+$Here = Split-Path -Parent $MyInvocation.MyCommand.Path
+$out = Join-Path $Here "PersonaConsole_Diagnostics.txt"
+$now = Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz"
+$os = Get-CimInstance Win32_OperatingSystem
+$cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
+$hostExe = Join-Path $Here "persona_host.exe"
+$zip = Get-ChildItem -LiteralPath $Here -Filter "*.zip" | Select-Object -First 1
+$hostProc = Get-Process persona_host -ErrorAction SilentlyContinue | Select-Object -First 1
+
+$lines = New-Object System.Collections.Generic.List[string]
+$lines.Add("PersonaConsole V5 Diagnostics")
+$lines.Add("Generated: $now")
+$lines.Add("")
+$lines.Add("System")
+$lines.Add("Windows: $($os.Caption) $($os.Version)")
+$lines.Add("RAM MB: $([math]::Round($os.TotalVisibleMemorySize / 1024))")
+$lines.Add("CPU: $($cpu.Name)")
+$lines.Add("")
+$lines.Add("Package")
+$lines.Add("Folder: $Here")
+if (Test-Path -LiteralPath $hostExe) {
+  $lines.Add("persona_host.exe bytes: $((Get-Item -LiteralPath $hostExe).Length)")
+} else {
+  $lines.Add("persona_host.exe: missing")
+}
+if ($zip) { $lines.Add("zip bytes: $($zip.Length)") }
+$lines.Add("Pretorius cart present: $(Test-Path -LiteralPath (Join-Path $Here 'characters\pretorius\pretorius.cart'))")
+$lines.Add("Kiki cart present: $(Test-Path -LiteralPath (Join-Path $Here 'characters\kiki\kiki.cart'))")
+$lines.Add("")
+$lines.Add("Runtime")
+if ($hostProc) {
+  $lines.Add("persona_host running: yes")
+  $lines.Add("persona_host pid: $($hostProc.Id)")
+  $lines.Add("persona_host working set MB: $([math]::Round($hostProc.WorkingSet64 / 1MB, 2))")
+} else {
+  $lines.Add("persona_host running: no")
+}
+$lines.Add("")
+$lines.Add("State files")
+foreach ($dir in @("characters\pretorius", "characters\kiki")) {
+  $full = Join-Path $Here $dir
+  $lines.Add("[$dir]")
+  foreach ($name in @("state.bin", "memory.bin", "chapters.bin", "reflections.bin")) {
+    $p = Join-Path $full $name
+    if (Test-Path -LiteralPath $p) {
+      $lines.Add("  ${name}: $((Get-Item -LiteralPath $p).Length) bytes")
+    } else {
+      $lines.Add("  ${name}: missing")
+    }
+  }
+}
+$lines.Add("")
+$lines.Add("Privacy note: this diagnostics file lists system/package metadata and state file sizes only. It does not include chat transcripts or memory contents.")
+[System.IO.File]::WriteAllLines($out, $lines, [System.Text.UTF8Encoding]::new($false))
+Write-Host "Wrote $out"
+'@
+Write-Utf8NoBom (Join-Path $OutDir "Collect_Diagnostics.ps1") $diagScript
+
 $stopScript = @'
 $ErrorActionPreference = "SilentlyContinue"
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -132,9 +192,14 @@ $cmdStop = '@echo off
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Stop_Server.ps1"
 pause
 '
+$cmdDiag = '@echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Collect_Diagnostics.ps1"
+pause
+'
 Write-Utf8NoBom (Join-Path $OutDir "Run_Pretorius.cmd") $cmdPretorius
 Write-Utf8NoBom (Join-Path $OutDir "Run_Kiki.cmd") $cmdKiki
 Write-Utf8NoBom (Join-Path $OutDir "Stop_Server.cmd") $cmdStop
+Write-Utf8NoBom (Join-Path $OutDir "Collect_Diagnostics.cmd") $cmdDiag
 
 $startHere = @'
 <!doctype html>
@@ -158,6 +223,7 @@ $startHere = @'
     <a href="Forge/forge.html"><strong>Open Cartridge Forge</strong><br><span class="muted">Create or edit a V5 character cartridge.</span></a>
     <a href="Inspector/cartridge_inspector.html"><strong>Open Cartridge Inspector</strong><br><span class="muted">Check a cartridge before sharing it.</span></a>
     <a href="TESTER_GUIDE.html"><strong>Tester Guide</strong><br><span class="muted">Prompts and feedback questions for real-user testing.</span></a>
+    <div class="card"><strong>Collect diagnostics</strong><br><span class="muted">Run <code>Collect_Diagnostics.cmd</code> if something breaks.</span></div>
     <div class="card"><strong>Stop the server</strong><br><span class="muted">Run <code>Stop_Server.cmd</code> when finished.</span></div>
   </div>
   <p>Each character stores its own local memory beside its cartridge in <code>characters/</code>. This demo is local-first: no account, no network service, no GPU, and no LLM are required for the included cartridges.</p>
@@ -179,6 +245,7 @@ Other files:
 - Forge/forge.html builds V5 cartridges in the browser.
 - Inspector/cartridge_inspector.html checks cartridge health.
 - TESTER_GUIDE.html has prompts and a feedback template.
+- Collect_Diagnostics.cmd writes PersonaConsole_Diagnostics.txt for bug reports.
 - characters/ contains the included Pretorius and Kiki cartridges.
 
 Hardware:
