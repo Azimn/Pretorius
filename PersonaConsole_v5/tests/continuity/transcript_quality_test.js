@@ -197,7 +197,7 @@ function scoreCallbacks(turns){
 function scoreAwkwardness(replies){
   let emDash = 0, braces = 0, parenAside = 0, ellipses = 0, caps = 0, veryLong = 0;
   for (const r of replies){
-    if (/[—–]/.test(r)) emDash++;
+    if (/[\u2014\u2013]/.test(r)) emDash++;
     if (/[{}]/.test(r)) braces++;
     if (/\([^)]+\)/.test(r)) parenAside++;
     if (/\.{3,}/.test(r)) ellipses++;
@@ -211,11 +211,20 @@ function scoreAwkwardness(replies){
 function scorePlainSpeech(replies){
   const plain = replies.filter(r => {
     const n = words(r).length;
-    return n >= 2 && n <= 18 && !/[—–;]/.test(r);
+    return n >= 2 && n <= 18 && !/[\u2014\u2013;]/.test(r);
   }).length;
   const rate = plain / replies.length;
   const score = rate >= 0.25 ? 100 : rate * 400;
   return { score: clamp(score), detail: `${plain}/${replies.length} replies are short plain-speech turns (${Math.round(rate * 100)}%)` };
+}
+
+function scoreAssistantSmell(replies){
+  const smell = /\b(how can i help|how may i help|as an ai|as a language model|i'?m here to help|happy to help|let me know if|assist you|provide assistance)\b/i;
+  let hits = 0;
+  for (const r of replies){
+    if (smell.test(r)) hits++;
+  }
+  return { score: clamp(100 - hits * 25), detail: `${hits}/${replies.length} assistant-coded replies` };
 }
 
 (async function main(){
@@ -248,6 +257,7 @@ function scorePlainSpeech(replies){
     callbacks: scoreCallbacks(turns),
     awkwardness: scoreAwkwardness(replies),
     plain_speech: scorePlainSpeech(replies),
+    assistant_smell: scoreAssistantSmell(replies),
   };
   let total = 0;
   for (const [name, r] of Object.entries(axes)){
