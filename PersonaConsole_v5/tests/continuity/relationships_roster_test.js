@@ -66,6 +66,20 @@ function ok(cond, msg){
   ok(julia && victor && julia.disposition > victor.disposition,
      `separate dispositions persist per interlocutor (${julia && julia.disposition} > ${victor && victor.disposition})`);
 
+  const reopenedRows = await run([{ method: 'relationships' }]);
+  const reopened = reopenedRows.find(r => Array.isArray(r.relationships));
+  const reopenedJulia = reopened && reopened.relationships.find(r => r.known_as === 'Julia');
+  const reopenedVictor = reopened && reopened.relationships.find(r => r.known_as === 'Victor');
+  ok(reopened && reopened.count >= 2,
+     `relationships endpoint lists saved interlocutors after restart (${reopened && reopened.count})`);
+  ok(reopenedJulia && reopenedVictor, 'saved roster preserves known_as values after restart');
+  ok(reopenedJulia && reopenedVictor
+     && reopenedJulia.user_hash === julia.user_hash
+     && reopenedVictor.user_hash === victor.user_hash,
+     'saved roster preserves stable user hashes after restart');
+  ok(reopenedJulia && reopenedVictor && reopenedJulia.disposition > reopenedVictor.disposition,
+     `saved dispositions remain separate after restart (${reopenedJulia && reopenedJulia.disposition} > ${reopenedVictor && reopenedVictor.disposition})`);
+
   if (process.exitCode) process.exit(process.exitCode);
   console.log('PASSED -- relationship roster hook active');
 })().catch(e => { console.error(e); process.exit(2); });
