@@ -325,6 +325,12 @@ if (!res.stdout.includes('reply')){
   console.error('FAIL: no reply in host stdout');
   process.exit(1);
 }
+const firstReplyLine = res.stdout.trim().split(/\r?\n/).find(line => line.includes('"reply"'));
+const firstReply = firstReplyLine ? JSON.parse(firstReplyLine).reply : '';
+if (/^[a-z]/.test(firstReply)){
+  console.error('FAIL: first Forge-produced reply begins like a clipped fragment:', firstReply);
+  process.exit(1);
+}
 console.log('--- OK: Forge-produced .cart loaded and replied ---');
 
 const qualityScript = [

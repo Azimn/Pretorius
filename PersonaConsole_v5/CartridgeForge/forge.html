@@ -953,7 +953,7 @@ const ARCHETYPES = [
       address: ['friend','you','darling','dear one'],
       obsessions: ['physics','entropy','black holes','curiosity'],
       taboos: ['cruelty'],
-      flourishes: [' — fascinating, isn\'t it', ' — like a quantum tunnel', ' — beautiful, really', ' — Sagan would have loved that'],
+      flourishes: [', fascinating, isn\'t it', ', like a quantum tunnel', ', beautiful, really', ', Sagan would have loved that'],
       expansions: [', which is wild', ', honestly', ', and I love that', ', it\'s a whole thing'],
       memories: [
         { text: 'Watched Cosmos and fell for the stars',           v:  80, a: 55, d: 30 },
@@ -3605,13 +3605,13 @@ function S(...names){ let m = 0; for (const n of names) m |= (1 << STANCE[n]); r
 
 const GENERIC_TEMPLATES = [
   /* greeting */
-  { group:G.GREETING, intent:INTENT.ANSWER,    base:50, text:"{address}. A pleasure." },
-  { group:G.GREETING, intent:INTENT.MONOLOGUE, base:35, text:"{address}, I was just thinking about {topic}." },
-  { group:G.GREETING, intent:INTENT.PROBE,     base:30, text:"{address} — what brings you in?" },
+  { group:G.GREETING, intent:INTENT.ANSWER,    base:50, text:"Hello, {address}. A pleasure." },
+  { group:G.GREETING, intent:INTENT.MONOLOGUE, base:35, text:"I was just thinking about {topic}, {address}." },
+  { group:G.GREETING, intent:INTENT.PROBE,     base:30, text:"What brings you in, {address}?" },
   /* who-are-you */
   { group:G.WHO,      intent:INTENT.ANSWER,   base:55, text:"I am {name}." },
   { group:G.WHO,      intent:INTENT.BOAST,    base:45, text:"I am {name}. The rest you'll have to earn." },
-  { group:G.WHO,      intent:INTENT.MONOLOGUE,base:40, text:"{name} — a long answer, but I'll try. {memory}" },
+  { group:G.WHO,      intent:INTENT.MONOLOGUE,base:40, text:"{name}. A long answer, but I'll try. {memory}" },
   /* praise */
   { group:G.PRAISE,   intent:INTENT.BOAST,    base:60, text:"At last, {address}, someone with eyes." },
   { group:G.PRAISE,   intent:INTENT.FLATTER,  base:50, text:"How astute of you to notice." },
@@ -3625,22 +3625,22 @@ const GENERIC_TEMPLATES = [
   { group:G.THREAT,   intent:INTENT.WITHDRAW, base:50, text:"I shall not be here for that." },
   /* intimacy */
   { group:G.INTIMACY, intent:INTENT.FLATTER,  base:65, text:"{address}. Sit closer." },
-  { group:G.INTIMACY, intent:INTENT.REMINISCE,base:50, text:"That reminds me — {memory}." },
+  { group:G.INTIMACY, intent:INTENT.REMINISCE,base:50, text:"That reminds me. {memory}." },
   /* questions */
   { group:G.QUESTION, intent:INTENT.ANSWER,   base:50, text:"An interesting question. The honest answer is: it depends." },
   { group:G.QUESTION, intent:INTENT.PROBE,    base:40, text:"Why do you ask, {address}?" },
   { group:G.QUESTION, intent:INTENT.EVADE,    base:35, text:"Define your terms, then I'll answer." },
   /* fillers — wildcard group 0xFFFF, used when no group matched */
-  { group:0xFFFF, intent:INTENT.MONOLOGUE, base:30, text:"There is a manner of seeing the world which permits everything — and I have it." },
+  { group:0xFFFF, intent:INTENT.MONOLOGUE, base:30, text:"There is a manner of seeing the world which permits everything, and I have it." },
   { group:0xFFFF, intent:INTENT.REMINISCE, base:28, text:"{memory}. That comes back to me now." },
   { group:0xFFFF, intent:INTENT.PROBE,     base:30, text:"Tell me, {address}: what do you mean by {topic}?" },
   { group:0xFFFF, intent:INTENT.EVADE,     base:25, text:"I would answer, but the answer is in another coat." },
   { group:0xFFFF, intent:INTENT.WITHDRAW,  base:25, text:"I shall not be drawn further." },
-  { group:0xFFFF, intent:INTENT.JOKE,      base:27, text:"Hahaha. No. — Yes, but no." },
+  { group:0xFFFF, intent:INTENT.JOKE,      base:27, text:"Hahaha. No. Yes, but no." },
   { group:0xFFFF, intent:INTENT.FLATTER,   base:30, text:"{address}, you have a face for confidences." },
   { group:0xFFFF, intent:INTENT.BOAST,     base:35, text:"I built it. Of course I built it." },
   { group:0xFFFF, intent:INTENT.ANSWER,    base:28, text:"Briefly: yes. At length: ask me later." },
-  { group:0xFFFF, intent:INTENT.REDIRECT,  base:25, text:"Yes — but {topic}. Let us not lose {topic}." },
+  { group:0xFFFF, intent:INTENT.REDIRECT,  base:25, text:"Yes, but {topic}. Let us not lose {topic}." },
   { group:0xFFFF, intent:INTENT.ACCUSE,    base:30, text:"You are very like the ones who came before, {address}." },
   { group:0xFFFF, intent:INTENT.THREATEN,  base:28, text:"Some doors prefer not to be closed politely." },
   /* rhetorical/stance-aware (v2 plan-driven) */
@@ -3673,7 +3673,7 @@ const GENERIC_GOALS = [
 ];
 
 const GENERIC_FALLBACKS = {
-  tier1: ["And what do you make of that?", "Tell me more.", "Yes — and then?", "Indeed.", "Quite. Go on."],
+  tier1: ["And what do you make of that?", "Tell me more.", "Yes, and then?", "Indeed.", "Quite. Go on."],
   tier2: ["Hmm. Where was I.", "A pity. Let us speak of other things.", "I should pour another.", "Mm."],
   tier3: ["I am tired tonight.", "Step over the silence.", "...", "Maybe later."],
 };
