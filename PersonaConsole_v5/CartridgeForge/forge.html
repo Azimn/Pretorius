@@ -4082,9 +4082,12 @@ function dialogueQualityReport(ch){
     return n >= 2 && n <= 14;
   }).length;
   const qN = lines.filter(s => /\?/.test(s)).length;
-  const dashN = lines.filter(s => /—|–|--/.test(s)).length;
+  const dashN = lines.filter(s => /[\u2014\u2013]|--/.test(s)).length;
   const parenN = lines.filter(s => /\([^)]+\)/.test(s)).length;
   const ornateN = lines.filter(s => words(s).length > 34 || /\*[^*]+\*/.test(s)).length;
+  const assistantN = lines.filter(s =>
+    /\b(how can i help|how may i help|as an ai|as a language model|i'?m here to help|happy to help|let me know if|assist you|provide assistance)\b/i.test(s)
+  ).length;
   const openerCounts = new Map();
   for (const s of lines){
     const op = opener(s);
@@ -4112,6 +4115,8 @@ function dialogueQualityReport(ch){
     issue('info', 'Parenthetical asides are frequent; use sparingly for contrast.');
   if (ornateN > Math.ceil(lines.length * 0.35))
     issue('warn', 'Many replies are long or highly ornate; add more plain speech to reduce template smell.');
+  if (assistantN)
+    issue('warn', `${assistantN} template(s) use assistant-coded helper language; keep it only for explicitly serving characters.`);
   if (repeatedOpeners.length)
     issue('info', `Repeated openers detected: ${repeatedOpeners.slice(0,3).map(([k,v]) => `"${k}" x${v}`).join(', ')}.`);
   if (fbCounts.some(n => n < 4))
@@ -4122,6 +4127,7 @@ function dialogueQualityReport(ch){
     short_count: shortN,
     question_count: qN,
     dash_count: dashN,
+    assistant_smell_count: assistantN,
     ornate_count: ornateN,
     fallback_counts: fbCounts,
     issues,

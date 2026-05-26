@@ -175,7 +175,7 @@ function scoreAssistantSmell(replies){
   const bad = replies.filter(r =>
     /as an ai|language model|hope that helps|let me know|i can assist|i cannot provide|sorry,? but|how can i help/i.test(r.reply || '')
   );
-  const dashes = replies.filter(r => /[--]|[—–]/.test(r.reply || ''));
+  const dashes = replies.filter(r => /--|[\u2014\u2013]/.test(r.reply || ''));
   return {
     score: clamp(100 - bad.length * 35 - dashes.length * 4),
     detail: `${bad.length} assistant cliches, ${dashes.length} dash-heavy replies`

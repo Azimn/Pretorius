@@ -159,6 +159,24 @@ if (!staleReport.warnings){
 }
 console.log('dialogue quality negative case catches stale/ornate dialogue');
 
+const assistantDialogue = defaultCharacter();
+assistantDialogue.name = 'Assistant Smell';
+assistantDialogue.dialoguePack = {
+  templates: [
+    { group: 0xFFFF, intent: 0, base: 50, text: 'How can I help you today?' },
+    { group: 0xFFFF, intent: 0, base: 45, text: 'As an AI, I am here to help.' },
+  ],
+  patterns: null,
+  goals: null,
+  fallbacks: { tier1: ['Tell me more.'], tier2: ['Go on.'], tier3: ['Mm.'] },
+};
+const assistantReport = dialogueQualityReport(assistantDialogue);
+if (!assistantReport.warnings || assistantReport.assistant_smell_count < 2){
+  console.error('FAIL: dialogue quality report did not catch assistant-coded language', assistantReport);
+  process.exit(1);
+}
+console.log('dialogue quality catches assistant-coded language');
+
 const dominantPosture = defaultCharacter();
 dominantPosture.name = 'Septimus Halloway';
 dominantPosture.identity.A = 20;
