@@ -2,7 +2,7 @@ param(
   [string]$DemoDir = "",
   [int]$Port = 7797,
   [int]$MaxZipMb = 25,
-  [int]$MaxHostWorkingSetMb = 96
+  [int]$MaxHostWorkingSetMb = 64
 )
 
 $ErrorActionPreference = "Stop"

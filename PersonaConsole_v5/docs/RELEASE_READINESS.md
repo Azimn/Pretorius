@@ -41,12 +41,12 @@ The default package is template-mode only.
 Budgets:
 
 - demo zip under 25 MB
-- host working set under 96 MB during a smoke run
+- host working set under 64 MB during a smoke run
 - no bundled SLM model
 - no GPU requirement
 - no model download during first run
 
-The expected real footprint should be far below these budgets. The limits exist to catch accidental bloat, not to define success.
+The expected real footprint should be far below these budgets. The current deterministic demo is typically around 10-15 MB live RAM; the limits exist to catch accidental bloat, not to define success.
 
 ### First-Run Usability
 
