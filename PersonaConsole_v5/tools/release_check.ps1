@@ -108,6 +108,15 @@ try {
       Fail "clean unzip is missing $rel"
     }
   }
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $unzippedDemo "Health_Check.ps1") -Port ($Port + 2) | Out-Null
+  $unzippedHealthPath = Join-Path $unzippedDemo "PersonaConsole_Health_Check.txt"
+  if (-not (Test-Path -LiteralPath $unzippedHealthPath -PathType Leaf)) {
+    Fail "clean unzip health check did not write output"
+  }
+  $unzippedHealth = Get-Content -LiteralPath $unzippedHealthPath -Raw
+  if ($unzippedHealth -notmatch "PASSED: PersonaConsole demo is working") {
+    Fail "clean unzip health check did not pass"
+  }
 } finally {
   if (Test-Path -LiteralPath $unzipDir) {
     Remove-Item -LiteralPath $unzipDir -Recurse -Force

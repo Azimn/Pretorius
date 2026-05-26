@@ -63,7 +63,7 @@ function ok(cond, msg){
     const rows = await run(seed);
     sample = sample.concat(rows.map(r => r.reply));
     seen = rows.some(r => typeof r.reply === 'string'
-      && /bell-jar|weather and consequence|gin to last until Tuesday/i.test(r.reply));
+      && /bell-jar|weather and consequence|Henry mistook fear/i.test(r.reply));
   }
   if (!seen) console.error('diagnostic replies:', sample.slice(0, 8).join(' | '));
   ok(seen, 'Pretorius work chat can surface current_preoccupations');

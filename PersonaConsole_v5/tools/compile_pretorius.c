@@ -260,6 +260,13 @@ static void make_patterns(PatternTable *pt){
         {"you are wrong", T_ETHICS, -15, 45, +5, 2, G_MORAL_CHALLENGE, 0},
         {"ask me something", T_WORK, +8, 35, +10, 3, G_SELF_DIRECTION, 0},
         {"what do you want to know", T_WORK, +8, 35, +10, 3, G_SELF_DIRECTION, 0},
+        {"answer directly", T_ETHICS, -4, 35, +5, 3, G_QUESTION, 0},
+        {"short answer",    0xFFFF,  +2, 25, 0, 3, G_QUESTION, 0},
+        {"speak plainly",   0xFFFF,  +2, 25, 0, 3, G_TELL,     0},
+        {"dodging",         T_ETHICS, -8, 35, +5, 2, G_MORAL_CHALLENGE, 0},
+        {"are you angry",   T_ETHICS, -5, 35, 0, 3, G_MORAL_CHALLENGE, 0},
+        {"do you sleep",    T_DEATH,  -3, 25, 0, 3, G_STATUS,   0},
+        {"miss him",        T_HENRY,  -5, 35, -5, 3, G_HENRY,   0},
         /* topical hooks */
         {"creation",     T_CREATION, +10, 60, +30, 0, G_CREATION,  0},
         {"create",       T_CREATION, +10, 55, +30, 0, G_CREATION,  0},
@@ -456,6 +463,8 @@ static void make_templates(TemplateTable *tt){
           "I am restless. That is usually when I become useful.");
     T_add(tt, G_STATUS, PE_INTENT_ANSWER, 101, -1000, 1000, -1,
           "I am present, {address}. Do not make me regret it.");
+    T_add(tt, G_STATUS, PE_INTENT_PROBE, 100, -1000, 1000, -1,
+          "Sleep comes and goes. What matters is what remains awake.");
     T_add(tt, G_STATUS, PE_INTENT_PROBE, 82, -1000, 1000, -1,
           "Well enough to be dangerous. And you, {address}, are you merely visiting, or investigating?");
 
@@ -505,6 +514,8 @@ static void make_templates(TemplateTable *tt){
           "Gladly. Choose the point of entry and I will make the incision neat.");
     T_add(tt, G_TELL, PE_INTENT_ANSWER, 94, -1000, 1000, -1,
           "Very well. I will keep the sermon brief, unless you encourage me.");
+    T_add(tt, G_TELL, PE_INTENT_PROBE, 92, -1000, 1000, -1,
+          "Plainly, then. Which part needs stripping down?");
 
     /* repair and social exits */
     T_add(tt, G_GOODBYE, PE_INTENT_ANSWER, 100, -1000, 1000, -1,
@@ -548,6 +559,8 @@ static void make_templates(TemplateTable *tt){
           "I disagree. Creation is not clean, but neither is birth.");
     T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_PROBE, 118, -1000, 1000, -1,
           "If I am wrong, say where. Not loudly. Precisely.");
+    T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_PROBE, 116, -1000, 1000, -1,
+          "Dodging? No. I am choosing the battlefield. Which point do you want pinned down?");
 
     /* user invites character agency */
     T_add(tt, G_SELF_DIRECTION, PE_INTENT_PROBE, 160, -1000, 1000, PE_DRIVE_COMMUNION,
@@ -646,6 +659,8 @@ static void make_templates(TemplateTable *tt){
           "Frankenstein matters because he stood closest to the miracle and blinked.");
     T_add(tt, G_HENRY, PE_INTENT_PROBE, 57, -1000, 1000, -1,
           "What interests you about Henry: the work, the guilt, or the retreat?");
+    T_add(tt, G_HENRY, PE_INTENT_ANSWER, 72, -1000, 1000, PE_DRIVE_COMMUNION,
+          "Miss him? I miss the mind he almost allowed himself to be.");
 
     /* opera */
     T_add(tt, G_OPERA, PE_INTENT_REMINISCE, 70, 0, 1000, -1,
