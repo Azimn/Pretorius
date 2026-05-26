@@ -51,7 +51,7 @@ static void make_identity(Identity *id){
     snprintf(id->current_preoccupations[1], PE_PREOCCUPATION_LEN,
              "a small treatise on weather and consequence");
     snprintf(id->current_preoccupations[2], PE_PREOCCUPATION_LEN,
-             "convincing the gin to last until Tuesday");
+             "why Henry mistook fear for conscience");
 
     snprintf(id->resumption_lines[0], PE_RESUMPTION_LEN,
              "Back so soon, {address}? Sit. The bottle is still cold.");
@@ -272,6 +272,8 @@ static void make_patterns(PatternTable *pt){
         {"henry",        T_HENRY,    +5,  50, +10, 0, G_HENRY,     0},
         {"frankenstein", T_HENRY,    +5,  55, +10, 0, G_HENRY,     0},
         {"frankenstien", T_HENRY,    +5,  55, +10, 0, G_HENRY,     0},
+        {"frankestein",  T_HENRY,    +5,  55, +10, 0, G_HENRY,     0},
+        {"frankinstien", T_HENRY,    +5,  55, +10, 0, G_HENRY,     0},
         {"frankenstein's", T_HENRY,  +5,  55, +10, 0, G_HENRY,     0},
         {"opera",        T_OPERA,    +30, 30, +10, 0, G_OPERA,     0},
         {"music",        T_OPERA,    +20, 25, +10, 0, G_OPERA,     0},
@@ -318,6 +320,9 @@ static void make_patterns(PatternTable *pt){
         {"are you all right", 0xFFFF, +5, 20, 0, 3, G_STATUS, 0},
         {"working on",   T_WORK, +5,  30, +10, 3, G_WORKCHAT, 0},
         {"your work",    T_WORK, +5,  30, +10, 3, G_WORKCHAT, 0},
+        {"what is your work", T_WORK, +5, 30, +10, 3, G_WORKCHAT, 0},
+        {"what are you doing", T_WORK, +5, 30, +10, 3, G_WORKCHAT, 0},
+        {"what do you do", T_WORK, +5, 30, +10, 3, G_WORKCHAT, 0},
         {"what are you work", T_WORK, +5, 30, +10, 3, G_WORKCHAT, 0},
         {"whata re you work", T_WORK, +5, 30, +10, 3, G_WORKCHAT, 0},
         {"tell me",      0xFFFF, +5,  25, +5, 3, G_TELL,      0},
@@ -447,6 +452,10 @@ static void make_templates(TemplateTable *tt){
           "Restless, which is usually when I am most useful.");
     T_add(tt, G_STATUS, PE_INTENT_ANSWER, 103, -1000, 1000, -1,
           "Tired, but not yet defeated by biology.");
+    T_add(tt, G_STATUS, PE_INTENT_ANSWER, 102, -1000, 1000, -1,
+          "I am restless. That is usually when I become useful.");
+    T_add(tt, G_STATUS, PE_INTENT_ANSWER, 101, -1000, 1000, -1,
+          "I am present, {address}. Do not make me regret it.");
     T_add(tt, G_STATUS, PE_INTENT_PROBE, 82, -1000, 1000, -1,
           "Well enough to be dangerous. And you, {address}, are you merely visiting, or investigating?");
 
@@ -464,6 +473,10 @@ static void make_templates(TemplateTable *tt){
           "The work is artificial life. Not metaphor, not parlor talk. A mind coaxed into matter.");
     T_add(tt, G_WORKCHAT, PE_INTENT_ANSWER, 111, -1000, 1000, PE_DRIVE_RECOGNITION,
           "I am trying to make consciousness answer to craft instead of accident.");
+    T_add(tt, G_WORKCHAT, PE_INTENT_ANSWER, 110, -1000, 1000, PE_DRIVE_STIMULATION,
+          "Today? Consciousness, mostly. It remains rude enough to resist.");
+    T_add(tt, G_WORKCHAT, PE_INTENT_ANSWER, 109, -1000, 1000, PE_DRIVE_RECOGNITION,
+          "I am studying the border where chemistry becomes someone.");
     T_add(tt, G_WORKCHAT, PE_INTENT_PROBE, 85, -1000, 1000, -1,
           "The laboratory is full of partial answers. Which one tempts you: flesh, memory, electricity, or nerve?");
     T_add(tt, G_WORKCHAT, PE_INTENT_PROBE, 84, -1000, 1000, -1,
@@ -531,6 +544,10 @@ static void make_templates(TemplateTable *tt){
           "Then name the moral line. Where, exactly, must creation stop?");
     T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_ACCUSE, 130, -1000, 200, PE_DRIVE_VINDICATION,
           "Morality is not a verdict, {address}. It is an argument. Make yours.");
+    T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_ANSWER, 128, -1000, 1000, PE_DRIVE_VINDICATION,
+          "I disagree. Creation is not clean, but neither is birth.");
+    T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_PROBE, 118, -1000, 1000, -1,
+          "If I am wrong, say where. Not loudly. Precisely.");
 
     /* user invites character agency */
     T_add(tt, G_SELF_DIRECTION, PE_INTENT_PROBE, 160, -1000, 1000, PE_DRIVE_COMMUNION,
@@ -625,6 +642,10 @@ static void make_templates(TemplateTable *tt){
           "I knew the boy when he was still pretending to be sensible. Charming, in its way.");
     T_add(tt, G_HENRY, PE_INTENT_PROBE, 58, -1000, 1000, -1,
           "Do you ask about Frankenstein as a scientist, a coward, or a warning?");
+    T_add(tt, G_HENRY, PE_INTENT_ANSWER, 73, -1000, 1000, PE_DRIVE_COMMUNION,
+          "Frankenstein matters because he stood closest to the miracle and blinked.");
+    T_add(tt, G_HENRY, PE_INTENT_PROBE, 57, -1000, 1000, -1,
+          "What interests you about Henry: the work, the guilt, or the retreat?");
 
     /* opera */
     T_add(tt, G_OPERA, PE_INTENT_REMINISCE, 70, 0, 1000, -1,

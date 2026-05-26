@@ -83,8 +83,39 @@ if ($zipMb -gt $MaxZipMb) {
   Fail "demo zip is $zipMb MB, over ${MaxZipMb} MB budget"
 }
 
+$unzipDir = Join-Path ([System.IO.Path]::GetTempPath()) ("PersonaConsole_release_unzip_" + [System.Guid]::NewGuid().ToString("N"))
+try {
+  Expand-Archive -LiteralPath $ZipPath -DestinationPath $unzipDir -Force
+  $unzippedDemo = Join-Path $unzipDir (Split-Path -Leaf $DemoDir)
+  if (-not (Test-Path -LiteralPath $unzippedDemo -PathType Container)) {
+    $children = Get-ChildItem -LiteralPath $unzipDir -Directory
+    if ($children.Count -eq 1) { $unzippedDemo = $children[0].FullName }
+  }
+  foreach ($rel in @(
+    "START_HERE.html",
+    "Run_Pretorius.cmd",
+    "Run_Kiki.cmd",
+    "Stop_Server.cmd",
+    "Health_Check.cmd",
+    "persona_host.exe",
+    "cygwin1.dll",
+    "characters\pretorius\pretorius.cart",
+    "host\web\index.html",
+    "Forge\forge.html",
+    "Inspector\cartridge_inspector.html"
+  )) {
+    if (-not (Test-Path -LiteralPath (Join-Path $unzippedDemo $rel))) {
+      Fail "clean unzip is missing $rel"
+    }
+  }
+} finally {
+  if (Test-Path -LiteralPath $unzipDir) {
+    Remove-Item -LiteralPath $unzipDir -Recurse -Force
+  }
+}
+
 $readme = Get-Content -LiteralPath (Join-Path $DemoDir "README_FIRST.txt") -Raw
-if ($readme -notmatch "No GPU" -or $readme -notmatch "internet") {
+if ($readme -notmatch "No GPU" -or $readme -notmatch "internet" -or $readme -notmatch "WSL") {
   Fail "README_FIRST.txt must state low-hardware/no-internet expectations"
 }
 if ($readme -notmatch "Collect_Diagnostics") {
@@ -113,7 +144,7 @@ if ($testerGuideHtml -notmatch "export transcript" -or $testerGuideHtml -notmatc
 }
 
 $start = Get-Content -LiteralPath (Join-Path $DemoDir "START_HERE.html") -Raw
-if ($start -notmatch "Run_Pretorius\.cmd" -or $start -notmatch "Forge/forge\.html" -or $start -notmatch "Inspector/cartridge_inspector\.html" -or $start -notmatch "TESTER_GUIDE\.html" -or $start -notmatch "Health_Check\.cmd" -or $start -notmatch "Collect_Diagnostics\.cmd" -or $start -notmatch "Reset_Demo_State\.cmd") {
+if ($start -notmatch "Run_Pretorius\.cmd" -or $start -notmatch "No account" -or $start -notmatch "WSL" -or $start -notmatch "Forge/forge\.html" -or $start -notmatch "Inspector/cartridge_inspector\.html" -or $start -notmatch "TESTER_GUIDE\.html" -or $start -notmatch "Health_Check\.cmd" -or $start -notmatch "Collect_Diagnostics\.cmd" -or $start -notmatch "Reset_Demo_State\.cmd") {
   Fail "START_HERE.html does not expose first-run, Forge, and Inspector paths"
 }
 

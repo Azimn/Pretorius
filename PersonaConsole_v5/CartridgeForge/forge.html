@@ -1913,8 +1913,9 @@ function generateStarterInternalLife(ch, mode){
   const secondary = cleanTopicName(obs[1], 'the work');
   const third = cleanTopicName(obs[2], 'what remains unfinished');
   const name = cleanTopicName(ch.name, 'this character');
-  const softer = (id.A || 50) >= 65;
-  const prickly = (id.A || 50) <= 35;
+  const posture = inferRelationshipPosture(ch).posture;
+  const softer = posture === 'serving' || (posture === 'collaborative' && (id.A || 50) >= 65);
+  const prickly = posture === 'dominant' || posture === 'rivalrous' || posture === 'avoidant' || (id.A || 50) <= 35;
 
   id.current_preoccupations = [
     `turning over ${primary}`,
@@ -1930,7 +1931,7 @@ function generateStarterInternalLife(ch, mode){
     { name: softer ? 'be understood' : prickly ? 'be taken seriously' : 'be recognized clearly',
       target_topic: primary, target_class: 3, intensity: 150 },
     { name: `return to ${secondary}`, target_topic: secondary, target_class: 0, intensity: 135 },
-    { name: softer ? 'keep the conversation alive' : prickly ? 'test the user a little' : 'pull the user closer to the question',
+    { name: softer ? 'keep the conversation alive' : posture === 'rivalrous' ? 'make the user answer sharply' : prickly ? 'test the user a little' : 'pull the user closer to the question',
       target_topic: third, target_class: softer ? 5 : 0, intensity: 120 }
   ];
 
@@ -1939,6 +1940,11 @@ function generateStarterInternalLife(ch, mode){
     'A day away, and still the thought held its shape.',
     'You were gone long enough for me to reconsider a few things.',
     'After all that time, I wondered what you would bring back with you.'
+  ] : posture === 'rivalrous' ? [
+    'Back, {address}. I hope you brought a better argument.',
+    'A day gone. I have revised my objections.',
+    'You vanished before the interesting part. Typical, but repairable.',
+    'After that long, I expected either evidence or nerve.'
   ] : prickly ? [
     'Back, {address}? Good. I was beginning to accuse the silence.',
     'A day gone. I used it better than you did, I suspect.',

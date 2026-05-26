@@ -105,8 +105,12 @@ Set-Content -LiteralPath $pidFile -Value $proc.Id
 Start-Sleep -Seconds 1
 Start-Process $url
 
-Write-Host "PersonaConsole started on $url"
-Write-Host "To stop it, run Stop_Server.ps1"
+Write-Host ""
+Write-Host "PersonaConsole is running."
+Write-Host "Browser: $url"
+Write-Host ""
+Write-Host "If the browser did not open, copy that address into Chrome or Edge."
+Write-Host "When you are done, run Stop_Server.cmd from this folder."
 '@
 
 Write-Utf8NoBom (Join-Path $OutDir "Run_Pretorius.ps1") ($runTemplate.Replace("__CART__", "characters/pretorius/pretorius.cart"))
@@ -372,8 +376,11 @@ $startHere = @'
 </style>
 <main>
   <h1>PersonaConsole V5 Demo</h1>
-  <p>Start with <code>Run_Pretorius.cmd</code> or <code>Run_Kiki.cmd</code>. The script starts the local host and opens the chat at <code>http://127.0.0.1:7777/</code>.</p>
+  <p><strong>Start here:</strong> double-click <code>Run_Pretorius.cmd</code>. A browser should open to <code>http://127.0.0.1:7777/</code>. No account, GPU, WSL, Cygwin, Git, Node, or internet connection is needed.</p>
   <div class="grid">
+    <div class="card"><strong>1. Run a character</strong><br><span class="muted">Use <code>Run_Pretorius.cmd</code> first. Use <code>Run_Kiki.cmd</code> to compare a different personality.</span></div>
+    <div class="card"><strong>2. Talk naturally</strong><br><span class="muted">Try greetings, disagreement, silence, questions about memory, and returning after a break.</span></div>
+    <div class="card"><strong>3. Stop when done</strong><br><span class="muted">Run <code>Stop_Server.cmd</code>. Run <code>Reset_Demo_State.cmd</code> if you want a fresh start.</span></div>
     <a href="Forge/forge.html"><strong>Open Cartridge Forge</strong><br><span class="muted">Create or edit a V5 character cartridge.</span></a>
     <a href="Inspector/cartridge_inspector.html"><strong>Open Cartridge Inspector</strong><br><span class="muted">Check a cartridge before sharing it.</span></a>
     <a href="TESTER_GUIDE.html"><strong>Tester Guide</strong><br><span class="muted">Prompts and feedback questions for real-user testing.</span></a>
@@ -382,6 +389,7 @@ $startHere = @'
     <div class="card"><strong>Reset local memory</strong><br><span class="muted">Run <code>Reset_Demo_State.cmd</code> to start fresh.</span></div>
     <div class="card"><strong>Stop the server</strong><br><span class="muted">Run <code>Stop_Server.cmd</code> when finished.</span></div>
   </div>
+  <p>If something fails, run <code>Health_Check.cmd</code>. If you are sharing a bug report, run <code>Collect_Diagnostics.cmd</code>; it records system/package metadata, not chat text.</p>
   <p>Each character stores its own local memory beside its cartridge in <code>characters/</code>. This demo is local-first: no account, no network service, no GPU, and no LLM are required for the included cartridges.</p>
 </main>
 '@
@@ -393,8 +401,13 @@ PersonaConsole V5 Demo
 Fast start:
 1. Double-click Run_Pretorius.cmd.
 2. Your browser should open to http://127.0.0.1:7777/.
-3. Chat with the character.
+3. Chat naturally. Try hello, disagreement, silence, memory questions, and "what are you working on?"
 4. Run Stop_Server.cmd when finished.
+
+If something does not work:
+1. Run Health_Check.cmd.
+2. If it still fails, run Collect_Diagnostics.cmd and share PersonaConsole_Diagnostics.txt.
+3. Collect_Diagnostics does not include chat text. Use the in-chat export button only if you choose to share a transcript.
 
 Other files:
 - Run_Kiki.cmd starts the Kiki cartridge.
@@ -408,7 +421,7 @@ Other files:
 
 Hardware:
 - Included cartridges run without an LLM and need only a tiny CPU/RAM footprint.
-- No GPU, account, or internet connection is required after you have this folder.
+- No GPU, WSL, Cygwin, Git, Node, Make, account, or internet connection is required after you have this folder.
 '@
 Write-Utf8NoBom (Join-Path $OutDir "README_FIRST.txt") $readme
 

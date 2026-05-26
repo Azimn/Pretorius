@@ -73,7 +73,7 @@ global.alert   = () => {};
 /* The forge script declares functions/consts at top-level; expose them. */
 const exposeNames = [
   'ARCHETYPES','defaultCharacter','applyArchetype','buildCart',
-  'internalLifeForSeed','preflightCharacter',
+  'internalLifeForSeed','generateStarterInternalLife','preflightCharacter',
   'dialogueQualityReport','inferRelationshipPosture','relationshipPostureReport',
   'relationshipContract','livingCharacterChecklist',
   'exportObject','refreshExport','CH','LMBuilder','LMRuntime','PE_LM_DEFAULT_ORDER',
@@ -93,6 +93,7 @@ try {
 }
 
 const { ARCHETYPES, defaultCharacter, buildCart, internalLifeForSeed,
+        generateStarterInternalLife,
         preflightCharacter, dialogueQualityReport,
         inferRelationshipPosture, relationshipPostureReport, relationshipContract,
         livingCharacterChecklist, refreshExport,
@@ -202,6 +203,24 @@ if (domContract.posture !== 'dominant'
   process.exit(1);
 }
 console.log('relationship contract gives dominant characters non-subordinate rules');
+
+const generatedDominant = defaultCharacter();
+generatedDominant.name = 'Dominant Starter';
+generatedDominant.identity.A = 18;
+generatedDominant.identity.E = 78;
+generatedDominant.identity.voice_flags = ['SARDONIC','NO_DIRECT_AFFIRM','ALLOW_CONTRADICT'];
+generatedDominant.identity.obsessions = ['the work','homunculi','forbidden science'];
+generatedDominant.identity.core_memories = [
+  { text: 'Public humiliation by academic peers', v: -70, a: 60, d: -20 },
+  { text: 'The first successful artificial animation', v: 90, a: 80, d: 70 },
+];
+generateStarterInternalLife(generatedDominant, 'starter');
+if (!generatedDominant.identity.wants.some(w => /test|taken seriously|answer sharply/i.test(w.name))
+    || generatedDominant.identity.resumption_lines.some(s => /what do you need|how can i help|glad to help/i.test(s))){
+  console.error('FAIL: dominant starter internal life did not preserve non-subordinate posture', generatedDominant.identity);
+  process.exit(1);
+}
+console.log('starter internal life preserves dominant posture');
 
 const servingPosture = defaultCharacter();
 servingPosture.name = 'Kiki';
