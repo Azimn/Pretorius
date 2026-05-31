@@ -658,6 +658,13 @@ int persona_open(Engine *eng, const char *character_dir){
     /* mutable state */
     int had_state = load_or_zero(eng->char_dir, "state.bin",  &eng->state,  sizeof(NPCState));
     int had_mem   = load_or_zero(eng->char_dir, "memory.bin", &eng->memory, sizeof(MemoryStore));
+    /* V5 Phase 2: actor-tagging sidecar is parallel to memory.bin. Only load
+     * an existing sidecar when memory.bin existed too — otherwise the sidecar
+     * would describe slots that no longer exist (e.g. after a test wipes
+     * memory.bin without knowing about the new sidecar). Initialize fresh in
+     * the wiped-memory case so tags stay in sync with the episodic array. */
+    if (had_mem) pe_actor_index_load(&eng->actor_index, eng->char_dir);
+    else         pe_actor_index_init(&eng->actor_index);
 
     if (!had_state) {
         seed_drives(eng);
@@ -791,6 +798,10 @@ int persona_save(Engine *eng){
     if (pe_write_file_atomic(p, &eng->state, sizeof(NPCState)) != 0) return -1;
     pe_path_join(p, sizeof(p), eng->char_dir, "memory.bin");
     if (pe_write_file_atomic(p, &eng->memory, sizeof(MemoryStore)) != 0) return -1;
+    /* V5 Phase 2: persist the actor-tagging sidecar alongside the memory it
+     * indexes. Non-fatal — a missing sidecar is the legacy state and the
+     * runtime tolerates it. */
+    pe_actor_index_save(&eng->actor_index, eng->char_dir);
     pe_save_relation(eng);
     /* v3.1: chapters — non-fatal if write fails (re-crystallised on next load) */
     pe_path_join(p, sizeof(p), eng->char_dir, "chapters.bin");

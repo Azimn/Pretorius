@@ -67,6 +67,10 @@ extern "C" {
 #define PE_MILESTONE_COUNT      6
 #define PE_MILESTONE_LEN        96
 
+/* V5 Phase 2: per-slot actor tagging for episodic memory.
+ * Included after PE_EPISODIC_MAX is defined; the header depends on it. */
+#include "actor_index.h"
+
 /* ---------- pattern flags (Pattern.flags bitmask) ---------- */
 #define PE_PATTERN_FLAG_INTOXICANT (1u<<0)  /* matching this pattern raises intoxication */
 
@@ -576,10 +580,11 @@ struct Engine {
     TodayTable     todays;
 
     /* mutable */
-    NPCState       state;
-    MemoryStore    memory;
-    Relation       relation;                /* current interlocutor */
-    SchemaState    schema;                  /* V4: per-relation compressed beliefs */
+    NPCState         state;
+    MemoryStore      memory;
+    pe_actor_index_t actor_index;           /* V5 Phase 2: per-slot actor tagging sidecar */
+    Relation         relation;              /* current interlocutor */
+    SchemaState      schema;                /* V4: per-relation compressed beliefs */
 
     /* per-turn scratch (no heap) */
     uint16_t       active_memories[PE_ACTIVE_MAX];

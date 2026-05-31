@@ -303,6 +303,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"want_ages\":[%u,%u,%u],"
         "\"disposition\":%d,"
         "\"user_id\":\"%s\","
+        "\"actor_tagged_memories\":%u,"
         "\"schema\":{\"trustworthy\":%d,\"hostile\":%d,\"intimate\":%d,"
                     "\"competent\":%d,\"deceptive\":%d,\"owed\":%d,"
                     "\"owes\":%d,\"dignity\":%d}}",
@@ -328,6 +329,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         (unsigned)eng->state.want_turns_since_engaged[2],
         eng->relation.disposition,
         s->user_id,
+        (unsigned)pe_actor_index_count(&eng->actor_index),
         (int)eng->schema.slot[SCHEMA_USER_TRUSTWORTHY],
         (int)eng->schema.slot[SCHEMA_USER_HOSTILE],
         (int)eng->schema.slot[SCHEMA_USER_INTIMATE],

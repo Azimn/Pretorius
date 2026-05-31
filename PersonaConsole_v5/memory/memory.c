@@ -145,6 +145,11 @@ void pe_commit_memory(Engine *eng, const char *summary,
     } else {
         n->private_threshold = 0;
     }
+
+    /* V5 Phase 2: tag this slot with the actor under whom it was committed.
+     * Stored in the parallel sidecar (actor_index.bin), never in the summary
+     * text. A zero hash means "no actor known" and is treated as legacy. */
+    pe_actor_index_tag(&eng->actor_index, slot, eng->relation.user_hash);
 }
 
 void pe_decay_episodic(Engine *eng){
@@ -241,6 +246,21 @@ void pe_associative_recall(Engine *eng, const EmotionVector *ev){
         if (age_ms > 24u*3600u*1000u) recency = 200;          /* old memories still trickle in */
         if (recency < 100) recency = 100;
         match = (match * recency) / 1000;
+
+        /* V5 Phase 2: same-actor bonus. A modest additive lift (not a filter)
+         * so memories with the current interlocutor surface more readily than
+         * unrelated memories with similar semantic match — without hiding
+         * cross-actor memories entirely. Untagged (legacy) memories get no
+         * bonus and no penalty. */
+        {
+            uint32_t slot_actor    = pe_actor_index_get(&eng->actor_index, i);
+            uint32_t current_actor = eng->relation.user_hash;
+            if (slot_actor != 0 && current_actor != 0 && slot_actor == current_actor){
+                match += 30;
+                if (match > 1000) match = 1000;
+            }
+        }
+
         if (match >= ACTIVATION_THRESHOLD_PER_MIL) {
             eng->active_memories[eng->active_count] = i;
             eng->active_match[eng->active_count] = (uint16_t)(match > 1000 ? 1000 : match);
