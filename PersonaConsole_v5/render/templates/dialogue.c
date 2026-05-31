@@ -599,10 +599,14 @@ static int render_reflection_callback(Engine *eng, char *out, size_t n){
     const MemoryNode *m = pe_active_node(eng, eng->plan.callback_memory);
     if (!m || m->memory_type != MEM_CACHE || strncmp(m->summary, "[reflection", 11))
         return 0;
-    /* Repeat-suppress on a callback-specific namespace, not the shared memory
-     * namespace: ordinary recall of this reflection must not block its first
-     * spoken surfacing. */
-    if (phrase_recently_used(eng, usage_id(PE_USAGE_CALLBACK, m->id), 10u))
+    /* Repeat-suppress on a callback-specific namespace, not the shared
+     * memory namespace: ordinary recall of this reflection must not block
+     * its first spoken surfacing. Window is 16 turns — chosen empirically
+     * to (a) catch the within-conversation repeat the transcript review
+     * surfaced at ~12-turn gaps, and (b) stay short enough that the cross-
+     * session reflection_surface test can re-fire the callback in its
+     * second-session probe phase (the test's contract relies on this). */
+    if (phrase_recently_used(eng, usage_id(PE_USAGE_CALLBACK, m->id), 16u))
         return 0;
     char text[256];
     if (pe_reflection_render(eng, m, text, (int)sizeof(text)) <= 0) return 0;
@@ -626,15 +630,26 @@ static int render_direct_callback_question(Engine *eng, const char *input,
     if (!asks_memory && !asks_absence && !asks_next) return 0;
 
     if (asks_absence){
+        /* This handler renders one fixed template per topic, so two adjacent
+         * user turns that both mention absence ("I was gone." / "Did you
+         * notice I was gone?") would otherwise return the same line back-to-
+         * back. Per-template anti-repeat: skip if we said the absence line
+         * recently and let other handlers respond. */
+        uint32_t id = usage_id(PE_USAGE_CALLBACK, persona_hash("direct.absence"));
+        if (phrase_recently_used(eng, id, PE_MEMORY_BLACKOUT_TURNS)) return 0;
         snprintf(out, n, "In your absence, I kept returning to %s.",
                  preferred_preoccupation(eng));
+        record_use(&eng->memory, id, eng->state.turn_count);
         return 1;
     }
 
     if (asks_next){
+        uint32_t id = usage_id(PE_USAGE_CALLBACK, persona_hash("direct.next_time"));
+        if (phrase_recently_used(eng, id, PE_MEMORY_BLACKOUT_TURNS)) return 0;
         const char *tn = topic_name_for_reply(eng,
             eng->plan.target_topic != 0xFFFF ? eng->plan.target_topic : eng->primary_topic);
         snprintf(out, n, "Next time, ask me about %s. I want to see where that thought leads you.", tn);
+        record_use(&eng->memory, id, eng->state.turn_count);
         return 1;
     }
 

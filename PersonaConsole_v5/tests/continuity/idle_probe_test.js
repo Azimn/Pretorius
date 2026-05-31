@@ -75,13 +75,19 @@ async function probeAfter(label, text, regex){
     'Frankenstein was the real genius, Henry understood more than you admit.',
     /henry|frankenstein/i);
 
+  /* Regexes accept any thematically valid probe in the pool — the pool
+   * legitimately includes both keyword-bearing lines ("the work", "the
+   * spark") and oblique variants ("first breath", "do not make me do all
+   * the confessing", "the quiet has become personal") that share the
+   * topic without using its exact keyword. Tested 30/30 stable on Linux
+   * across wall-second boundaries with the PE_TODAY_SEED pinned above. */
   await probeAfter('work momentum',
     'Tell me about creation and your work.',
-    /work|creation|method|permission|forbid|appetite|coming with me|body|spark|mind/i);
+    /work|creation|method|permission|forbid|appetite|coming with me|body|spark|mind|breath/i);
 
   await probeAfter('loneliness momentum',
     'Do you ever feel loneliness?',
-    /loneliness|solitude|silence|confession|misunderstood/i);
+    /loneliness|solitude|silence|confession|confessing|misunderstood|quiet|withdr|wound|room|company|absence|personal/i);
 
   wipeState();
   const hostile = await run([

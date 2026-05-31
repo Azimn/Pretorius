@@ -1,14 +1,30 @@
 param(
-  [string]$OutDir = ""
+  [string]$OutDir = "",
+  [string]$Version = "v5.0.0-pre"
 )
 
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $PSScriptRoot
+
+# --- build stamps (version, commit hash, date) -----------------------------
+$CommitHash = "unknown"
+try {
+  Push-Location $Root
+  $hashOut = & git rev-parse --short=12 HEAD 2>$null
+  if ($LASTEXITCODE -eq 0 -and $hashOut) { $CommitHash = $hashOut.Trim() }
+  Pop-Location
+} catch { Pop-Location -ErrorAction SilentlyContinue }
+$BuildDate = (Get-Date).ToString("yyyy-MM-dd")
+$VersionStamp = "$Version+$CommitHash"
+
 if (-not $OutDir) {
   $OutDir = Join-Path $Root "dist\PersonaConsole_v5_demo"
 }
-$ZipPath = "$OutDir.zip"
+# Versioned ZIP name so testers can tell builds apart:
+#   PersonaConsole_v5_demo_<version>+<hash>_<date>.zip
+$ZipName = "PersonaConsole_v5_demo_${VersionStamp}_${BuildDate}.zip"
+$ZipPath = Join-Path (Split-Path -Parent $OutDir) $ZipName
 
 function Copy-RequiredFile($From, $To) {
   if (-not (Test-Path -LiteralPath $From)) {
@@ -54,6 +70,19 @@ if (Test-Path -LiteralPath (Join-Path $Root "CartridgeInspector\README.md")) {
 }
 Copy-RequiredFile (Join-Path $Root "docs\EXTERNAL_TESTER_GUIDE.md") (Join-Path $OutDir "TESTER_GUIDE.md")
 Copy-RequiredFile (Join-Path $Root "docs\EXTERNAL_TESTER_GUIDE.html") (Join-Path $OutDir "TESTER_GUIDE.html")
+
+# Tester feedback form (the one document the tester must fill in). Copy
+# and stamp the build placeholders so the tester's report ties back to a
+# specific commit. Keeping the file as plain markdown so it works in any
+# editor on any machine.
+$feedbackSrc = Join-Path $Root "docs\TESTER_FEEDBACK_FORM.md"
+if (Test-Path -LiteralPath $feedbackSrc) {
+  $feedbackText = [System.IO.File]::ReadAllText($feedbackSrc)
+  $feedbackText = $feedbackText.Replace("__PACKAGE_VERSION__", $Version) `
+                                .Replace("__COMMIT_HASH__",    $CommitHash) `
+                                .Replace("__BUILD_DATE__",     $BuildDate)
+  Write-Utf8NoBom (Join-Path $OutDir "TESTER_FEEDBACK_FORM.md") $feedbackText
+}
 
 $runTemplate = @'
 param(
@@ -384,6 +413,7 @@ $startHere = @'
     <a href="Forge/forge.html"><strong>Open Cartridge Forge</strong><br><span class="muted">Create or edit a V5 character cartridge.</span></a>
     <a href="Inspector/cartridge_inspector.html"><strong>Open Cartridge Inspector</strong><br><span class="muted">Check a cartridge before sharing it.</span></a>
     <a href="TESTER_GUIDE.html"><strong>Tester Guide</strong><br><span class="muted">Prompts and feedback questions for real-user testing.</span></a>
+    <a href="TESTER_FEEDBACK_FORM.md"><strong>Feedback Form</strong><br><span class="muted">The one thing we need back. Five-minute version inside.</span></a>
     <div class="card"><strong>Health check</strong><br><span class="muted">Run <code>Health_Check.cmd</code> to verify the demo works.</span></div>
     <div class="card"><strong>Collect diagnostics</strong><br><span class="muted">Run <code>Collect_Diagnostics.cmd</code> if something breaks.</span></div>
     <div class="card"><strong>Reset local memory</strong><br><span class="muted">Run <code>Reset_Demo_State.cmd</code> to start fresh.</span></div>
@@ -391,12 +421,16 @@ $startHere = @'
   </div>
   <p>If something fails, run <code>Health_Check.cmd</code>. If you are sharing a bug report, run <code>Collect_Diagnostics.cmd</code>; it records system/package metadata, not chat text.</p>
   <p>Each character stores its own local memory beside its cartridge in <code>characters/</code>. This demo is local-first: no account, no network service, no GPU, and no LLM are required for the included cartridges.</p>
+  <p class="muted" style="margin-top:28px;font-size:12px">Build __VERSION_STAMP__ &middot; __BUILD_DATE__</p>
 </main>
 '@
+$startHere = $startHere.Replace("__VERSION_STAMP__", $VersionStamp) `
+                       .Replace("__BUILD_DATE__",    $BuildDate)
 Write-Utf8NoBom (Join-Path $OutDir "START_HERE.html") $startHere
 
 $readme = @'
 PersonaConsole V5 Demo
+Build __VERSION_STAMP__  Built __BUILD_DATE__
 
 Fast start:
 1. Double-click Run_Pretorius.cmd.
@@ -414,6 +448,7 @@ Other files:
 - Forge/forge.html builds V5 cartridges in the browser.
 - Inspector/cartridge_inspector.html checks cartridge health.
 - TESTER_GUIDE.html has prompts and a feedback template.
+- TESTER_FEEDBACK_FORM.md is the one short form to fill in and send back.
 - Health_Check.cmd verifies the local demo can start, chat, and idle-probe.
 - Collect_Diagnostics.cmd writes PersonaConsole_Diagnostics.txt for bug reports.
 - Reset_Demo_State.cmd clears local demo memory/state without changing cartridges.
@@ -423,8 +458,19 @@ Hardware:
 - Included cartridges run without an LLM and need only a tiny CPU/RAM footprint.
 - No GPU, WSL, Cygwin, Git, Node, Make, account, or internet connection is required after you have this folder.
 '@
+$readme = $readme.Replace("__VERSION_STAMP__", $VersionStamp) `
+                 .Replace("__BUILD_DATE__",    $BuildDate)
 Write-Utf8NoBom (Join-Path $OutDir "README_FIRST.txt") $readme
+
+# Plain-text VERSION file for scripted readers / installers.
+Write-Utf8NoBom (Join-Path $OutDir "VERSION.txt") @"
+package_version=$Version
+commit_hash=$CommitHash
+build_date=$BuildDate
+version_stamp=$VersionStamp
+"@
 
 Compress-Archive -LiteralPath $OutDir -DestinationPath $ZipPath -Force
 Write-Host "Demo folder: $OutDir"
 Write-Host "Demo zip:    $ZipPath"
+Write-Host "Version:     $VersionStamp ($BuildDate)"

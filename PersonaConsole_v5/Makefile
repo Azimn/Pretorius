@@ -455,6 +455,13 @@ v5_transcript_quality_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/transcript_quality_test.js
 
+# Long-chat anti-repeat regression. Drives a 35-turn varied script and
+# asserts no exact reply repeats and no opener appears 3+ times. Surfaced
+# by tools/transcript_review.js during ship hardening.
+v5_no_repeat_long_chat_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/no_repeat_in_long_chat_test.js
+
 v5_believability_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/believability_trial.js
@@ -484,7 +491,7 @@ v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v5_milestone_catchup_run v5_legacy_identity_migration_run \
               v4_adversarial_arcs v4_recall_plasticity_run forge_cart_test inspector_test \
               web_presence_test v5_transcript_quality_run v5_believability_run \
-              v4_firewall_run lint_test
+              v5_no_repeat_long_chat_run v4_firewall_run lint_test
 	@echo "--- V4 tests: green ---"
 
 # ----- profile sanity drivers -----
