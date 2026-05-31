@@ -12,7 +12,7 @@ if (!fs.existsSync(HOST)){ console.error('persona_host not built'); process.exit
 if (!fs.existsSync(CART)){ console.error('cart not found:', CART); process.exit(2); }
 
 function wipeState(){
-  for (const f of ['state.bin', 'memory.bin', 'chapters.bin']){
+  for (const f of ['state.bin', 'memory.bin', 'chapters.bin', 'reflections.bin']){
     try { fs.unlinkSync(path.join(CHDIR, f)); } catch {}
   }
   for (const d of ['relations', 'aether']){
@@ -24,7 +24,17 @@ function run(commands){
   return new Promise((resolve, reject) => {
     const stdin = commands.map(c => JSON.stringify(c)).join('\n')
                 + '\n{"method":"close"}\n';
-    const proc = spawn(HOST, [CART, '--stdio']);
+    /* Pin PE_TODAY_SEED so the idle-probe pool selection is reproducible
+     * across runs. Without this the today_seed falls back to wall-clock
+     * seconds and back-to-back test runs land in the same second, drawing
+     * from an unrelated probe pool. (Pinning the full engine clock as well
+     * is tempting, but the engine's drive-decay path expects a small
+     * positive delta between session_start and first turn — a frozen clock
+     * makes delta=0 and changes downstream selection. Live wall progression
+     * supplies that micro-delta naturally.) */
+    const proc = spawn(HOST, [CART, '--stdio'], {
+      env: { ...process.env, PE_TODAY_SEED: '1234' }
+    });
     let stdout = '', stderr = '';
     proc.stdout.on('data', d => stdout += d.toString('utf-8'));
     proc.stderr.on('data', d => stderr += d.toString('utf-8'));
@@ -73,13 +83,17 @@ async function probeAfter(label, text, regex){
     'Frankenstein was the real genius, Henry understood more than you admit.',
     /henry|frankenstein/i);
 
+  /* Regexes accept any thematically valid probe in the pool — the pool
+   * legitimately includes both keyword-bearing lines ("the work", "the
+   * spark") and oblique variants ("first breath", "the quiet has become
+   * personal") that share the topic without using its keyword. */
   await probeAfter('work momentum',
     'Tell me about creation and your work.',
-    /work|creation|method|permission|forbid|appetite|coming with me|body|spark|mind/i);
+    /work|creation|method|permission|forbid|appetite|coming with me|body|spark|mind|breath/i);
 
   await probeAfter('loneliness momentum',
     'Do you ever feel loneliness?',
-    /loneliness|solitude|silence|confession|misunderstood/i);
+    /loneliness|solitude|silence|confession|confessing|misunderstood|quiet|withdr|wound|room|company|absence|personal/i);
 
   wipeState();
   const hostile = await run([

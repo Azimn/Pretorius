@@ -1,22 +1,23 @@
 /* today.c — day hash → today entry; applies its modifiers to runtime state. */
 #include "persona.h"
 #include "persona_internal.h"
-#include <time.h>
+#include "engine_clock.h"
 #include <string.h>
 #include <stdlib.h>
 
 static uint32_t day_hash(uint32_t seed){
-    time_t now = time(NULL);
-    struct tm t;
-    /* localtime is fine; we just need a daily-stable bucket */
-    localtime_r(&now, &t);
-    uint32_t key = (uint32_t)((t.tm_year + 1900) * 10000 + (t.tm_mon + 1) * 100 + t.tm_mday);
+    /* Canonical day bucket — packed YYYYMMDD from the engine clock. */
+    uint32_t key = pe_clock_today_key();
     uint32_t h = seed ^ key;
     h ^= h << 13; h ^= h >> 17; h ^= h << 5;
     return h;
 }
 
 static int hour_now(void){
+    /* Legacy fixture override (predates the engine clock); kept so existing
+     * time-of-day tests keep working unchanged. New fixtures should pin
+     * the clock via PE_CLOCK_OVERRIDE_MS, which is honored by the fall-
+     * through to pe_clock_local_hour(). */
     const char *env = getenv("PE_TEST_HOUR");
     if (env && env[0]){
         char *end = NULL;
@@ -24,11 +25,7 @@ static int hour_now(void){
         if (end && *end == '\0' && h >= 0 && h <= 23)
             return (int)h;
     }
-
-    time_t now = time(NULL);
-    struct tm t;
-    localtime_r(&now, &t);
-    return t.tm_hour;
+    return (int)pe_clock_local_hour();
 }
 
 static int today_band_weight(const char *label, int hour){

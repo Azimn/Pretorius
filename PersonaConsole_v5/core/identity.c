@@ -1,8 +1,8 @@
 #include "persona.h"
 #include "identity.h"
 #include "persona_internal.h"
+#include "engine_clock.h"
 #include <stdlib.h>
-#include <time.h>
 
 int pe_allow_intimate_address(const Engine *eng){
     if (!eng) return 0;
@@ -10,7 +10,7 @@ int pe_allow_intimate_address(const Engine *eng){
     if (schema_get(&eng->schema, SCHEMA_USER_INTIMATE) < 200) return 0;
     if (schema_get(&eng->schema, SCHEMA_USER_HOSTILE) > 400) return 0;
 
-    uint32_t now = (uint32_t)time(NULL);
+    uint32_t now = pe_clock_now_s();
     if (eng->relation.first_contact == 0) return 0;
     if (now <= eng->relation.first_contact) return 0;
     if (now - eng->relation.first_contact < (7u * 86400u)) return 0;

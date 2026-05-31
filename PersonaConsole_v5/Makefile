@@ -37,6 +37,7 @@ LDFLAGS ?=
 
 CORE_SRC := \
     core/engine.c       \
+    core/engine_clock.c \
     core/baseline_patterns.c \
     core/baseline_templates.c \
     core/baseline_reflections.c \
@@ -58,7 +59,8 @@ MEMORY_SRC := \
     memory/memory_firewall.c \
     memory/affect_curve.c    \
     memory/reflection.c      \
-    memory/recall_plasticity.c
+    memory/recall_plasticity.c \
+    memory/sidecar.c
 
 SCHEMA_SRC := \
     schema/schema_state.c
@@ -475,8 +477,21 @@ v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v5_milestone_catchup_run v5_legacy_identity_migration_run \
               v4_adversarial_arcs v4_recall_plasticity_run inspector_test \
               web_presence_test v5_transcript_quality_run v5_believability_run \
-              v4_firewall_run lint_test
+              v5_clock_replay_run v4_firewall_run lint_test
 	@echo "--- V4 tests: green ---"
+
+# Preferred V5 aliases for the pre-push gate. Same dep list as v4_all_tests so
+# there is no flag day; the rename is purely conceptual (the gate now also
+# covers V5 believability, transcript quality, milestone catch-up, and the
+# clock-pinned determinism test).
+runtime_gate: v4_all_tests
+v5_gate: v4_all_tests
+
+# Clock-pinned replay: proves Layer 1 state is reproducible from the
+# canonical five-tuple (cartridge, seed, WAL, inputs, clock).
+v5_clock_replay_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/replay/clock_pinned_replay_test.js
 
 # ----- profile sanity drivers -----
 character: profiles/pretorius/pretorius.cart

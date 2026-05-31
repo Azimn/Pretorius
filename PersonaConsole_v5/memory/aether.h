@@ -47,6 +47,14 @@ typedef struct aether_handle aether_handle_t;
 
 /* ---------- public API ---------- */
 
+/* Install a canonical-clock callback. The engine calls this once with
+ * pe_clock_now_s before aether_open so AETHER timestamps flow through the
+ * same clock as the rest of Layer 1 — required for deterministic replay
+ * under PE_CLOCK_OVERRIDE_MS. If never set, ae_now_unix() falls back to
+ * time(NULL) (acceptable for libaether-only test programs). */
+typedef uint32_t (*aether_clock_now_s_fn)(void);
+void aether_set_clock(aether_clock_now_s_fn fn);
+
 /* Open (or create) a store rooted at storage_dir.
  * Returns NULL on failure (mkdir/open error, corrupt critical file). */
 aether_handle_t *aether_open(const char *storage_dir);

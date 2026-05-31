@@ -4,9 +4,9 @@
 #include "lsh_memory.h"            /* v3.0: fuzzy semantic recall */
 #include "aether.h"                /* v3.2: long-term episodic storage */
 #include "reflection.h"            /* v5: high-level pattern recall */
+#include "engine_clock.h"          /* canonical Layer 1 clock */
 #include <string.h>
 #include <stdlib.h>
-#include <time.h>
 
 #define ACTIVATION_THRESHOLD_PER_MIL 200  /* 0.2 in 0..1000 scale */
 
@@ -21,7 +21,7 @@
  * node is about to be evicted by pe_commit_memory. */
 static void pe_node_to_aether(const MemoryNode *n, aether_event_t *ev){
     memset(ev, 0, sizeof(*ev));
-    ev->timestamp     = (uint32_t)time(NULL);
+    ev->timestamp     = pe_clock_now_s();
     ev->last_accessed = ev->timestamp;
     /* PE valence/dominance: int8 -100..100  →  uint16 0..65400 */
     ev->emotion_valence   = (uint16_t)(((int32_t)n->emotion.valence   + 100) * 327);

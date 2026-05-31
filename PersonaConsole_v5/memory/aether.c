@@ -25,8 +25,18 @@
 
 /* ---------- small utilities ---------- */
 
+/* Engine-supplied clock; falls back to time(NULL) if not installed. The
+ * engine calls aether_set_clock(pe_clock_now_s) once before aether_open so
+ * AETHER timestamps flow through the canonical Layer 1 clock. Aether-only
+ * test programs that never call aether_set_clock use the wall fallback. */
+static aether_clock_now_s_fn g_aether_clock = NULL;
+
+void aether_set_clock(aether_clock_now_s_fn fn){
+    g_aether_clock = fn;
+}
+
 uint32_t ae_now_unix(void){
-    return (uint32_t)time(NULL);
+    return g_aether_clock ? g_aether_clock() : (uint32_t)time(NULL);
 }
 
 int ae_path_join(char *out, size_t n, const char *a, const char *b){

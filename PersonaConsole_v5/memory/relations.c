@@ -1,9 +1,9 @@
 /* relations.c — per-user relation files + V4 schema persistence. */
 #include "persona.h"
 #include "persona_internal.h"
+#include "engine_clock.h"
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 
 static int relation_path(Engine *eng, uint32_t hash, char *out, size_t n){
     char rel_dir[256];
@@ -42,7 +42,7 @@ int pe_load_relation(Engine *eng, const char *user_id){
         eng->relation.user_hash = h;
         eng->relation.disposition = 500;
         eng->relation.tags = PE_TAG_STRANGER;
-        eng->relation.first_contact = (uint32_t)time(NULL);
+        eng->relation.first_contact = pe_clock_now_s();
         eng->relation.last_contact  = eng->relation.first_contact;
         size_t L = strlen(user_id);
         if (L >= PE_NAME_LEN) L = PE_NAME_LEN - 1;
@@ -50,7 +50,7 @@ int pe_load_relation(Engine *eng, const char *user_id){
         eng->relation.known_as[L] = 0;
     } else {
         /* disposition decays 1 pt per real day of no contact */
-        uint32_t now_s = (uint32_t)time(NULL);
+        uint32_t now_s = pe_clock_now_s();
         uint32_t days = (now_s > eng->relation.last_contact)
                       ? (now_s - eng->relation.last_contact) / 86400u : 0;
         int v = eng->relation.disposition - (int)days;

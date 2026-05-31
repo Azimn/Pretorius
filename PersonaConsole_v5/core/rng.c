@@ -1,14 +1,16 @@
 #include "persona.h"
 #include "persona_internal.h"
-#include <time.h>
+#include "engine_clock.h"
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
 
+/* persona_now_ms is the engine's canonical "now in milliseconds" used by
+ * session start, turn timing, and committed memory node timestamps. It must
+ * therefore flow through the canonical clock so that replays under a pinned
+ * PE_CLOCK_OVERRIDE_MS are deterministic. */
 uint32_t persona_now_ms(void){
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint32_t)((uint64_t)ts.tv_sec * 1000ull + ts.tv_nsec / 1000000ull);
+    return (uint32_t)pe_clock_now_ms();
 }
 
 uint32_t persona_rng_u32(NPCState *s){

@@ -7,6 +7,7 @@
 #include "aether.h"              /* v3.2: long-term episodic storage */
 #include "identity.h"
 #include "environment.h"
+#include "engine_clock.h"        /* canonical Layer 1 clock */
 #include "../render/render_backend.h"   /* v4: renderer dispatch */
 #include "../memory/affect_curve.h"     /* v4: nonlinear affect */
 #include "../memory/reflection.h"       /* v5: reflective consolidation */
@@ -202,7 +203,7 @@ static void pe_queue_resumption(Engine *eng, uint32_t real_gap_seconds){
                  "%s", eng->identity.resumption_lines[bucket]);
     }
     if (eng->relation.first_contact > 0){
-        uint32_t now_s = (uint32_t)time(NULL);
+        uint32_t now_s = pe_clock_now_s();
         uint32_t age_days = now_s > eng->relation.first_contact
                           ? (now_s - eng->relation.first_contact) / 86400u : 0u;
         int milestone_idx = -1;
@@ -671,7 +672,7 @@ int persona_open(Engine *eng, const char *character_dir){
                                      : 0ul;
             eng->state.today_seed = (seed_env && seed_env[0] && end && *end == '\0')
                                   ? (uint32_t)fixed_seed
-                                  : (uint32_t)time(NULL);
+                                  : pe_clock_now_s();
         }
         eng->state.session_start_time = persona_now_ms();
         eng->state.last_update_time   = eng->state.session_start_time;
@@ -728,6 +729,11 @@ int persona_open(Engine *eng, const char *character_dir){
      * subdirectory.  Soft-fails: if open fails, eng->aether stays NULL and
      * memory.c gracefully skips demotion / cold recall. */
     {
+        /* Route AETHER's internal timestamp helper through the canonical
+         * Layer 1 clock so AETHER state replays deterministically under
+         * PE_CLOCK_OVERRIDE_MS. Set once before aether_open is called. */
+        aether_set_clock(pe_clock_now_s);
+
         char aether_dir[512];
         pe_path_join(aether_dir, sizeof(aether_dir), eng->char_dir, "aether");
         eng->aether = aether_open(aether_dir);
@@ -826,7 +832,7 @@ int persona_process_input(Engine *eng,
     int first_turn_of_session = (eng->environment.turns_this_session == 0);
     uint32_t real_gap_seconds = 0;
     {
-        uint32_t now_s = (uint32_t)time(NULL);
+        uint32_t now_s = pe_clock_now_s();
         if (eng->relation.last_contact > 0 && now_s > eng->relation.last_contact)
             real_gap_seconds = now_s - eng->relation.last_contact;
     }
@@ -1157,7 +1163,7 @@ post_render:;
         default: delta_disp = +1; break;
         }
         eng->relation.disposition = pe_clamp16(eng->relation.disposition + delta_disp, 0, 1000);
-        eng->relation.last_contact = (uint32_t)time(NULL);
+        eng->relation.last_contact = pe_clock_now_s();
         if (eng->relation.disposition > 700) {
             eng->relation.tags |= PE_TAG_CONFIDANT;
             eng->relation.tags &= ~PE_TAG_STRANGER;
