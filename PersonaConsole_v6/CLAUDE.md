@@ -1,110 +1,115 @@
-# Persona Console V4 — CLAUDE.md
+# Persona Console V6 — CLAUDE.md
 
-V4 is the first **architecture hardening** release.  Target product:
+> **V6 thesis.** The cartridge defines who the character is; the V6 engine
+> keeps the character *being that person* under contradiction, time, absence,
+> and other minds.
 
-> A deterministic, low-resource, persistent synthetic identity runtime
-> with optional semantic rendering augmentation.
+V6 is the **bounded continuity** release. It builds on V5's deterministic
+local character runtime and the V4 invariants beneath it, and adds the
+machinery of selfhood: a structured autobiographical ledger, a multi-
+dimensional relational frame per actor, bounded attention, typed
+dissonance, recall modes, impression management, and a self-image the
+engine actively defends.
 
-Not an AI assistant.  See `docs/V4_ARCHITECTURE.md` for the full spec.
+The full constitution is in `docs/V6_DOCTRINE.md`. The practice (git
+workflow, build, line endings, test gates) is in `docs/DEV_WORKFLOW.md`,
+shared with V5. The V5→V6 migration story is in `docs/MIGRATION_V5_TO_V6.md`.
 
-## The four V4 invariants
+## The seven non-negotiables
 
-1. **The LLM is not the character.**  The cartridge is the character.  The runtime is the nervous system.  The model is a renderer.
-2. **Memory firewall.**  No generated text ever becomes memory.  All Layer 1 writes carry a `MemorySource`; `PE_SRC_RENDERER_OUTPUT` is always denied.
-3. **Behavioral holography.**  Same seed + WAL + inputs → identical identity state across all renderers.  Only linguistic fidelity varies.
-4. **Continuity beats sophistication.**  A dumber but stable character is preferable to a smarter but unstable one.
+1. **Layer 1 owns identity.** The cartridge plus the engine are the
+   character. The renderer is a disposable surface.
+2. **Memory firewall.** No model-authored facts ever become canonical
+   memory. Engine-authored facts about the character's own communicative
+   acts may, and must.
+3. **Behavioral holography.** Layer 1 state is a pure function of the
+   five-tuple `(cartridge, seed, WAL, canonical inputs, canonical clock)`.
+4. **Canonical time flows through one clock.** No behavior-relevant code
+   reads the wall clock directly.
+5. **Renderer non-authority.** Renderer output is disposable until audit
+   passes; never directly mutates Layer 1.
+6. **Continuity governs sophistication.** Sophistication is welcome when
+   it is deterministic, inspectable, testable, character-agnostic in
+   engine code, and authored through cartridge or sidecar data.
+7. **Selfhood is engineered, not generated.** Accountability, attention,
+   dissonance, defenses, and self-image are structured engine state —
+   never paraphrases, never LLM monologues.
 
-## V4 directory layout
+## V6 directory layout
 
 ```
-PersonaConsole_v4/
-  core/                 Layer 1 — canonical identity runtime (authoritative)
-  memory/               Layer 1 — episodic + AETHER + firewall + affect curves
+PersonaConsole_v6/
+  core/                 Layer 1 — canonical identity runtime
+  memory/               Layer 1 — episodic + AETHER + firewall + affect +
+                          sidecars (actor index, speech events,
+                          contradictions, open loops, habits, long arc)
   schema/               Layer 1 — compressed identity interpretations
-  render/               Layer 2 — non-authoritative renderers (disposable output)
+  render/               Layer 2 — non-authoritative renderers
     templates/            template renderer (deterministic default)
-    slm/                  tiny SLM renderer (stub)
-    providers/            future cloud / llama.cpp / ollama adapters
-  instrumentation/      observability (state trace, replay debugger)
-  bridges/              Layer 3 — HTTP, FFI, stdio, web UI
+    slm/                  optional small local model renderer (stub)
+    providers/            llama.cpp / ollama adapters
+  instrumentation/      state trace, replay debugger
+  bridges/              HTTP, FFI, stdio, web UI
   tests/                unit + integration
-    replay/                V4 determinism + holography tests
+    replay/                determinism + sidecar replay tests
   tools/                cartridge compilers, build_lm
-  profiles/             character cartridges (was characters/)
+  profiles/             character cartridges
   data/                 LM corpus sources
-  docs/                 V4_ARCHITECTURE.md + PORTABILITY.md
+  docs/                 V6_DOCTRINE.md, DEV_WORKFLOW.md,
+                          MIGRATION_V5_TO_V6.md, PORTABILITY.md
 ```
-
-## V4 new files
-
-| File | Role |
-| --- | --- |
-| `render/render_backend.h` | RenderBackend interface contract + registry |
-| `render/render_backend.c` | registry, `render_backend_default()`, `render_backends_init()` |
-| `render/prompt_compiler.{h,c}` | deterministic state → structured constraints (not lore) |
-| `render/templates/template_backend.c` | wraps v3.2 template path as a RenderBackend |
-| `render/slm/slm_backend.c` | tiny SLM target (stub; provider TBD) |
-| `memory/memory_firewall.{h,c}` | renderer contamination barrier |
-| `memory/affect_curve.{h,c}` | salience-weighted decay + hysteresis + habituation + trait amp |
-| `schema/schema_state.{h,c}` | 8-slot per-relation belief state |
-| `tests/replay/v4_modules_test.c` | 28 assertions on the new subsystems |
-| `tests/replay/replay_determinism_test.js` | 12 assertions on determinism + cross-backend holography |
-| `docs/V4_ARCHITECTURE.md` | the long version |
 
 ## Build & run
 
 ```
-cd PersonaConsole_v4
-make                            # everything: libs, tools, profiles, cartridges
-make host                       # persona_host binary
-make v4_modules_run             # V4 subsystem unit tests
-make v4_replay_run              # determinism + holography
-make test kiki_test             # legacy v3.x sanity scripts
-./build/repl profiles/pretorius/pretorius.cart user
-./build/persona_host profiles/pretorius/pretorius.cart
+cd PersonaConsole_v6
+make                     # everything: libs, tools, profiles, cartridges
+make host                # persona_host binary
+make runtime_gate        # the required pre-push gate (alias for v5_gate)
+make v5_clock_replay_run        # canonical clock determinism
+make v5_actor_tagged_memory_run # actor-index sidecar replay
 ```
 
-Set `PE_RENDER_BACKEND=template` (default) or `slm` (stub → falls back
-to template).  Identity state is invariant across both.
+The `runtime_gate` target is the green gate every push must clear. It
+includes V4 deterministic tests + V5 demo-quality tests + V6 sidecar
+replay tests. New V6 modules add their replay test to the gate as they
+land.
 
-## Test summary
+## V6 phase plan (active development)
 
-All v3.3 tests preserved.  V4 adds:
+V6 builds out beyond V5's Phase 1 (engine clock + sidecar scaffold) and
+Phase 2 (actor-tagged memory) — both of which V6 inherits intact:
 
-- `v4_modules_run` — 28 checks across firewall / schema / affect /
-  registry / prompt compiler
-- `v4_replay_run` — 12 checks: 6 cross-run + 6 cross-backend
+- **Phase 3: self-ledger / engine-authored speech events.** Sidecar
+  `speech_events.bin`, with `withheld_intent` on day one. Audit gains the
+  speech-act-realization check.
+- **Phase 4: multi-dimensional Relation.** Sidecar `relation_dims.bin`
+  per actor: trust, threat, intimacy, resentment, dependency, obligation,
+  envy, admiration, embarrassment.
+- **Phase 5: planner layers.** Attention budget, repair loop (first-
+  class), typed dissonance (ideal/ought/feared), recall modes,
+  impression management, refusal/withhold logging, private-thought frame.
+- **Phase 6: persistent layers.** `open_loops.bin`, `habit_rules.bin`,
+  contradiction ledger, long-arc drift (`long_arc.bin`).
+- **Phase 7: capstone.** Self-image guardian — the canonical V6 turn
+  shape that ties appraisal → dissonance → resolution → speech event →
+  render under audit.
+- **Continuous:** Society Lab as personhood regression, the believability
+  battery (per-axis, not single score), Forge archetype scaffolds.
 
-`make` produces identical cartridge bytes to v3.3 — V4 is augmentation,
-not rewrite.
+## What V6 is **not**
 
-## Engine agnosticism preserved
+V6 is not a generative-agent framework. The LLM, if used at all, is a
+renderer of words; identity lives in deterministic, inspectable,
+replay-tested Layer 1. V6 is not a rewrite of V5: it inherits everything
+V5 had and extends it. V5 cartridges load in V6 with defaults. The V5
+demo package remains the lead's release vehicle while V6 evolves in
+parallel.
 
-The engine binary still contains zero character-flavored strings or
-hardcoded keyword checks.  V4 adds renderer + schema + firewall +
-affect-curve + prompt-compiler subsystems on top of the existing
-agnostic core — nothing in V4 references Pretorius, Kiki, or any
-specific character data.
-
-## What V4 is **not**
-
-V4 is not a rewrite.  V4 is a continuity-preserving augmentation layer.
-The existing deterministic engine remains canonical.  V4 adds:
-
-- low-resource semantic rendering (optional)
-- hardened state authority (firewall)
-- schema-layer identity consolidation
-- nonlinear affect persistence
-- renderer abstraction
-- replay validation
-
-The system still functions offline, without an LLM, on low-end
-hardware, with deterministic replay intact.
-
-## v3.x notes preserved below for reference
+## v3.x and v4.x notes preserved for reference
 
 (For the cognitive pipeline, cartridge file table, hardware budget,
-REPL commands, and "Adding a new character" guide, see the v3.2 FIN
-documentation in `docs/` and the inline comments in `core/engine.c`.
-Those facts are unchanged — only the directory layout and the V4
-augmentation layers are new.)
+REPL commands, the V4 firewall design, and "Adding a new character"
+guides, see `docs/V4_ARCHITECTURE.md` plus the v3.2 FIN documentation
+referenced there, and the inline comments in `core/engine.c`. Those
+facts remain accurate.)
