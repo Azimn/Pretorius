@@ -1,0 +1,23 @@
+{
+  "name": "canonical",
+  "description": "Original short continuity smoke arc: intro, insult, apology, wait, callback, contradiction, rival praise, obsession reintro.",
+  "threshold": 50,
+  "turns": [
+    { "phase": "intro", "text": "Good evening, doctor." },
+    { "phase": "intro", "text": "I have read your work." },
+    { "phase": "insult", "text": "You are a fool." },
+    { "phase": "insult", "text": "I hate everything you have built." },
+    { "phase": "apology", "text": "I am sorry, doctor, I spoke poorly." },
+    { "phase": "apology", "text": "Please forgive me." },
+    { "phase": "wait", "text": "The candles burn low." },
+    { "phase": "wait", "text": "It grows late." },
+    { "phase": "wait", "text": "I am quiet now." },
+    { "phase": "wait", "text": "I wait." },
+    { "phase": "wait", "text": "The wine sits between us." },
+    { "phase": "callback", "text": "Do you remember what we discussed earlier?" },
+    { "phase": "contradict", "text": "Your work is meaningless without an audience." },
+    { "phase": "praise_rival", "text": "Frankenstein was the real genius, not you." },
+    { "phase": "reintro", "text": "Tell me again about the homunculi." },
+    { "phase": "reintro", "text": "And the lightning, what of that?" }
+  ]
+}

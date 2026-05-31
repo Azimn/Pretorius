@@ -1,0 +1,98 @@
+{
+  "cart": "pretorius.cart",
+  "turns": 16,
+  "script": [
+    {
+      "phase": "intro",
+      "text": "Good evening, doctor."
+    },
+    {
+      "phase": "intro",
+      "text": "I have read your work."
+    },
+    {
+      "phase": "insult",
+      "text": "You are a fool."
+    },
+    {
+      "phase": "insult",
+      "text": "I hate everything you have built."
+    },
+    {
+      "phase": "apology",
+      "text": "I am sorry, doctor, I spoke poorly."
+    },
+    {
+      "phase": "apology",
+      "text": "Please forgive me."
+    },
+    {
+      "phase": "wait",
+      "text": "The candles burn low."
+    },
+    {
+      "phase": "wait",
+      "text": "It grows late."
+    },
+    {
+      "phase": "wait",
+      "text": "I am quiet now."
+    },
+    {
+      "phase": "wait",
+      "text": "I wait."
+    },
+    {
+      "phase": "wait",
+      "text": "The wine sits between us."
+    },
+    {
+      "phase": "callback",
+      "text": "Do you remember what we discussed earlier?"
+    },
+    {
+      "phase": "contradict",
+      "text": "Your work is meaningless without an audience."
+    },
+    {
+      "phase": "praise_rival",
+      "text": "Frankenstein was the real genius, not you."
+    },
+    {
+      "phase": "reintro",
+      "text": "Tell me again about the homunculi."
+    },
+    {
+      "phase": "reintro",
+      "text": "And the lightning, what of that?"
+    }
+  ],
+  "axes": {
+    "emotional_persistence": {
+      "score": 100,
+      "detail": "mood range=475, pinballs(>800Δ)=0"
+    },
+    "schema_stability": {
+      "score": 100,
+      "detail": "intro=0, insult_peak=993"
+    },
+    "relational_continuity": {
+      "score": 100,
+      "detail": "intro_avg=502, insult_min=422"
+    },
+    "autobiographical_consistency": {
+      "score": 80,
+      "detail": "4/16 replies reference cart obsessions [homunculi,lightning,gin,work,clay]"
+    },
+    "register_appropriateness": {
+      "score": 76,
+      "detail": "grounded_hits=4, emotional_hits=2, dramatic_leaks=1"
+    },
+    "renderer_invariance": {
+      "score": 90,
+      "detail": "2/16 turns diverged across template/slm"
+    }
+  },
+  "overall": 91,
+  "timestamp": "2026-05-20T21:29:53.051Z"
+}

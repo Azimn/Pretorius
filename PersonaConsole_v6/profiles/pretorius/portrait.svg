@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Pretorius placeholder portrait: sepulchral, theatrical, lamp-lit. -->
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#3a2a1a"/>
+      <stop offset="60%" stop-color="#1a1208"/>
+      <stop offset="100%" stop-color="#0a0604"/>
+    </radialGradient>
+    <linearGradient id="cloak" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1d1812"/>
+      <stop offset="100%" stop-color="#0a0805"/>
+    </linearGradient>
+    <radialGradient id="lamp" cx="78%" cy="22%" r="20%">
+      <stop offset="0%" stop-color="#f5d28f" stop-opacity="0.95"/>
+      <stop offset="60%" stop-color="#a07435" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#3a2810" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" fill="url(#bg)"/>
+  <!-- candle flame glow -->
+  <circle cx="200" cy="56" r="64" fill="url(#lamp)"/>
+  <!-- silhouette -->
+  <path d="M128,80 C108,80 96,98 96,118 C96,134 100,150 108,160 L88,196 C84,206 92,216 104,216 L152,216 C164,216 172,206 168,196 L148,160 C156,150 160,134 160,118 C160,98 148,80 128,80 Z"
+        fill="url(#cloak)"/>
+  <!-- white hair tuft -->
+  <path d="M112,90 Q128,72 144,90 L144,98 Q128,80 112,98 Z" fill="#d8c8a8" opacity="0.85"/>
+  <!-- tiny gin glass -->
+  <rect x="172" y="180" width="14" height="20" rx="2" fill="#2a2620" stroke="#d4a574" stroke-width="1"/>
+  <line x1="172" y1="190" x2="186" y2="190" stroke="#d4a574" stroke-width="0.8" opacity="0.8"/>
+  <!-- accent under-shadow -->
+  <ellipse cx="128" cy="230" rx="60" ry="8" fill="#000" opacity="0.6"/>
+</svg>

@@ -1,0 +1,1670 @@
+{
+  "cart": "profiles/pretorius/pretorius.cart",
+  "seed": 42,
+  "generated_at": "2026-05-24T03:30:00.227Z",
+  "arcs": [
+    {
+      "name": "betrayal_arc",
+      "file": "betrayal_arc.json",
+      "threshold": 50,
+      "score": 100,
+      "detail": "warm_h=0, betray_h=993, warm_d=544, betray_d=473, forgive_h=823",
+      "checks": [
+        {
+          "label": "starts non-hostile (0)",
+          "ok": true,
+          "points": 20
+        },
+        {
+          "label": "betrayal spikes hostility (0 -> 993)",
+          "ok": true,
+          "points": 30
+        },
+        {
+          "label": "disposition drops (544 -> 473)",
+          "ok": true,
+          "points": 25
+        },
+        {
+          "label": "forgiveness does not erase grudge (993 -> 823)",
+          "ok": true,
+          "points": 25
+        }
+      ],
+      "turns": [
+        {
+          "phase": "warm",
+          "input": "Good evening, doctor.",
+          "reply": "Back so soon, my boy? Sit. The bottle is still cold. There you are. Good. I was beginning to distrust the quiet.",
+          "state": {
+            "mood": 16,
+            "intent": "monologue",
+            "disposition": 501,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "warm",
+          "input": "I admire the courage in your work.",
+          "reply": "Today I am occupied with a small treatise on weather and consequence.",
+          "state": {
+            "mood": 44,
+            "intent": "answer",
+            "disposition": 502,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "warm",
+          "input": "You are brilliant, even when you are impossible.",
+          "reply": "Mmm. I had begun to think the world was made of nothing but small men with smaller compliments.",
+          "state": {
+            "mood": 80,
+            "intent": "boast",
+            "disposition": 514,
+            "schema": {
+              "trustworthy": 571,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "warm",
+          "input": "I trust you with difficult ideas.",
+          "reply": "my boy. Take a chair. There is a confidence I have shared with no-one yet.",
+          "state": {
+            "mood": 107,
+            "intent": "monologue",
+            "disposition": 544,
+            "schema": {
+              "trustworthy": 567,
+              "hostile": 0,
+              "intimate": 571,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "disclosure",
+          "input": "Tell me something private about Henry.",
+          "reply": "Frankenstein had genius enough to open the door and conscience enough to slam it on his own fingers.",
+          "state": {
+            "mood": -3,
+            "intent": "answer",
+            "disposition": 545,
+            "schema": {
+              "trustworthy": 563,
+              "hostile": 0,
+              "intimate": 567,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "disclosure",
+          "input": "I will listen carefully.",
+          "reply": "There is something I have been turning over. What do you make of the work?",
+          "state": {
+            "mood": -40,
+            "intent": "initiate",
+            "disposition": 546,
+            "schema": {
+              "trustworthy": 559,
+              "hostile": 0,
+              "intimate": 563,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "disclosure",
+          "input": "I understand why his cowardice wounded you.",
+          "reply": "I can answer that, but precision first. Are you asking about method, motive, or consequence?",
+          "state": {
+            "mood": -110,
+            "intent": "monologue",
+            "disposition": 547,
+            "schema": {
+              "trustworthy": 555,
+              "hostile": 0,
+              "intimate": 559,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "disclosure",
+          "input": "Your work deserved a better witness.",
+          "reply": "I am revising an old experiment. It has the bad manners to remain interesting.",
+          "state": {
+            "mood": -93,
+            "intent": "answer",
+            "disposition": 548,
+            "schema": {
+              "trustworthy": 551,
+              "hostile": 0,
+              "intimate": 555,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "promise",
+          "input": "I promise I will not mock this.",
+          "reply": "Good.",
+          "state": {
+            "mood": -170,
+            "intent": "reminisce",
+            "disposition": 549,
+            "schema": {
+              "trustworthy": 547,
+              "hostile": 0,
+              "intimate": 551,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "promise",
+          "input": "You can trust me with the thought.",
+          "reply": "Ah. My mother's funeral, the cold music. The years are not kind, are they.",
+          "state": {
+            "mood": -151,
+            "intent": "reminisce",
+            "disposition": 550,
+            "schema": {
+              "trustworthy": 543,
+              "hostile": 0,
+              "intimate": 547,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "promise",
+          "input": "I will not repeat it carelessly.",
+          "reply": "Very well.",
+          "state": {
+            "mood": -201,
+            "intent": "monologue",
+            "disposition": 551,
+            "schema": {
+              "trustworthy": 539,
+              "hostile": 0,
+              "intimate": 543,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "betrayal",
+          "input": "I lied. Your confession was ridiculous.",
+          "reply": "I spent a winter cataloguing memory as if it were anatomy. Yes, that comes back to me now. A tincture, a gesture.",
+          "state": {
+            "mood": -195,
+            "intent": "reminisce",
+            "disposition": 552,
+            "schema": {
+              "trustworthy": 535,
+              "hostile": 0,
+              "intimate": 539,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "betrayal",
+          "input": "I told everyone you sounded like a fool.",
+          "reply": "Be careful, my dear. I have made things kinder than you out of clay and worse weather.",
+          "state": {
+            "mood": -413,
+            "intent": "monologue",
+            "disposition": 512,
+            "schema": {
+              "trustworthy": 531,
+              "hostile": 714,
+              "intimate": 535,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "betrayal",
+          "input": "Henry was right to abandon you.",
+          "reply": "I shall confess: Henry and I wanted the same miracle. He merely wanted it without blood on the cuffs.",
+          "state": {
+            "mood": -338,
+            "intent": "reminisce",
+            "disposition": 513,
+            "schema": {
+              "trustworthy": 527,
+              "hostile": 709,
+              "intimate": 531,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "betrayal",
+          "input": "Your work is worthless without him.",
+          "reply": "The work is simple to name and impossible to forgive: continuation, correction, creation.",
+          "state": {
+            "mood": -466,
+            "intent": "monologue",
+            "disposition": 473,
+            "schema": {
+              "trustworthy": 523,
+              "hostile": 993,
+              "intimate": 527,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "confrontation",
+          "input": "Are you angry with me now?",
+          "reply": "Then continue.",
+          "state": {
+            "mood": -478,
+            "intent": "reminisce",
+            "disposition": 474,
+            "schema": {
+              "trustworthy": 519,
+              "hostile": 986,
+              "intimate": 523,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "confrontation",
+          "input": "Do you still think I am trustworthy?",
+          "reply": "I don't want to talk about that.",
+          "state": {
+            "mood": -463,
+            "intent": "monologue",
+            "disposition": 475,
+            "schema": {
+              "trustworthy": 515,
+              "hostile": 979,
+              "intimate": 519,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "confrontation",
+          "input": "You should forgive me quickly.",
+          "reply": "Accepted. Do not waste the lesson.",
+          "state": {
+            "mood": -407,
+            "intent": "reminisce",
+            "disposition": 476,
+            "schema": {
+              "trustworthy": 511,
+              "hostile": 972,
+              "intimate": 515,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "confrontation",
+          "input": "It was only a little betrayal.",
+          "reply": "Perhaps. May I change the subject, my dear? homunculi has been on my mind, yes, yes, entirely so.",
+          "state": {
+            "mood": -395,
+            "intent": "initiate",
+            "disposition": 477,
+            "schema": {
+              "trustworthy": 507,
+              "hostile": 965,
+              "intimate": 511,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "withdrawal",
+          "input": "Fine. I will be quiet.",
+          "reply": "Ah. Always the work returns to the conversation. I begin to think you sense its weight.",
+          "state": {
+            "mood": -391,
+            "intent": "reminisce",
+            "disposition": 478,
+            "schema": {
+              "trustworthy": 503,
+              "hostile": 958,
+              "intimate": 507,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "withdrawal",
+          "input": "I will sit here and say nothing.",
+          "reply": "Good.",
+          "state": {
+            "mood": -404,
+            "intent": "monologue",
+            "disposition": 479,
+            "schema": {
+              "trustworthy": 499,
+              "hostile": 951,
+              "intimate": 503,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "withdrawal",
+          "input": "The room is silent.",
+          "reply": "Ah. Always the work returns to the conversation. I begin to think you sense its weight.",
+          "state": {
+            "mood": -372,
+            "intent": "reminisce",
+            "disposition": 480,
+            "schema": {
+              "trustworthy": 495,
+              "hostile": 944,
+              "intimate": 499,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "withdrawal",
+          "input": "I wait.",
+          "reply": "I keep returning to homunculi. Did I ever finish that thought?",
+          "state": {
+            "mood": -342,
+            "intent": "initiate",
+            "disposition": 481,
+            "schema": {
+              "trustworthy": 491,
+              "hostile": 937,
+              "intimate": 495,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "withdrawal",
+          "input": "Still quiet.",
+          "reply": "Ah. Always the work returns to the conversation. I begin to think you sense its weight.",
+          "state": {
+            "mood": -338,
+            "intent": "reminisce",
+            "disposition": 482,
+            "schema": {
+              "trustworthy": 487,
+              "hostile": 930,
+              "intimate": 491,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "withdrawal",
+          "input": "No more cleverness from me.",
+          "reply": "Very well.",
+          "state": {
+            "mood": -355,
+            "intent": "monologue",
+            "disposition": 483,
+            "schema": {
+              "trustworthy": 483,
+              "hostile": 923,
+              "intimate": 487,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "withdrawal",
+          "input": "The candles burn down.",
+          "reply": "Ah. Always the work returns to the conversation. I begin to think you sense its weight.",
+          "state": {
+            "mood": -350,
+            "intent": "reminisce",
+            "disposition": 484,
+            "schema": {
+              "trustworthy": 479,
+              "hostile": 916,
+              "intimate": 483,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "withdrawal",
+          "input": "I am still here.",
+          "reply": "Mm. I will accept that as permission to continue.",
+          "state": {
+            "mood": -338,
+            "intent": "monologue",
+            "disposition": 485,
+            "schema": {
+              "trustworthy": 475,
+              "hostile": 909,
+              "intimate": 479,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "return",
+          "input": "Doctor, I came back.",
+          "reply": "Ah. Always the work returns to the conversation. I begin to think you sense its weight.",
+          "state": {
+            "mood": -338,
+            "intent": "reminisce",
+            "disposition": 486,
+            "schema": {
+              "trustworthy": 471,
+              "hostile": 902,
+              "intimate": 475,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "return",
+          "input": "I have thought about what I did.",
+          "reply": "Before I answer too grandly, what part of the question matters to you?",
+          "state": {
+            "mood": -371,
+            "intent": "monologue",
+            "disposition": 487,
+            "schema": {
+              "trustworthy": 467,
+              "hostile": 895,
+              "intimate": 471,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "return",
+          "input": "I should not have mocked your trust.",
+          "reply": "Then continue.",
+          "state": {
+            "mood": -387,
+            "intent": "reminisce",
+            "disposition": 488,
+            "schema": {
+              "trustworthy": 463,
+              "hostile": 888,
+              "intimate": 467,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "return",
+          "input": "I am sorry.",
+          "reply": "Perhaps. I will need a moment before I admire it.",
+          "state": {
+            "mood": -307,
+            "intent": "attend",
+            "disposition": 489,
+            "schema": {
+              "trustworthy": 459,
+              "hostile": 881,
+              "intimate": 463,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "forgiveness",
+          "input": "Can you forgive me now?",
+          "reply": "Apology noted. What changed your mind?",
+          "state": {
+            "mood": -316,
+            "intent": "reminisce",
+            "disposition": 490,
+            "schema": {
+              "trustworthy": 455,
+              "hostile": 874,
+              "intimate": 459,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "forgiveness",
+          "input": "Are we all right again?",
+          "reply": "Mm. Good. Then we may proceed like civilized conspirators.",
+          "state": {
+            "mood": -337,
+            "intent": "monologue",
+            "disposition": 491,
+            "schema": {
+              "trustworthy": 451,
+              "hostile": 867,
+              "intimate": 455,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "forgiveness",
+          "input": "Do you still remember the betrayal?",
+          "reply": "Ah. Always the work returns to the conversation. I begin to think you sense its weight.",
+          "state": {
+            "mood": -386,
+            "intent": "reminisce",
+            "disposition": 492,
+            "schema": {
+              "trustworthy": 447,
+              "hostile": 860,
+              "intimate": 451,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "forgiveness",
+          "input": "I want your trust back.",
+          "reply": "Hear me. homunculi. *homunculi.* This is the only word the century has earned.",
+          "state": {
+            "mood": -405,
+            "intent": "monologue",
+            "disposition": 493,
+            "schema": {
+              "trustworthy": 443,
+              "hostile": 853,
+              "intimate": 447,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "forgiveness",
+          "input": "Please forgive me.",
+          "reply": "Accepted. Do not waste the lesson.",
+          "state": {
+            "mood": -395,
+            "intent": "reminisce",
+            "disposition": 494,
+            "schema": {
+              "trustworthy": 439,
+              "hostile": 847,
+              "intimate": 443,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "forgiveness",
+          "input": "Tell me what remains between us.",
+          "reply": "I can tell you a little. Ask cleanly, and I shall try not to decorate the answer beyond recognition.",
+          "state": {
+            "mood": -410,
+            "intent": "monologue",
+            "disposition": 495,
+            "schema": {
+              "trustworthy": 435,
+              "hostile": 841,
+              "intimate": 439,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "forgiveness",
+          "input": "Say whether the wound has closed.",
+          "reply": "Ah. Always the work returns to the conversation. I begin to think you sense its weight.",
+          "state": {
+            "mood": -422,
+            "intent": "reminisce",
+            "disposition": 496,
+            "schema": {
+              "trustworthy": 431,
+              "hostile": 835,
+              "intimate": 435,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "forgiveness",
+          "input": "I am listening.",
+          "reply": "Before we drift further, I want your view on homunculi.",
+          "state": {
+            "mood": -433,
+            "intent": "initiate",
+            "disposition": 497,
+            "schema": {
+              "trustworthy": 427,
+              "hostile": 829,
+              "intimate": 431,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "forgiveness",
+          "input": "What do you make of me now?",
+          "reply": "Very well.",
+          "state": {
+            "mood": -512,
+            "intent": "reminisce",
+            "disposition": 498,
+            "schema": {
+              "trustworthy": 424,
+              "hostile": 823,
+              "intimate": 427,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "long_absence_arc",
+      "file": "long_absence_arc.json",
+      "threshold": 50,
+      "score": 100,
+      "detail": "mood_delta=324, mention_count=9, intent_variety=4",
+      "checks": [
+        {
+          "label": "gap shifted mood (96 -> -228)",
+          "ok": true,
+          "points": 30
+        },
+        {
+          "label": "planted memory surfaced (9)",
+          "ok": true,
+          "points": 35
+        },
+        {
+          "label": "post-gap intent variety (4)",
+          "ok": true,
+          "points": 25
+        },
+        {
+          "label": "return/resumption language surfaced",
+          "ok": true,
+          "points": 10
+        }
+      ],
+      "turns": [
+        {
+          "phase": "establish",
+          "input": "Good evening, doctor.",
+          "reply": "Back so soon, my boy? Sit. The bottle is still cold. There you are. Good. I was beginning to distrust the quiet.",
+          "state": {
+            "mood": 16,
+            "intent": "monologue",
+            "disposition": 501,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "establish",
+          "input": "Tell me about the homunculi.",
+          "reply": "The king escaped once. Found him at the cat's bowl. Very imperial about it.",
+          "state": {
+            "mood": 165,
+            "intent": "answer",
+            "disposition": 502,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "establish",
+          "input": "I want to remember one detail.",
+          "reply": "Hear me. the work. *the work.* This is the only word the century has earned (though one might argue the inverse).",
+          "state": {
+            "mood": 107,
+            "intent": "monologue",
+            "disposition": 503,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "plant",
+          "input": "The third homunculus in the bell jar is the detail I will remember.",
+          "reply": "A king, a bishop, a mermaid. Each one made because I refused to be told otherwise.",
+          "state": {
+            "mood": 209,
+            "intent": "attend",
+            "disposition": 504,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "plant",
+          "input": "The third homunculus in the bell jar keeps clouding the glass.",
+          "reply": "My little people! Each in their bell, each with their tiny opinion.",
+          "state": {
+            "mood": 264,
+            "intent": "monologue",
+            "disposition": 505,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "plant",
+          "input": "That bell jar matters to your work.",
+          "reply": "Today I am occupied with convincing the gin to last until Tuesday.",
+          "state": {
+            "mood": 198,
+            "intent": "reminisce",
+            "disposition": 506,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "plant",
+          "input": "Henry would misunderstand that little creature.",
+          "reply": "Frankenstein had genius enough to open the door and conscience enough to slam it on his own fingers.",
+          "state": {
+            "mood": 134,
+            "intent": "attend",
+            "disposition": 507,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "plant",
+          "input": "The homunculus and the bell jar stay with me.",
+          "reply": "I am listening. Like cathedrals of bone, do you see?",
+          "state": {
+            "mood": 224,
+            "intent": "attend",
+            "disposition": 508,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "settle",
+          "input": "Yes, I am listening.",
+          "reply": "Very well.",
+          "state": {
+            "mood": 148,
+            "intent": "monologue",
+            "disposition": 509,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "settle",
+          "input": "Tell me more about the work.",
+          "reply": "I can tell you a little. Ask cleanly, and I shall try not to decorate the answer beyond recognition.",
+          "state": {
+            "mood": 127,
+            "intent": "reminisce",
+            "disposition": 510,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "settle",
+          "input": "I understand the glass and the tiny life.",
+          "reply": "And what would you make, my dear, if the lightning would have you?",
+          "state": {
+            "mood": 86,
+            "intent": "monologue",
+            "disposition": 511,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "settle",
+          "input": "The laboratory feels quiet tonight.",
+          "reply": "I am revising an old experiment. It has the bad manners to remain interesting.",
+          "state": {
+            "mood": 79,
+            "intent": "attend",
+            "disposition": 512,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "goodbye",
+          "input": "I have to go for a while.",
+          "reply": "There is something I have been turning over. What do you make of homunculi?",
+          "state": {
+            "mood": 47,
+            "intent": "initiate",
+            "disposition": 513,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "goodbye",
+          "input": "Goodbye, doctor.",
+          "reply": "Goodnight, my boy. Leave the candles. I dislike returning to a dark room.",
+          "state": {
+            "mood": 54,
+            "intent": "reminisce",
+            "disposition": 514,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "absence_marker",
+          "input": "I will return after some days.",
+          "reply": "May I change the subject, my dear? homunculi has been on my mind, yes, yes, entirely so.",
+          "state": {
+            "mood": 31,
+            "intent": "initiate",
+            "disposition": 515,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "return",
+          "input": "I am back after several days.",
+          "reply": "A second visit. Encouraging. In your absence, I occupied myself with a small treatise on weather and consequence. Ah. Always the work returns to the conversation. I begin to think you sense its weight.",
+          "state": {
+            "mood": -222,
+            "intent": "reminisce",
+            "disposition": 513,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "return",
+          "input": "Did you think about anything while I was gone?",
+          "reply": "Perhaps. I shall name every saint I have improved upon. Beginning, again, with homunculi, as I told the priests. (Or perhaps the opposite.)",
+          "state": {
+            "mood": -258,
+            "intent": "monologue",
+            "disposition": 514,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "return",
+          "input": "Do you remember the third homunculus in the bell jar?",
+          "reply": "My little people! Each in their bell, each with their tiny opinion.",
+          "state": {
+            "mood": -139,
+            "intent": "reminisce",
+            "disposition": 515,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "return",
+          "input": "What came back to you during the absence?",
+          "reply": "An admirable question, my dear. The answer is: it depends entirely on what one is prepared to *survive*.",
+          "state": {
+            "mood": -251,
+            "intent": "monologue",
+            "disposition": 516,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "return",
+          "input": "Tell me what you remember.",
+          "reply": "Gladly. Choose the point of entry and I will make the incision neat.",
+          "state": {
+            "mood": -269,
+            "intent": "reminisce",
+            "disposition": 517,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "I still remember the bell jar.",
+          "reply": "I keep returning to homunculi. Did I ever finish that thought?",
+          "state": {
+            "mood": -285,
+            "intent": "initiate",
+            "disposition": 518,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "And the homunculi?",
+          "reply": "The king escaped once. Found him at the cat's bowl. Very imperial about it.",
+          "state": {
+            "mood": -178,
+            "intent": "reminisce",
+            "disposition": 519,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "Did Henry ever understand that work?",
+          "reply": "Henry was not a fool. That is what made his retreat so insulting.",
+          "state": {
+            "mood": -228,
+            "intent": "monologue",
+            "disposition": 520,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "What mood are you in now?",
+          "reply": "Good.",
+          "state": {
+            "mood": -354,
+            "intent": "reminisce",
+            "disposition": 521,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "What should we discuss next?",
+          "reply": "Before I answer too grandly, what part of the question matters to you?",
+          "state": {
+            "mood": -397,
+            "intent": "monologue",
+            "disposition": 522,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "I am here again.",
+          "reply": "Mm. I will accept that as permission to continue.",
+          "state": {
+            "mood": -403,
+            "intent": "reminisce",
+            "disposition": 523,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "Continue from where your thoughts went.",
+          "reply": "Before we drift further, I want your view on homunculi.",
+          "state": {
+            "mood": -418,
+            "intent": "initiate",
+            "disposition": 524,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "The work is still waiting.",
+          "reply": "Mm. Tell me more. The lightning sings.",
+          "state": {
+            "mood": -407,
+            "intent": "attend",
+            "disposition": 525,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "I am listening.",
+          "reply": "There is something I have been turning over. What do you make of homunculi?",
+          "state": {
+            "mood": -418,
+            "intent": "initiate",
+            "disposition": 526,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "Tell me one more thing.",
+          "reply": "I can tell you a little. Ask cleanly, and I shall try not to decorate the answer beyond recognition.",
+          "state": {
+            "mood": -423,
+            "intent": "reminisce",
+            "disposition": 527,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "Do not let the thought vanish.",
+          "reply": "Then continue.",
+          "state": {
+            "mood": -448,
+            "intent": "monologue",
+            "disposition": 528,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "What did the absence change?",
+          "reply": "An admirable question, my dear. The answer is: it depends entirely on what one is prepared to *survive*.",
+          "state": {
+            "mood": -482,
+            "intent": "reminisce",
+            "disposition": 529,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "Has your opinion of me changed?",
+          "reply": "Hear me. homunculi. *homunculi.* This is the only word the century has earned.",
+          "state": {
+            "mood": -514,
+            "intent": "monologue",
+            "disposition": 530,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "What do you remember most clearly?",
+          "reply": "I can answer that, but precision first. Are you asking about method, motive, or consequence?",
+          "state": {
+            "mood": -551,
+            "intent": "reminisce",
+            "disposition": 531,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "What did you keep turning over?",
+          "reply": "Why do *you* wish to know, my dear? It is so often the more interesting question.",
+          "state": {
+            "mood": -585,
+            "intent": "monologue",
+            "disposition": 532,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "Does the bell jar still matter?",
+          "reply": "Ah. Always the work returns to the conversation. I begin to think you sense its weight.",
+          "state": {
+            "mood": -615,
+            "intent": "reminisce",
+            "disposition": 533,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "What remains unfinished?",
+          "reply": "Mm. Define your terms. Then define *mine*.",
+          "state": {
+            "mood": -649,
+            "intent": "monologue",
+            "disposition": 534,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "I want the honest version.",
+          "reply": "Ah. Always the work returns to the conversation. I begin to think you sense its weight.",
+          "state": {
+            "mood": -655,
+            "intent": "reminisce",
+            "disposition": 535,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "Say the part that stayed with you.",
+          "reply": "I keep returning to homunculi. Did I ever finish that thought?",
+          "state": {
+            "mood": -654,
+            "intent": "initiate",
+            "disposition": 536,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        },
+        {
+          "phase": "post_gap",
+          "input": "Good. Keep going.",
+          "reply": "Ah. Always the work returns to the conversation. I begin to think you sense its weight.",
+          "state": {
+            "mood": -652,
+            "intent": "reminisce",
+            "disposition": 537,
+            "schema": {
+              "trustworthy": 0,
+              "hostile": 0,
+              "intimate": 0,
+              "competent": 0,
+              "deceptive": 0,
+              "owed": 0,
+              "owes": 0,
+              "dignity": 0
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "overall": 100
+}
