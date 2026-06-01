@@ -483,7 +483,7 @@ v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               web_presence_test v5_transcript_quality_run v5_believability_run \
               v5_clock_replay_run v5_actor_tagged_memory_run \
               v6_self_ledger_run v6_relation_dims_run \
-              v6_dissonance_run v6_withhold_logging_run \
+              v6_dissonance_run v6_withhold_logging_run v6_recall_modes_run \
               v4_firewall_run lint_test
 	@echo "--- V4 tests: green ---"
 
@@ -534,6 +534,15 @@ v6_dissonance_run: build/persona_host profiles/pretorius/pretorius.cart
 v6_withhold_logging_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/replay/withhold_logging_test.js
+
+# V6 Phase 5d: recall-mode selection. Asserts that the planner picks a
+# mode from canonical state each turn, that the mode is exposed in
+# state JSON, that mode selection is deterministic under the pinned
+# five-tuple, and that mode-specific scoring (mood-congruent /
+# shame-avoidant) actually shifts which memories surface.
+v6_recall_modes_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/replay/recall_modes_test.js
 
 # ----- profile sanity drivers -----
 character: profiles/pretorius/pretorius.cart

@@ -77,6 +77,23 @@ extern "C" {
 /* V6 Phase 5b: typed dissonance accumulators (Higgins ideal/ought/feared). */
 #include "dissonance.h"
 
+/* V6 Phase 5d: recall modes — per V6_DOCTRINE §16, the same memory
+ * store supports many retrieval intents; the planner selects one based
+ * on current state and the chosen mode shifts scoring (never the
+ * memories themselves). */
+enum {
+    PE_RECALL_ACCURATE         = 0,
+    PE_RECALL_DEFENSIVE        = 1,
+    PE_RECALL_NOSTALGIC        = 2,
+    PE_RECALL_ACCUSATORY       = 3,
+    PE_RECALL_SHAME_AVOIDANT   = 4,
+    PE_RECALL_INTIMACY_SEEKING = 5,
+    PE_RECALL_OBSESSION_DRIVEN = 6,
+    PE_RECALL_MOOD_CONGRUENT   = 7,
+    PE_RECALL_COUNT
+};
+const char *pe_recall_mode_name(uint8_t m);
+
 /* ---------- pattern flags (Pattern.flags bitmask) ---------- */
 #define PE_PATTERN_FLAG_INTOXICANT (1u<<0)  /* matching this pattern raises intoxication */
 
@@ -593,6 +610,7 @@ struct Engine {
     Relation           relation;              /* current interlocutor */
     pe_relation_dims_t relation_dims;         /* V6 Phase 4: multi-dim relational profile for current actor */
     pe_dissonance_t    dissonance;            /* V6 Phase 5b: ideal/ought/feared accumulators */
+    uint8_t            current_recall_mode;   /* V6 Phase 5d: selected per-turn from state */
     SchemaState      schema;                /* V4: per-relation compressed beliefs */
 
     /* per-turn scratch (no heap) */

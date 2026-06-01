@@ -311,6 +311,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
                           "\"resentment\":%u,\"dependency\":%u,\"obligation\":%u,"
                           "\"envy\":%u,\"admiration\":%u,\"embarrassment\":%u},"
         "\"dissonance\":{\"ideal_gap\":%u,\"ought_gap\":%u,\"feared_gap\":%u},"
+        "\"recall_mode\":\"%s\","
         "\"schema\":{\"trustworthy\":%d,\"hostile\":%d,\"intimate\":%d,"
                     "\"competent\":%d,\"deceptive\":%d,\"owed\":%d,"
                     "\"owes\":%d,\"dignity\":%d}}",
@@ -356,6 +357,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         (unsigned)eng->dissonance.ideal_gap,
         (unsigned)eng->dissonance.ought_gap,
         (unsigned)eng->dissonance.feared_gap,
+        pe_recall_mode_name(eng->current_recall_mode),
         (int)eng->schema.slot[SCHEMA_USER_TRUSTWORTHY],
         (int)eng->schema.slot[SCHEMA_USER_HOSTILE],
         (int)eng->schema.slot[SCHEMA_USER_INTIMATE],

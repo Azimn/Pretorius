@@ -196,12 +196,40 @@ void pe_decay_episodic(Engine *eng){
     m->episodic_count = w;
 }
 
+/* V6 Phase 5d: name lookup for state-JSON exposure. */
+static const char *RECALL_MODE_NAMES[PE_RECALL_COUNT] = {
+    "accurate","defensive","nostalgic","accusatory",
+    "shame_avoidant","intimacy_seeking","obsession_driven","mood_congruent"
+};
+const char *pe_recall_mode_name(uint8_t m){
+    return (m < PE_RECALL_COUNT) ? RECALL_MODE_NAMES[m] : "unknown";
+}
+
+/* V6 Phase 5d: pick the recall mode for this turn from canonical state.
+ * Per V6_DOCTRINE §16, mode selection itself is canonical and is read by
+ * the recall scoring below; it is exposed in state JSON for operator
+ * inspection. Selection is a first-match cascade — same shape as
+ * Phase 5c's withhold-reason cascade, deterministic over the five-tuple. */
+static uint8_t pick_recall_mode(const Engine *eng){
+    if (eng->dissonance.feared_gap > 400)      return PE_RECALL_SHAME_AVOIDANT;
+    if (eng->relation_dims.resentment > 400)   return PE_RECALL_ACCUSATORY;
+    if (eng->relation_dims.intimacy > 600)     return PE_RECALL_INTIMACY_SEEKING;
+    if (eng->state.obsession_pressure > 600)   return PE_RECALL_OBSESSION_DRIVEN;
+    if (eng->state.mood < -200 || eng->state.mood > 200)
+                                                return PE_RECALL_MOOD_CONGRUENT;
+    return PE_RECALL_ACCURATE;
+}
+
 void pe_associative_recall(Engine *eng, const EmotionVector *ev){
     eng->active_count = 0;
     eng->cold_scratch_count = 0;          /* v3.2: reset per-turn scratch */
     uint32_t now = persona_now_ms();
     uint64_t qsig = eng->input_sig;
     int have_qsig = (qsig != 0);
+
+    /* V6 Phase 5d: pick + cache the recall mode for this turn. */
+    eng->current_recall_mode = pick_recall_mode(eng);
+    uint8_t mode = eng->current_recall_mode;
 
     for (uint16_t i = 0; i < eng->memory.episodic_count && eng->active_count < PE_ACTIVE_MAX; ++i){
         MemoryNode *m = &eng->memory.episodic[i];
@@ -260,6 +288,31 @@ void pe_associative_recall(Engine *eng, const EmotionVector *ev){
                 if (match > 1000) match = 1000;
             }
         }
+
+        /* V6 Phase 5d: recall-mode scoring shift. Same memory store,
+         * different retrieval intent — mood-congruent recall (Bower 1981)
+         * boosts emotionally-matching memories; shame-avoidant recall
+         * dampens negative-valence memories. Other modes (defensive,
+         * accusatory, intimacy-seeking, etc.) land in future Phase 5+
+         * commits; this commit ships ACCURATE / MOOD_CONGRUENT /
+         * SHAME_AVOIDANT as the first three. The shift is modest — it
+         * changes which memories surface at the margin, not which
+         * memories exist. */
+        switch (mode){
+        case PE_RECALL_MOOD_CONGRUENT: {
+            int mood_pos = eng->state.mood > 0;
+            int mem_pos  = m->emotion.valence > 0;
+            if (mood_pos == mem_pos) match += 20;
+            break;
+        }
+        case PE_RECALL_SHAME_AVOIDANT:
+            if (m->emotion.valence < -20) match -= 30;
+            break;
+        default:
+            break;
+        }
+        if (match < 0)    match = 0;
+        if (match > 1000) match = 1000;
 
         if (match >= ACTIVATION_THRESHOLD_PER_MIL) {
             eng->active_memories[eng->active_count] = i;
