@@ -665,6 +665,9 @@ int persona_open(Engine *eng, const char *character_dir){
      * the wiped-memory case so tags stay in sync with the episodic array. */
     if (had_mem) pe_actor_index_load(&eng->actor_index, eng->char_dir);
     else         pe_actor_index_init(&eng->actor_index);
+    /* V6 Phase 3: self-ledger sidecar — load if present, init fresh otherwise. */
+    if (had_mem) pe_speech_ledger_load(&eng->speech_ledger, eng->char_dir);
+    else         pe_speech_ledger_init(&eng->speech_ledger);
 
     if (!had_state) {
         seed_drives(eng);
@@ -802,6 +805,7 @@ int persona_save(Engine *eng){
      * indexes. Non-fatal — a missing sidecar is the legacy state and the
      * runtime tolerates it. */
     pe_actor_index_save(&eng->actor_index, eng->char_dir);
+    pe_speech_ledger_save(&eng->speech_ledger, eng->char_dir);
     pe_save_relation(eng);
     /* v3.1: chapters — non-fatal if write fails (re-crystallised on next load) */
     pe_path_join(p, sizeof(p), eng->char_dir, "chapters.bin");
@@ -1204,6 +1208,40 @@ post_render:;
 
     eng->state.last_update_time = now;
     identity_update_rolling(eng, ev.valence, ev.arousal);
+
+    /* V6 Phase 3: record an engine-authored speech event for the turn.
+     * Captures the structured facts about what the character just did
+     * (selected speech act, response act, intent, stance, target actor,
+     * target topic, surfaced memory, audit result, output hash) — never
+     * the rendered prose itself, so the memory firewall holds. */
+    {
+        pe_speech_event_t sev;
+        memset(&sev, 0, sizeof(sev));
+        sev.turn_count          = eng->state.turn_count;
+        sev.clock_ms            = pe_clock_now_ms();
+        sev.target_actor_id     = eng->relation.user_hash;
+        sev.selected_memory_id  = (eng->plan.callback_memory != 0xFFFF)
+                                ? eng->plan.callback_memory : 0u;
+        sev.output_hash         = persona_hash(out);
+        sev.target_topic_id     = (eng->plan.target_topic != 0xFFFF)
+                                ? eng->plan.target_topic
+                                : eng->primary_topic;
+        sev.template_id         = (uint16_t)eng->last_template_group;
+        sev.render_id           = (uint16_t)(sev.output_hash & 0xFFFFu);
+        sev.speech_act          = pe_speech_act_from_intent(eng->state.current_intent);
+        sev.response_act        = PE_SA_NONE;          /* Phase 5 will derive */
+        sev.intent_id           = (uint8_t)eng->state.current_intent;
+        sev.stance              = (uint8_t)eng->plan.stance;
+        sev.rhetorical_mode     = (uint8_t)eng->plan.rhetorical_mode;
+        sev.defense_mode        = 0;                   /* Phase 5 */
+        sev.repair_mode         = 0;                   /* Phase 5 */
+        sev.audit_result        = PE_AUDIT_PASS;       /* Phase 5 */
+        sev.withheld_intent     = PE_SA_NONE;          /* Phase 5 */
+        sev.withhold_reason     = PE_WR_NONE;          /* Phase 5 */
+        sev.regret_marker       = 0;                   /* set later */
+        pe_speech_ledger_record(&eng->speech_ledger, &sev);
+    }
+
     persona_save(eng);
     return (int)strlen(out);
 }

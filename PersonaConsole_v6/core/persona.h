@@ -70,6 +70,8 @@ extern "C" {
 /* V5 Phase 2: per-slot actor tagging for episodic memory.
  * Included after PE_EPISODIC_MAX is defined; the header depends on it. */
 #include "actor_index.h"
+/* V6 Phase 3: engine-authored speech events (the self-ledger). */
+#include "speech_ledger.h"
 
 /* ---------- pattern flags (Pattern.flags bitmask) ---------- */
 #define PE_PATTERN_FLAG_INTOXICANT (1u<<0)  /* matching this pattern raises intoxication */
@@ -582,8 +584,9 @@ struct Engine {
     /* mutable */
     NPCState         state;
     MemoryStore      memory;
-    pe_actor_index_t actor_index;           /* V5 Phase 2: per-slot actor tagging sidecar */
-    Relation         relation;              /* current interlocutor */
+    pe_actor_index_t   actor_index;           /* V5 Phase 2: per-slot actor tagging sidecar */
+    pe_speech_ledger_t speech_ledger;         /* V6 Phase 3: engine-authored speech events */
+    Relation           relation;              /* current interlocutor */
     SchemaState      schema;                /* V4: per-relation compressed beliefs */
 
     /* per-turn scratch (no heap) */

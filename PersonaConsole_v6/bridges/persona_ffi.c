@@ -304,6 +304,8 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"disposition\":%d,"
         "\"user_id\":\"%s\","
         "\"actor_tagged_memories\":%u,"
+        "\"speech_event_count\":%u,"
+        "\"last_speech_act\":\"%s\","
         "\"schema\":{\"trustworthy\":%d,\"hostile\":%d,\"intimate\":%d,"
                     "\"competent\":%d,\"deceptive\":%d,\"owed\":%d,"
                     "\"owes\":%d,\"dignity\":%d}}",
@@ -330,6 +332,10 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         eng->relation.disposition,
         s->user_id,
         (unsigned)pe_actor_index_count(&eng->actor_index),
+        (unsigned)pe_speech_ledger_count(&eng->speech_ledger),
+        pe_speech_act_name(pe_speech_ledger_last(&eng->speech_ledger)
+                           ? pe_speech_ledger_last(&eng->speech_ledger)->speech_act
+                           : PE_SA_NONE),
         (int)eng->schema.slot[SCHEMA_USER_TRUSTWORTHY],
         (int)eng->schema.slot[SCHEMA_USER_HOSTILE],
         (int)eng->schema.slot[SCHEMA_USER_INTIMATE],
