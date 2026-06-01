@@ -306,6 +306,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"actor_tagged_memories\":%u,"
         "\"speech_event_count\":%u,"
         "\"last_speech_act\":\"%s\","
+        "\"last_withhold_reason\":\"%s\","
         "\"relation_dims\":{\"trust\":%u,\"threat\":%u,\"intimacy\":%u,"
                           "\"resentment\":%u,\"dependency\":%u,\"obligation\":%u,"
                           "\"envy\":%u,\"admiration\":%u,\"embarrassment\":%u},"
@@ -340,6 +341,9 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         pe_speech_act_name(pe_speech_ledger_last(&eng->speech_ledger)
                            ? pe_speech_ledger_last(&eng->speech_ledger)->speech_act
                            : PE_SA_NONE),
+        pe_withhold_reason_name(pe_speech_ledger_last(&eng->speech_ledger)
+                                ? pe_speech_ledger_last(&eng->speech_ledger)->withhold_reason
+                                : PE_WR_NONE),
         (unsigned)eng->relation_dims.trust,
         (unsigned)eng->relation_dims.threat,
         (unsigned)eng->relation_dims.intimacy,

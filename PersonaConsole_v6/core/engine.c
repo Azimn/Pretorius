@@ -1248,9 +1248,36 @@ post_render:;
         sev.defense_mode        = 0;                   /* Phase 5 */
         sev.repair_mode         = 0;                   /* Phase 5 */
         sev.audit_result        = PE_AUDIT_PASS;       /* Phase 5 */
-        sev.withheld_intent     = PE_SA_NONE;          /* Phase 5 */
-        sev.withhold_reason     = PE_WR_NONE;          /* Phase 5 */
+        sev.withheld_intent     = PE_SA_NONE;          /* Phase 5d */
         sev.regret_marker       = 0;                   /* set later */
+
+        /* V6 Phase 5c: refusal/withhold reason. When the character's own
+         * speech act is a withhold (refusal/pause/evasion/withdrawal/
+         * deflection), tag WHY using the current canonical state. This
+         * makes "you avoided this before" a true engine assertion — a
+         * later actor can read the ledger and see the reason.
+         *
+         * Selection is deterministic and reads only engine-canonical
+         * fields (no renderer output). First-match wins:
+         *   FATIGUE  — exhaustion is the highest pressure on speech;
+         *   SHAME    — feared_gap suggests withdrawal-as-protection;
+         *   CONFUSION — surprise_last says we did not understand;
+         *   DISTRUST — relation_dims.trust is low;
+         *   STRATEGY — rhetorical_mode is DEFLECT (chosen, not forced);
+         *   PRIVACY  — default catchall for refusals without a stronger
+         *              triggering signal.  */
+        if (pe_speech_act_is_withhold(sev.speech_act)){
+            if      (eng->state.exhaustion   > 600) sev.withhold_reason = PE_WR_FATIGUE;
+            else if (eng->dissonance.feared_gap > 400) sev.withhold_reason = PE_WR_SHAME;
+            else if (eng->state.surprise_last > 500) sev.withhold_reason = PE_WR_CONFUSION;
+            else if (eng->relation_dims.trust < 300) sev.withhold_reason = PE_WR_DISTRUST;
+            else if (eng->plan.rhetorical_mode == PE_RHET_DEFLECT)
+                                                     sev.withhold_reason = PE_WR_STRATEGY;
+            else                                     sev.withhold_reason = PE_WR_PRIVACY;
+        } else {
+            sev.withhold_reason = PE_WR_NONE;
+        }
+
         pe_speech_ledger_record(&eng->speech_ledger, &sev);
 
         /* V6 Phase 5b: typed dissonance ticks per turn (slow decay

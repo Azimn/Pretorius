@@ -142,6 +142,16 @@ const pe_speech_event_t  *pe_speech_ledger_last (const pe_speech_ledger_t *led);
 uint8_t      pe_speech_act_from_intent(uint16_t intent_id);
 const char  *pe_speech_act_name(uint8_t sa);
 
+/* Phase 5c: name lookup for the withhold-reason enum (PE_WR_*) for
+ * state-JSON inspection. Returns "none" for PE_WR_NONE and "unknown"
+ * for out-of-range values. */
+const char  *pe_withhold_reason_name(uint8_t reason);
+
+/* Phase 5c: returns nonzero if the speech act is a refusal-class
+ * output (the character chose not to say something). Used by the
+ * engine to decide whether to fill in withhold_reason for the turn. */
+int          pe_speech_act_is_withhold(uint8_t sa);
+
 #ifdef __cplusplus
 }
 #endif

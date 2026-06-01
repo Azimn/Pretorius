@@ -109,3 +109,24 @@ static const char *SA_NAMES[PE_SA_COUNT] = {
 const char *pe_speech_act_name(uint8_t sa){
     return (sa < PE_SA_COUNT) ? SA_NAMES[sa] : "unknown";
 }
+
+static const char *WR_NAMES[PE_WR_COUNT] = {
+    "none","shame","privacy","distrust","taboo","confusion","fatigue","strategy"
+};
+
+const char *pe_withhold_reason_name(uint8_t reason){
+    return (reason < PE_WR_COUNT) ? WR_NAMES[reason] : "unknown";
+}
+
+int pe_speech_act_is_withhold(uint8_t sa){
+    switch (sa){
+    case PE_SA_REFUSAL:
+    case PE_SA_PAUSE:
+    case PE_SA_EVASION:
+    case PE_SA_WITHDRAWAL:
+    case PE_SA_DEFLECTION:
+        return 1;
+    default:
+        return 0;
+    }
+}
