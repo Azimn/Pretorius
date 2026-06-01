@@ -1,7 +1,9 @@
-/* relations.c — per-user relation files + V4 schema persistence. */
+/* relations.c — per-user relation files + V4 schema persistence + V6
+ * multi-dim relation persistence. */
 #include "persona.h"
 #include "persona_internal.h"
 #include "engine_clock.h"
+#include "relation_dims.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -68,6 +70,14 @@ int pe_load_relation(Engine *eng, const char *user_id){
         || eng->schema.version != fresh.version){
         eng->schema = fresh;
     }
+
+    /* V6 Phase 4: load the multi-dim relational profile for this actor.
+     * Missing file ⇒ derive defaults from the just-loaded V5 disposition
+     * so the dimensions start in a sensible neutral place for a new
+     * acquaintance, or matching the stored disposition for a returning
+     * actor that predates V6. */
+    pe_relation_dims_load(&eng->relation_dims, eng->char_dir, h,
+                          eng->relation.disposition);
     return 0;
 }
 
@@ -82,5 +92,10 @@ int pe_save_relation(Engine *eng){
      * crash mid-save leaves the previous schema intact. */
     char spath[512];
     schema_path(eng, eng->relation.user_hash, spath, sizeof(spath));
-    return pe_write_file_atomic(spath, &eng->schema, sizeof(SchemaState));
+    rc = pe_write_file_atomic(spath, &eng->schema, sizeof(SchemaState));
+    if (rc != 0) return rc;
+
+    /* V6 Phase 4: persist the multi-dim relational profile beside the
+     * schema. Skipped silently when no actor is loaded. */
+    return pe_relation_dims_save(&eng->relation_dims, eng->char_dir);
 }

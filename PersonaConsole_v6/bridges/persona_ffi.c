@@ -306,6 +306,9 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"actor_tagged_memories\":%u,"
         "\"speech_event_count\":%u,"
         "\"last_speech_act\":\"%s\","
+        "\"relation_dims\":{\"trust\":%u,\"threat\":%u,\"intimacy\":%u,"
+                          "\"resentment\":%u,\"dependency\":%u,\"obligation\":%u,"
+                          "\"envy\":%u,\"admiration\":%u,\"embarrassment\":%u},"
         "\"schema\":{\"trustworthy\":%d,\"hostile\":%d,\"intimate\":%d,"
                     "\"competent\":%d,\"deceptive\":%d,\"owed\":%d,"
                     "\"owes\":%d,\"dignity\":%d}}",
@@ -336,6 +339,15 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         pe_speech_act_name(pe_speech_ledger_last(&eng->speech_ledger)
                            ? pe_speech_ledger_last(&eng->speech_ledger)->speech_act
                            : PE_SA_NONE),
+        (unsigned)eng->relation_dims.trust,
+        (unsigned)eng->relation_dims.threat,
+        (unsigned)eng->relation_dims.intimacy,
+        (unsigned)eng->relation_dims.resentment,
+        (unsigned)eng->relation_dims.dependency,
+        (unsigned)eng->relation_dims.obligation,
+        (unsigned)eng->relation_dims.envy,
+        (unsigned)eng->relation_dims.admiration,
+        (unsigned)eng->relation_dims.embarrassment,
         (int)eng->schema.slot[SCHEMA_USER_TRUSTWORTHY],
         (int)eng->schema.slot[SCHEMA_USER_HOSTILE],
         (int)eng->schema.slot[SCHEMA_USER_INTIMATE],

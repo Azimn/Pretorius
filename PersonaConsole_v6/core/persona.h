@@ -72,6 +72,8 @@ extern "C" {
 #include "actor_index.h"
 /* V6 Phase 3: engine-authored speech events (the self-ledger). */
 #include "speech_ledger.h"
+/* V6 Phase 4: multi-dimensional Relation. */
+#include "relation_dims.h"
 
 /* ---------- pattern flags (Pattern.flags bitmask) ---------- */
 #define PE_PATTERN_FLAG_INTOXICANT (1u<<0)  /* matching this pattern raises intoxication */
@@ -587,6 +589,7 @@ struct Engine {
     pe_actor_index_t   actor_index;           /* V5 Phase 2: per-slot actor tagging sidecar */
     pe_speech_ledger_t speech_ledger;         /* V6 Phase 3: engine-authored speech events */
     Relation           relation;              /* current interlocutor */
+    pe_relation_dims_t relation_dims;         /* V6 Phase 4: multi-dim relational profile for current actor */
     SchemaState      schema;                /* V4: per-relation compressed beliefs */
 
     /* per-turn scratch (no heap) */

@@ -62,7 +62,8 @@ MEMORY_SRC := \
     memory/recall_plasticity.c \
     memory/sidecar.c         \
     memory/actor_index.c     \
-    memory/speech_ledger.c
+    memory/speech_ledger.c   \
+    memory/relation_dims.c
 
 SCHEMA_SRC := \
     schema/schema_state.c
@@ -479,7 +480,8 @@ v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v5_milestone_catchup_run v5_legacy_identity_migration_run \
               v4_adversarial_arcs v4_recall_plasticity_run inspector_test \
               web_presence_test v5_transcript_quality_run v5_believability_run \
-              v5_clock_replay_run v5_actor_tagged_memory_run v6_self_ledger_run \
+              v5_clock_replay_run v5_actor_tagged_memory_run \
+              v6_self_ledger_run v6_relation_dims_run \
               v4_firewall_run lint_test
 	@echo "--- V4 tests: green ---"
 
@@ -508,6 +510,13 @@ v5_actor_tagged_memory_run: build/persona_host profiles/pretorius/pretorius.cart
 v6_self_ledger_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/replay/self_ledger_test.js
+
+# V6 Phase 4: multi-dim relation. Asserts the relation_dims sidecar is
+# loaded per actor, defaulted from disposition when absent, exposed in
+# state JSON, persisted across restart, and isolated per actor.
+v6_relation_dims_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/replay/relation_dims_test.js
 
 # ----- profile sanity drivers -----
 character: profiles/pretorius/pretorius.cart
