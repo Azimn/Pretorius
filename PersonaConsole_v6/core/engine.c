@@ -932,6 +932,15 @@ int persona_process_input(Engine *eng,
         }
         /* Every turn ticks the schema decay, even when no event fires. */
         schema_tick(&eng->schema);
+
+        /* V6 Phase 5a: drive the multi-dim relation profile from the
+         * same classified input. Praise from a high-threat actor lifts
+         * threat (suspicion); praise from a trusted one lifts trust and
+         * admiration — same input class, different appraisal because
+         * the dims condition on the current relational state. */
+        pe_relation_dims_update_from_input(&eng->relation_dims,
+                                           (uint8_t)eng->input_class,
+                                           ev.arousal);
     }
 
     /* 3b. v3.0: predictive coding — compare last turn's prediction to

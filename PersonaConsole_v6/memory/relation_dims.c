@@ -96,3 +96,59 @@ int pe_relation_dims_save(const pe_relation_dims_t *dims,
     if (dims_path(char_dir, dims->user_hash, path, sizeof(path)) != 0) return -1;
     return pe_write_file_atomic(path, dims, sizeof(*dims));
 }
+
+/* Saturating add / subtract on the 0..1000 dim range. */
+static uint16_t dim_add(uint16_t cur, int delta){
+    int v = (int)cur + delta;
+    if (v < 0)    v = 0;
+    if (v > 1000) v = 1000;
+    return (uint16_t)v;
+}
+
+void pe_relation_dims_update_from_input(pe_relation_dims_t *dims,
+                                        uint8_t input_class,
+                                        int8_t arousal_pct){
+    if (!dims) return;
+    /* Magnitude scales with arousal so loud events register harder.
+     * Baseline impact 5 + arousal/4 → range ~5..30 per dim. */
+    int mag = arousal_pct > 0 ? (int)arousal_pct : 0;
+    if (mag > 100) mag = 100;
+    int impact = 5 + mag / 4;
+
+    switch (input_class){
+    case 1:  /* praise */
+        if (dims->threat > 600){
+            /* Suspicion: high-threat actors' praise reads as manipulation.
+             * Same input, different appraisal — the asymmetry the planner
+             * exploits. */
+            dims->threat        = dim_add(dims->threat,         impact / 2);
+            dims->embarrassment = dim_add(dims->embarrassment,  impact / 3);
+        } else {
+            dims->trust         = dim_add(dims->trust,          impact / 2);
+            dims->admiration    = dim_add(dims->admiration,     impact);
+        }
+        break;
+    case 2:  /* insult */
+        dims->threat            = dim_add(dims->threat,         impact);
+        dims->resentment        = dim_add(dims->resentment,     impact);
+        dims->trust             = dim_add(dims->trust,         -impact / 2);
+        break;
+    case 4:  /* threat */
+        dims->threat            = dim_add(dims->threat,         impact * 2);
+        dims->resentment        = dim_add(dims->resentment,     impact);
+        dims->trust             = dim_add(dims->trust,         -impact);
+        dims->intimacy          = dim_add(dims->intimacy,      -impact / 2);
+        break;
+    case 5:  /* confiding / disclosure */
+        dims->intimacy          = dim_add(dims->intimacy,       impact);
+        dims->trust             = dim_add(dims->trust,          impact / 3);
+        dims->dependency        = dim_add(dims->dependency,     impact / 4);
+        break;
+    case 0:  /* neutral */
+    case 3:  /* direct question */
+    default:
+        /* No event-driven update. The planner-level (Phase 5b) can read
+         * intent / response classes for finer-grained signals. */
+        break;
+    }
+}

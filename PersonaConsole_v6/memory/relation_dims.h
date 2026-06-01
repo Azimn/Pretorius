@@ -73,6 +73,22 @@ int pe_relation_dims_load(pe_relation_dims_t *dims,
 int pe_relation_dims_save(const pe_relation_dims_t *dims,
                           const char *char_dir);
 
+/* V6 Phase 5a: event-driven dims update from the classified input.
+ *
+ * input_class is the engine's input-pattern classification (see
+ * pe_classify_input): 0 neutral, 1 praise, 2 insult, 3 direct question,
+ * 4 threat, 5 confide/disclosure. arousal_pct is the input emotion
+ * vector's arousal in 0..100 — louder events register harder. The
+ * update is deterministic, character-agnostic, and uses saturating
+ * fixed-point arithmetic; no floats, no random.
+ *
+ * Same input means different things from different actors via the dim
+ * COMBINATIONS the planner reads downstream — e.g. praise from a
+ * high-threat actor lifts threat (suspicion), not trust. */
+void pe_relation_dims_update_from_input(pe_relation_dims_t *dims,
+                                        uint8_t input_class,
+                                        int8_t arousal_pct);
+
 #ifdef __cplusplus
 }
 #endif

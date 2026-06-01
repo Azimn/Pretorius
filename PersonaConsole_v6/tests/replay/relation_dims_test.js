@@ -170,7 +170,69 @@ function lastState(rows){
        && compositeAfterRun1 === compositeAfterReplay,
      `pinned replay produces byte-identical .dims set (${compositeAfterRun1} vs ${compositeAfterReplay})`);
 
+  /* 7. V6 Phase 5a: event-driven dim updates. Same five-tuple, fresh
+   *    state, different inputs ⇒ dims move in the expected direction.
+   *    No reference to specific Pretorius cartridge content — the
+   *    classifier is pattern-table-driven and character-agnostic. */
+  wipe();
+  const praiseRows = await runSession([
+    { method: 'set_user', user_id: 'henry' },
+    { method: 'chat', text: 'You are brilliant.' },
+    { method: 'state' },
+  ]);
+  const sPraise = lastState(praiseRows);
+  ok(sPraise && sPraise.relation_dims,
+     'praise input returns dims');
+  /* Defaults at fresh-actor: trust=500, admiration=350. After praise,
+   * one or both must rise (the suspicion branch is only triggered when
+   * threat>600, which a fresh actor's 500 baseline does not reach). */
+  ok(sPraise && (sPraise.relation_dims.trust > 500
+              || sPraise.relation_dims.admiration > 350),
+     `praise lifts trust and/or admiration (got trust=${sPraise && sPraise.relation_dims.trust}, admiration=${sPraise && sPraise.relation_dims.admiration})`);
+
+  wipe();
+  const insultRows = await runSession([
+    { method: 'set_user', user_id: 'henry' },
+    { method: 'chat', text: 'You are a fool. Your work is worthless.' },
+    { method: 'state' },
+  ]);
+  const sIns = lastState(insultRows);
+  ok(sIns && sIns.relation_dims,
+     'insult input returns dims');
+  ok(sIns && sIns.relation_dims.threat > 500,
+     `insult lifts threat above 500 baseline (got ${sIns && sIns.relation_dims.threat})`);
+  ok(sIns && sIns.relation_dims.resentment > 0,
+     `insult lifts resentment from 0 (got ${sIns && sIns.relation_dims.resentment})`);
+  ok(sIns && sIns.relation_dims.trust < 500,
+     `insult lowers trust below 500 baseline (got ${sIns && sIns.relation_dims.trust})`);
+
+  /* 8. Suspicion-asymmetry — same praise input from a HIGH-threat actor
+   *    reads differently. We push henry's threat above 600 by repeated
+   *    insults, then a praise: in the suspicion branch praise does NOT
+   *    raise trust (which a low-threat praise would). This proves the
+   *    same input class produces different dim updates depending on
+   *    current relational state — the asymmetry V6 §13 promises. */
+  wipe();
+  const susRows = await runSession([
+    { method: 'set_user', user_id: 'henry' },
+    { method: 'chat', text: 'You are a fool.' },
+    { method: 'chat', text: 'You are a fool.' },
+    { method: 'chat', text: 'You are a fool.' },
+    { method: 'chat', text: 'You are a fool.' },
+    { method: 'state' },
+    /* now praise once: suspicion branch should engage */
+    { method: 'chat', text: 'You are brilliant.' },
+    { method: 'state' },
+  ]);
+  const states = susRows.filter(r => r && r.relation_dims);
+  const beforePraise = states[states.length - 2];
+  const afterPraise  = states[states.length - 1];
+  ok(beforePraise && beforePraise.relation_dims.threat > 600,
+     `four insults push threat above 600 (got ${beforePraise && beforePraise.relation_dims.threat})`);
+  ok(afterPraise && afterPraise.relation_dims.trust === beforePraise.relation_dims.trust,
+     `praise in suspicion branch does NOT lift trust (before=${beforePraise && beforePraise.relation_dims.trust}, after=${afterPraise && afterPraise.relation_dims.trust})`);
+
   wipe();
   if (process.exitCode) process.exit(process.exitCode);
-  console.log('PASSED -- V6 multi-dim relation: dims exposed, defaulted, persisted, per-actor, deterministic');
+  console.log('PASSED -- V6 multi-dim relation: dims exposed, defaulted, persisted, per-actor, deterministic, event-driven, and asymmetric');
 })().catch(e => { console.error(e); process.exit(2); });
