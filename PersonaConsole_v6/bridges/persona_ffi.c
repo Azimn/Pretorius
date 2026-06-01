@@ -309,6 +309,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"relation_dims\":{\"trust\":%u,\"threat\":%u,\"intimacy\":%u,"
                           "\"resentment\":%u,\"dependency\":%u,\"obligation\":%u,"
                           "\"envy\":%u,\"admiration\":%u,\"embarrassment\":%u},"
+        "\"dissonance\":{\"ideal_gap\":%u,\"ought_gap\":%u,\"feared_gap\":%u},"
         "\"schema\":{\"trustworthy\":%d,\"hostile\":%d,\"intimate\":%d,"
                     "\"competent\":%d,\"deceptive\":%d,\"owed\":%d,"
                     "\"owes\":%d,\"dignity\":%d}}",
@@ -348,6 +349,9 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         (unsigned)eng->relation_dims.envy,
         (unsigned)eng->relation_dims.admiration,
         (unsigned)eng->relation_dims.embarrassment,
+        (unsigned)eng->dissonance.ideal_gap,
+        (unsigned)eng->dissonance.ought_gap,
+        (unsigned)eng->dissonance.feared_gap,
         (int)eng->schema.slot[SCHEMA_USER_TRUSTWORTHY],
         (int)eng->schema.slot[SCHEMA_USER_HOSTILE],
         (int)eng->schema.slot[SCHEMA_USER_INTIMATE],

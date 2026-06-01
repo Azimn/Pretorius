@@ -668,6 +668,8 @@ int persona_open(Engine *eng, const char *character_dir){
     /* V6 Phase 3: self-ledger sidecar — load if present, init fresh otherwise. */
     if (had_mem) pe_speech_ledger_load(&eng->speech_ledger, eng->char_dir);
     else         pe_speech_ledger_init(&eng->speech_ledger);
+    /* V6 Phase 5b: typed dissonance accumulators sidecar. */
+    pe_dissonance_load(&eng->dissonance, eng->char_dir);
 
     if (!had_state) {
         seed_drives(eng);
@@ -806,6 +808,7 @@ int persona_save(Engine *eng){
      * runtime tolerates it. */
     pe_actor_index_save(&eng->actor_index, eng->char_dir);
     pe_speech_ledger_save(&eng->speech_ledger, eng->char_dir);
+    pe_dissonance_save(&eng->dissonance, eng->char_dir);
     pe_save_relation(eng);
     /* v3.1: chapters — non-fatal if write fails (re-crystallised on next load) */
     pe_path_join(p, sizeof(p), eng->char_dir, "chapters.bin");
@@ -1249,6 +1252,17 @@ post_render:;
         sev.withhold_reason     = PE_WR_NONE;          /* Phase 5 */
         sev.regret_marker       = 0;                   /* set later */
         pe_speech_ledger_record(&eng->speech_ledger, &sev);
+
+        /* V6 Phase 5b: typed dissonance ticks per turn (slow decay
+         * toward 0) and shifts by speech-act class — evasion/deflection/
+         * withdrawal raise ideal_gap; apology/concession close ought_gap;
+         * insult/threat raise feared_gap. The arousal of the input event
+         * carries the magnitude. Phase 5c will read these gaps to choose
+         * resolution paths (confess, rationalize, deny, repair). */
+        pe_dissonance_decay_to(&eng->dissonance, eng->state.turn_count);
+        pe_dissonance_update_from_speech(&eng->dissonance,
+                                         sev.speech_act,
+                                         (uint8_t)(ev.arousal > 0 ? ev.arousal : 0));
     }
 
     persona_save(eng);

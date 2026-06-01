@@ -29,7 +29,12 @@ const SCRIPT = [
 ];
 
 function wipeState(){
-  for (const f of ['state.bin', 'memory.bin', 'chapters.bin']){
+  /* Includes the V5/V6 sidecars (reflections, actor index, speech events,
+   * dissonance). A test written before a sidecar lands silently inherits
+   * its state across runs and reports false determinism failures. */
+  for (const f of ['state.bin', 'memory.bin', 'chapters.bin',
+                   'reflections.bin', 'actor_index.bin',
+                   'speech_events.bin', 'dissonance.bin']){
     try { fs.unlinkSync(path.join(CHDIR, f)); } catch {}
   }
   try { execSync(`rm -rf ${path.join(CHDIR, 'relations')} ${path.join(CHDIR, 'aether')}`); } catch {}

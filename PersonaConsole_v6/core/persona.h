@@ -74,6 +74,8 @@ extern "C" {
 #include "speech_ledger.h"
 /* V6 Phase 4: multi-dimensional Relation. */
 #include "relation_dims.h"
+/* V6 Phase 5b: typed dissonance accumulators (Higgins ideal/ought/feared). */
+#include "dissonance.h"
 
 /* ---------- pattern flags (Pattern.flags bitmask) ---------- */
 #define PE_PATTERN_FLAG_INTOXICANT (1u<<0)  /* matching this pattern raises intoxication */
@@ -590,6 +592,7 @@ struct Engine {
     pe_speech_ledger_t speech_ledger;         /* V6 Phase 3: engine-authored speech events */
     Relation           relation;              /* current interlocutor */
     pe_relation_dims_t relation_dims;         /* V6 Phase 4: multi-dim relational profile for current actor */
+    pe_dissonance_t    dissonance;            /* V6 Phase 5b: ideal/ought/feared accumulators */
     SchemaState      schema;                /* V4: per-relation compressed beliefs */
 
     /* per-turn scratch (no heap) */

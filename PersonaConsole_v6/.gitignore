@@ -8,6 +8,7 @@ profiles/*/memory.bin
 profiles/*/chapters.bin
 profiles/*/actor_index.bin
 profiles/*/speech_events.bin
+profiles/*/dissonance.bin
 # per-actor sidecars under profiles/*/relations/ are runtime state
 profiles/*/relations/
 profiles/*/aether/

@@ -63,7 +63,8 @@ MEMORY_SRC := \
     memory/sidecar.c         \
     memory/actor_index.c     \
     memory/speech_ledger.c   \
-    memory/relation_dims.c
+    memory/relation_dims.c   \
+    memory/dissonance.c
 
 SCHEMA_SRC := \
     schema/schema_state.c
@@ -481,7 +482,7 @@ v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v4_adversarial_arcs v4_recall_plasticity_run inspector_test \
               web_presence_test v5_transcript_quality_run v5_believability_run \
               v5_clock_replay_run v5_actor_tagged_memory_run \
-              v6_self_ledger_run v6_relation_dims_run \
+              v6_self_ledger_run v6_relation_dims_run v6_dissonance_run \
               v4_firewall_run lint_test
 	@echo "--- V4 tests: green ---"
 
@@ -517,6 +518,13 @@ v6_self_ledger_run: build/persona_host profiles/pretorius/pretorius.cart
 v6_relation_dims_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/replay/relation_dims_test.js
+
+# V6 Phase 5b: typed dissonance (ideal/ought/feared). Asserts the
+# accumulators move per speech-act class, decay per turn, persist
+# across restart, and are exposed in state JSON.
+v6_dissonance_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/replay/dissonance_test.js
 
 # ----- profile sanity drivers -----
 character: profiles/pretorius/pretorius.cart
