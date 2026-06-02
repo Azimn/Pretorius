@@ -5,10 +5,11 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { resolveHost } = require('./host_path');
 const { spawnSync } = require('child_process');
 
 const FORGE  = path.join(__dirname, '..', 'CartridgeForge', 'forge.html');
-const HOST   = path.join(__dirname, '..', 'build', 'persona_host');
+const HOST   = resolveHost(path.join(__dirname, '..'));
 const OUTDIR = path.join(__dirname, 'tmp', 'forge_dialogue_test');
 const OUT    = OUTDIR + '/override.cart';
 

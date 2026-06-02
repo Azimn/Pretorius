@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /* baseline_inheritance_test.js -- verifies engine-side social pattern/template inheritance. */
 const path = require('path');
+const { resolveHost } = require('../host_path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
-const HOST = path.join(__dirname, '..', '..', 'build', 'persona_host');
+const HOST = resolveHost(path.join(__dirname, '..', '..'));
 const CART = path.join(__dirname, '..', '..', 'profiles', 'kiki', 'kiki.cart');
 const CHDIR = path.dirname(CART);
 

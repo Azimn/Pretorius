@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /* legacy_identity_migration_test.js -- V4-sized identity sections load in V5. */
 const path = require('path');
+const { resolveHost } = require('../host_path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
-const HOST = path.join(__dirname, '..', '..', 'build', 'persona_host');
+const HOST = resolveHost(path.join(__dirname, '..', '..'));
 const CART = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretorius.cart');
 const TMPDIR = path.join(__dirname, '..', 'tmp');
 const OUT = path.join(TMPDIR, 'legacy_identity.cart');

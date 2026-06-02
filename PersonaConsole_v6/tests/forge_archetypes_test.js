@@ -6,10 +6,11 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { resolveHost } = require('./host_path');
 const { spawnSync } = require('child_process');
 
 const FORGE = path.join(__dirname, '..', 'CartridgeForge', 'forge.html');
-const HOST  = path.join(__dirname, '..', 'build', 'persona_host');
+const HOST  = resolveHost(path.join(__dirname, '..'));
 const LINT_BASE = path.join(__dirname, '..', 'build', 'cartridge_lint');
 const LINT  = fs.existsSync(LINT_BASE) ? LINT_BASE : LINT_BASE + '.exe';
 const OUT   = path.join(__dirname, 'tmp', 'forge_arch_test.cart');

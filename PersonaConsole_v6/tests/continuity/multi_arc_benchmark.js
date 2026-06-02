@@ -6,11 +6,12 @@
  * grudge persistence, gap handling, memory surfacing, and intent variety.
  */
 const path = require('path');
+const { resolveHost } = require('../host_path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
 const ROOT = path.join(__dirname, '..', '..');
-const HOST = path.join(ROOT, 'build', 'persona_host');
+const HOST = resolveHost(ROOT);
 const DEFAULT_CART = path.join(ROOT, 'profiles', 'pretorius', 'pretorius.cart');
 const ARC_DIR = path.join(__dirname, 'arcs');
 const REL_LAST_CONTACT_OFFSET = 8;

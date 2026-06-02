@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /* time_of_day_today_test.js -- verifies wall-clock bias in today-state selection. */
 const path = require('path');
+const { resolveHost } = require('../host_path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
-const HOST = path.join(__dirname, '..', '..', 'build', 'persona_host');
+const HOST = resolveHost(path.join(__dirname, '..', '..'));
 const CART = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretorius.cart');
 const CHDIR = path.dirname(CART);
 

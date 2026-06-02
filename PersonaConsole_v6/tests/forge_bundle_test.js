@@ -11,10 +11,11 @@
  */
 const fs   = require('fs');
 const path = require('path');
+const { resolveHost } = require('./host_path');
 const { execSync, spawnSync } = require('child_process');
 
 const FORGE  = path.join(__dirname, '..', 'CartridgeForge', 'forge.html');
-const HOST   = path.join(__dirname, '..', 'build', 'persona_host');
+const HOST   = resolveHost(path.join(__dirname, '..'));
 const OUTDIR = path.join(__dirname, 'tmp', 'forge_bundle_test');
 const ZIPOUT = path.join(__dirname, 'tmp', 'forge_bundle_test.zip');
 

@@ -323,15 +323,15 @@ build/v4_modules_test: tests/replay/v4_modules_test.c build/libpersona.a build/l
 v4_modules_run: build/v4_modules_test
 	./build/v4_modules_test
 
-v4_replay_run: build/persona_host
+v4_replay_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/replay/replay_determinism_test.js
 
-v4_ollama_run: build/persona_host
+v4_ollama_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/replay/ollama_provider_test.js
 
-v4_schema_run: build/persona_host
+v4_schema_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/replay/schema_integration_test.js
 
@@ -345,11 +345,11 @@ v4_instr_run: build/v4_instr_test
 # industry does NOT measure: emotional persistence, schema stability,
 # relational continuity, autobiographical consistency, renderer
 # invariance.  Pass threshold = 60/100.
-v4_continuity_run: build/persona_host
+v4_continuity_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/continuity_benchmark.js
 
-v4_continuity_kiki: build/persona_host
+v4_continuity_kiki: build/persona_host profiles/kiki/kiki.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	CART_OBSESSIONS="physics,entropy,Sagan,Scully,babe,cosmos" \
 	  node tests/continuity/continuity_benchmark.js profiles/kiki/kiki.cart
@@ -395,15 +395,15 @@ v5_want_pull_run: build/persona_host profiles/pretorius/pretorius.cart
 	node tests/continuity/v5_want_pull_test.js
 
 # V5: Reflective Memory Consolidation (Park et al. 2023 adaptation).
-v4_reflection_run: build/persona_host
+v4_reflection_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/reflection_test.js
 
-v5_reflection_surface_run: build/persona_host
+v5_reflection_surface_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/reflection_surface_test.js
 
-v5_conversation_rhythm_run: build/persona_host
+v5_conversation_rhythm_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/conversation_rhythm_test.js
 
@@ -434,18 +434,18 @@ v4_adversarial_arcs: build/persona_host profiles/pretorius/pretorius.cart
 	node tests/continuity/multi_arc_benchmark.js
 
 # V5: Recall-Coupled Plasticity.
-v4_recall_plasticity_run: build/persona_host
+v4_recall_plasticity_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/recall_plasticity_test.js
 
 # Behavioral Drift Index — measures identity divergence between renderers.
-v4_drift_run: build/persona_host
+v4_drift_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/behavioral_drift.js
 
 # Hallucination firewall — operationally proves renderer output cannot
 # contaminate Layer 1 state, even under adversarial SLM injection.
-v4_firewall_run: build/persona_host
+v4_firewall_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/hallucination_firewall_test.js
 

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /* resumption_lines_test.js -- verifies V5 authored gap greetings. */
 const path = require('path');
+const { resolveHost } = require('../host_path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
-const HOST = path.join(__dirname, '..', '..', 'build', 'persona_host');
+const HOST = resolveHost(path.join(__dirname, '..', '..'));
 const CART = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretorius.cart');
 const CHDIR = path.dirname(CART);
 const RELDIR = path.join(CHDIR, 'relations');

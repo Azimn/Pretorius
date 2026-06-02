@@ -15,11 +15,12 @@
  *      the canonical clock, not silently bypassed.
  */
 const path = require('path');
+const { resolveHost } = require('../host_path');
 const fs   = require('fs');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 
-const HOST  = path.join(__dirname, '..', '..', 'build', 'persona_host');
+const HOST  = resolveHost(path.join(__dirname, '..', '..'));
 const CART  = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretorius.cart');
 const CHDIR = path.dirname(CART);
 
