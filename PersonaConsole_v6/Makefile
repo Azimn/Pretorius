@@ -64,7 +64,8 @@ MEMORY_SRC := \
     memory/actor_index.c     \
     memory/speech_ledger.c   \
     memory/relation_dims.c   \
-    memory/dissonance.c
+    memory/dissonance.c       \
+    memory/open_loops.c
 
 SCHEMA_SRC := \
     schema/schema_state.c
@@ -484,7 +485,7 @@ v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v5_clock_replay_run v5_actor_tagged_memory_run \
               v6_self_ledger_run v6_relation_dims_run \
               v6_dissonance_run v6_withhold_logging_run v6_recall_modes_run \
-              v4_firewall_run lint_test
+              v6_open_loops_run v4_firewall_run lint_test
 	@echo "--- V4 tests: green ---"
 
 # Preferred V5 aliases for the pre-push gate. Same dep list as v4_all_tests so
@@ -543,6 +544,13 @@ v6_withhold_logging_run: build/persona_host profiles/pretorius/pretorius.cart
 v6_recall_modes_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/replay/recall_modes_test.js
+
+# V6 Phase 6: open loops / carried intentions. Asserts that a
+# half-spoken unresolved thread writes open_loops.bin, exposes count in
+# state JSON, survives restart, and replays byte-identically.
+v6_open_loops_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/replay/open_loops_test.js
 
 # ----- profile sanity drivers -----
 character: profiles/pretorius/pretorius.cart

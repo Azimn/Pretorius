@@ -480,6 +480,13 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
                 eng->state.unresolved_head = (uint8_t)((h + 1u) % 8u);
                 if (eng->state.unresolved_count < 8)
                     eng->state.unresolved_count++;
+                pe_open_loops_record(&eng->open_loops,
+                                     eng->relation.user_hash,
+                                     thread_topic,
+                                     PE_SA_DISCLOSURE,
+                                     650, 420, 520,
+                                     eng->state.turn_count,
+                                     eng->state.turn_count + 96u);
             }
         }
     }

@@ -670,6 +670,8 @@ int persona_open(Engine *eng, const char *character_dir){
     else         pe_speech_ledger_init(&eng->speech_ledger);
     /* V6 Phase 5b: typed dissonance accumulators sidecar. */
     pe_dissonance_load(&eng->dissonance, eng->char_dir);
+    /* V6 Phase 6: carried intentions / open loops sidecar. */
+    pe_open_loops_load(&eng->open_loops, eng->char_dir);
 
     if (!had_state) {
         seed_drives(eng);
@@ -809,6 +811,7 @@ int persona_save(Engine *eng){
     pe_actor_index_save(&eng->actor_index, eng->char_dir);
     pe_speech_ledger_save(&eng->speech_ledger, eng->char_dir);
     pe_dissonance_save(&eng->dissonance, eng->char_dir);
+    pe_open_loops_save(&eng->open_loops, eng->char_dir);
     pe_save_relation(eng);
     /* v3.1: chapters — non-fatal if write fails (re-crystallised on next load) */
     pe_path_join(p, sizeof(p), eng->char_dir, "chapters.bin");

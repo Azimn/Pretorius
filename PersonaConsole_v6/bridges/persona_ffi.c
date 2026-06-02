@@ -100,9 +100,13 @@ static const char *idle_topic_name(const Engine *eng){
 }
 
 static const char *unresolved_resurface(const Engine *eng, char *buf, size_t cap){
-    if (!eng || !buf || cap == 0 || eng->state.unresolved_count == 0) return NULL;
-    uint8_t idx = (uint8_t)((eng->state.unresolved_head + 7u) % 8u);
-    uint16_t topic_id = eng->state.unresolved_threads[idx];
+    if (!eng || !buf || cap == 0) return NULL;
+    const pe_open_loop_t *loop = pe_open_loops_latest_active(&eng->open_loops);
+    uint16_t topic_id = loop ? loop->target_topic_id : 0xFFFFu;
+    if (topic_id == 0xFFFFu && eng->state.unresolved_count > 0){
+        uint8_t idx = (uint8_t)((eng->state.unresolved_head + 7u) % 8u);
+        topic_id = eng->state.unresolved_threads[idx];
+    }
     if (topic_id == 0xFFFF) return NULL;
     const char *topic = topic_name_by_id(eng, topic_id);
     if (!topic[0]) topic = "what I almost said";
@@ -298,6 +302,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"last_template_group\":%u,"
         "\"last_template_intent\":\"%s\","
         "\"unresolved_count\":%u,"
+        "\"open_loop_count\":%u,"
         "\"turns_since_question\":%u,"
         "\"last_reply_had_question\":%u,"
         "\"want_ages\":[%u,%u,%u],"
@@ -330,6 +335,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         eng->last_template_group,
         intent_name(eng->last_template_intent),
         (unsigned)eng->state.unresolved_count,
+        (unsigned)pe_open_loops_count(&eng->open_loops),
         (unsigned)eng->state.turns_since_question,
         (unsigned)eng->state.last_reply_had_question,
         (unsigned)eng->state.want_turns_since_engaged[0],

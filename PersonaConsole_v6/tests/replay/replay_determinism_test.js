@@ -35,7 +35,7 @@ function wipeState(){
    * its state across runs and reports false determinism failures. */
   for (const f of ['state.bin', 'memory.bin', 'chapters.bin',
                    'reflections.bin', 'actor_index.bin',
-                   'speech_events.bin', 'dissonance.bin']){
+                   'speech_events.bin', 'dissonance.bin','open_loops.bin']){
     try { fs.unlinkSync(path.join(CHDIR, f)); } catch {}
   }
   try { execSync(`rm -rf ${path.join(CHDIR, 'relations')} ${path.join(CHDIR, 'aether')}`); } catch {}

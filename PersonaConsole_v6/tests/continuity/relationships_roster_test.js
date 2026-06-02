@@ -10,7 +10,7 @@ const CART = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretoriu
 const CHDIR = path.dirname(CART);
 
 function wipeState(){
-  for (const f of ['state.bin', 'memory.bin', 'chapters.bin', 'reflections.bin']){
+  for (const f of ['state.bin', 'memory.bin', 'chapters.bin', 'reflections.bin','open_loops.bin']){
     try { fs.unlinkSync(path.join(CHDIR, f)); } catch {}
   }
   for (const d of ['relations', 'aether']){

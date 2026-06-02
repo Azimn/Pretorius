@@ -30,7 +30,7 @@ if (!fs.existsSync(HOST)){ console.error('persona_host not built'); process.exit
 if (!fs.existsSync(CART)){ console.error('cart not found:', CART); process.exit(2); }
 
 function wipeState(){
-  for (const f of ['state.bin', 'memory.bin', 'chapters.bin', 'reflections.bin']){
+  for (const f of ['state.bin', 'memory.bin', 'chapters.bin', 'reflections.bin','open_loops.bin']){
     try { fs.unlinkSync(path.join(CHDIR, f)); } catch {}
   }
   for (const d of ['relations', 'aether']){
