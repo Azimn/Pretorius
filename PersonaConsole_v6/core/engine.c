@@ -1282,6 +1282,13 @@ post_render:;
         }
 
         pe_speech_ledger_record(&eng->speech_ledger, &sev);
+        pe_open_loops_expire_to(&eng->open_loops, eng->state.turn_count);
+        if (eng->input_class == 3 && !pe_speech_act_is_withhold(sev.speech_act)){
+            pe_open_loops_resolve_topic(&eng->open_loops,
+                                        sev.target_actor_id,
+                                        sev.target_topic_id,
+                                        eng->state.turn_count);
+        }
 
         /* V6 Phase 5b: typed dissonance ticks per turn (slow decay
          * toward 0) and shifts by speech-act class — evasion/deflection/

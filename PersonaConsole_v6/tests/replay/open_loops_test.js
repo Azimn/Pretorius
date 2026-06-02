@@ -32,14 +32,14 @@ function sha(p){
     : null;
 }
 
-function runSession(commands){
+function runSession(commands, extraEnv = {}){
   return new Promise((resolve, reject) => {
     const proc = spawn(HOST, [CART, '--stdio'], {
       env: {
         ...process.env,
         PE_TODAY_SEED: '0x5155',
         PE_CLOCK_OVERRIDE_MS: '1700000000000',
-        PE_FORCE_UNRESOLVED_THREAD: '1',
+        ...extraEnv,
       },
     });
     let stdout = '', stderr = '';
@@ -76,12 +76,13 @@ const SCRIPT = [
   { method: 'idle_probe' },
   { method: 'state' },
 ];
+const FORCE = { PE_FORCE_UNRESOLVED_THREAD: '1' };
 
 (async function main(){
   console.log('--- V6 Phase 6 open loops ---');
 
   wipe();
-  const rows1 = await runSession(SCRIPT);
+  const rows1 = await runSession(SCRIPT, FORCE);
   const half = rows1.find(r => r && typeof r.reply === 'string'
                             && /never mind/i.test(r.reply));
   const idle = rows1.find(r => r && typeof r.reply === 'string'
@@ -93,6 +94,8 @@ const SCRIPT = [
      'state exposes open_loop_count');
   ok(s1 && s1.open_loop_count > 0,
      `open_loop_count increments (got ${s1 && s1.open_loop_count})`);
+  ok(s1 && s1.open_loop_resolved_count === 0,
+     'idle probe does not resolve an open loop');
 
   const sidecar1 = sha(path.join(CHDIR, 'open_loops.bin'));
   ok(sidecar1, 'open_loops.bin sidecar was written');
@@ -102,11 +105,40 @@ const SCRIPT = [
   ok(s2 && s2.open_loop_count === s1.open_loop_count,
      `open loops survive restart (before=${s1.open_loop_count} after=${s2 && s2.open_loop_count})`);
 
+  const resolveRows = await runSession([
+    { method: 'chat', text: 'Tell me about your work.' },
+    { method: 'state' },
+  ]);
+  const sResolve = lastState(resolveRows);
+  ok(sResolve && sResolve.open_loop_resolved_count > 0,
+     `matching topic chat resolves carried loop (resolved=${sResolve && sResolve.open_loop_resolved_count})`);
+  ok(sResolve && sResolve.open_loop_count < s2.open_loop_count,
+     `active open-loop count drops after resolution (${s2.open_loop_count} -> ${sResolve && sResolve.open_loop_count})`);
+
   wipe();
-  await runSession(SCRIPT);
+  await runSession(SCRIPT, FORCE);
   const sidecar2 = sha(path.join(CHDIR, 'open_loops.bin'));
   ok(sidecar1 && sidecar2 && sidecar1 === sidecar2,
      `pinned replay produces byte-identical open_loops.bin (${sidecar1} vs ${sidecar2})`);
+
+  wipe();
+  await runSession(SCRIPT, FORCE);
+  const expireRows = await runSession([
+    { method: 'chat', text: 'Good morning.' },
+    { method: 'state' },
+  ], { PE_CLOCK_OVERRIDE_MS: '1700000000000' });
+  const sExpireEarly = lastState(expireRows);
+  ok(sExpireEarly && sExpireEarly.open_loop_expired_count === 0,
+     'fresh open loops do not expire immediately');
+
+  const longRun = [];
+  for (let i = 0; i < 100; i++)
+    longRun.push({ method: 'chat', text: `plain turn ${i}` });
+  longRun.push({ method: 'state' });
+  const expiredRows = await runSession(longRun);
+  const sExpired = lastState(expiredRows);
+  ok(sExpired && sExpired.open_loop_expired_count > 0,
+     `old open loops expire after their deadline (expired=${sExpired && sExpired.open_loop_expired_count})`);
 
   wipe();
 

@@ -303,6 +303,8 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"last_template_intent\":\"%s\","
         "\"unresolved_count\":%u,"
         "\"open_loop_count\":%u,"
+        "\"open_loop_resolved_count\":%u,"
+        "\"open_loop_expired_count\":%u,"
         "\"turns_since_question\":%u,"
         "\"last_reply_had_question\":%u,"
         "\"want_ages\":[%u,%u,%u],"
@@ -336,6 +338,8 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         intent_name(eng->last_template_intent),
         (unsigned)eng->state.unresolved_count,
         (unsigned)pe_open_loops_count(&eng->open_loops),
+        (unsigned)pe_open_loops_count_status(&eng->open_loops, PE_OL_RESOLVED),
+        (unsigned)pe_open_loops_count_status(&eng->open_loops, PE_OL_EXPIRED),
         (unsigned)eng->state.turns_since_question,
         (unsigned)eng->state.last_reply_had_question,
         (unsigned)eng->state.want_turns_since_engaged[0],

@@ -83,12 +83,16 @@ void pe_open_loops_record(pe_open_loops_t *ol,
 }
 
 uint32_t pe_open_loops_count(const pe_open_loops_t *ol){
+    return pe_open_loops_count_status(ol, PE_OL_ACTIVE);
+}
+
+uint32_t pe_open_loops_count_status(const pe_open_loops_t *ol, uint8_t status){
     if (!ol || ol->header.magic != PE_OPEN_LOOPS_MAGIC) return 0;
     uint32_t n = 0;
     uint32_t count = ol->header.entry_count;
     if (count > PE_OPEN_LOOPS_RING_SIZE) count = PE_OPEN_LOOPS_RING_SIZE;
     for (uint32_t i = 0; i < count; ++i)
-        if (ol->loops[i].status == PE_OL_ACTIVE) n++;
+        if (ol->loops[i].status == status) n++;
     return n;
 }
 
@@ -104,4 +108,42 @@ const pe_open_loop_t *pe_open_loops_latest_active(const pe_open_loops_t *ol){
             return &ol->loops[idx];
     }
     return NULL;
+}
+
+uint32_t pe_open_loops_expire_to(pe_open_loops_t *ol, uint32_t turn_count){
+    if (!ol || ol->header.magic != PE_OPEN_LOOPS_MAGIC) return 0;
+    uint32_t changed = 0;
+    uint32_t count = ol->header.entry_count;
+    if (count > PE_OPEN_LOOPS_RING_SIZE) count = PE_OPEN_LOOPS_RING_SIZE;
+    for (uint32_t i = 0; i < count; ++i){
+        pe_open_loop_t *loop = &ol->loops[i];
+        if (loop->status != PE_OL_ACTIVE) continue;
+        if (loop->expires_turn != 0 && turn_count >= loop->expires_turn){
+            loop->status = PE_OL_EXPIRED;
+            changed++;
+        }
+    }
+    return changed;
+}
+
+uint32_t pe_open_loops_resolve_topic(pe_open_loops_t *ol,
+                                     uint32_t actor_id,
+                                     uint16_t topic_id,
+                                     uint32_t turn_count){
+    if (!ol || ol->header.magic != PE_OPEN_LOOPS_MAGIC
+        || topic_id == 0xFFFFu) return 0;
+    uint32_t changed = 0;
+    uint32_t count = ol->header.entry_count;
+    if (count > PE_OPEN_LOOPS_RING_SIZE) count = PE_OPEN_LOOPS_RING_SIZE;
+    for (uint32_t i = 0; i < count; ++i){
+        pe_open_loop_t *loop = &ol->loops[i];
+        if (loop->status != PE_OL_ACTIVE) continue;
+        if (loop->created_turn >= turn_count) continue;
+        if (loop->target_topic_id != topic_id) continue;
+        if (loop->target_actor_id != 0 && actor_id != 0
+            && loop->target_actor_id != actor_id) continue;
+        loop->status = PE_OL_RESOLVED;
+        changed++;
+    }
+    return changed;
 }

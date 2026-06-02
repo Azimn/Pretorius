@@ -64,7 +64,14 @@ void pe_open_loops_record(pe_open_loops_t *ol,
                           uint32_t expires_turn);
 
 uint32_t pe_open_loops_count(const pe_open_loops_t *ol);
+uint32_t pe_open_loops_count_status(const pe_open_loops_t *ol, uint8_t status);
 const pe_open_loop_t *pe_open_loops_latest_active(const pe_open_loops_t *ol);
+
+uint32_t pe_open_loops_expire_to(pe_open_loops_t *ol, uint32_t turn_count);
+uint32_t pe_open_loops_resolve_topic(pe_open_loops_t *ol,
+                                     uint32_t actor_id,
+                                     uint16_t topic_id,
+                                     uint32_t turn_count);
 
 #ifdef __cplusplus
 }
