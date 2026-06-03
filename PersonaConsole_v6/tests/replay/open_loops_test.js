@@ -105,8 +105,20 @@ const FORCE = { PE_FORCE_UNRESOLVED_THREAD: '1' };
   ok(s2 && s2.open_loop_count === s1.open_loop_count,
      `open loops survive restart (before=${s1.open_loop_count} after=${s2 && s2.open_loop_count})`);
 
+  const steerRows = await runSession([
+    { method: 'chat', text: 'plain neutral continuation' },
+    { method: 'state' },
+  ]);
+  const sSteer = lastState(steerRows);
+  ok(sSteer && (sSteer.intent === 'initiate' || sSteer.intent === 'redirect'),
+     `open loop can bias neutral planning toward initiative/redirect (intent=${sSteer && sSteer.intent})`);
+  ok(sSteer && typeof sSteer.target_topic === 'number' && sSteer.target_topic !== 65535,
+     `open loop gives planner a concrete known target topic (${sSteer && sSteer.target_topic})`);
+  ok(sSteer && sSteer.open_loop_resolved_count === 0,
+     'neutral planning pressure does not resolve the loop');
+
   const resolveRows = await runSession([
-    { method: 'chat', text: 'Tell me about your work.' },
+    { method: 'chat', text: 'Tell me more about that.' },
     { method: 'state' },
   ]);
   const sResolve = lastState(resolveRows);

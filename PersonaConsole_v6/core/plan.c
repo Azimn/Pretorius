@@ -95,6 +95,14 @@ static int is_reflection_node(const MemoryNode *m){
         && !strncmp(m->summary, "[reflection", 11);
 }
 
+static const pe_open_loop_t *planning_open_loop(const Engine *eng){
+    const pe_open_loop_t *loop =
+        pe_open_loops_latest_for_actor(&eng->open_loops, eng->relation.user_hash);
+    if (!loop) return NULL;
+    return pe_open_loop_pressure(loop, eng->state.turn_count) >= 500u
+         ? loop : NULL;
+}
+
 void pe_build_plan(Engine *eng){
     UtterancePlan *p = &eng->plan;
     memset(p, 0, sizeof(*p));
@@ -118,11 +126,15 @@ void pe_build_plan(Engine *eng){
     p->rhetorical_mode = mode;
     p->stance          = pick_stance(eng);
 
-    /* target topic: fixation > primary input topic > neglected want > obsession pressure target */
+    const pe_open_loop_t *open_loop = planning_open_loop(eng);
+
+    /* target topic: fixation > primary input topic > open loop > neglected want > obsession pressure target */
     if (eng->state.fixation_topic != 0xFFFF && eng->state.fixation_strength > 400)
         p->target_topic = eng->state.fixation_topic;
     else if (eng->primary_topic != 0xFFFF)
         p->target_topic = eng->primary_topic;
+    else if (open_loop && open_loop->target_topic_id != 0xFFFFu)
+        p->target_topic = open_loop->target_topic_id;
     else {
         /* if obsession_pressure is high, pick a starved obsession topic */
         p->target_topic = 0xFFFF;
@@ -137,6 +149,20 @@ void pe_build_plan(Engine *eng){
                 if (!o) break;
                 p->target_topic = o; break;
             }
+        }
+    }
+
+    if (open_loop && p->target_topic == open_loop->target_topic_id){
+        uint16_t pressure = pe_open_loop_pressure(open_loop, eng->state.turn_count);
+        if (open_loop->avoidance_pressure > open_loop->urgency + 180u){
+            if (p->rhetorical_mode != PE_RHET_LAMENT)
+                p->rhetorical_mode = PE_RHET_DEFLECT;
+        } else if (open_loop->shame_cost > 600u || eng->dissonance.ideal_gap > 200u){
+            p->rhetorical_mode = PE_RHET_CONFESS;
+            if (p->stance == PE_STANCE_NEUTRAL)
+                p->stance = PE_STANCE_DEFENSIVE;
+        } else if (pressure > 700u && p->rhetorical_mode == PE_RHET_ASSERT) {
+            p->rhetorical_mode = PE_RHET_HEDGE;
         }
     }
 
@@ -160,6 +186,10 @@ void pe_build_plan(Engine *eng){
                   - (eng->state.paranoia / 8)
                   - (eng->state.acute_spike > 0 ? eng->state.acute_spike/16 : -eng->state.acute_spike/16)
                   - (eng->negation_active ? 60 : 0);
+        p->certainty = clmp_u8(c);
+    }
+    if (open_loop && p->target_topic == open_loop->target_topic_id){
+        int32_t c = (int32_t)p->certainty - (int32_t)(open_loop->avoidance_pressure / 24u);
         p->certainty = clmp_u8(c);
     }
 
@@ -211,6 +241,12 @@ void pe_build_plan(Engine *eng){
             hg -= 50;
             if (hg < 0) hg = 0;
         }
+        p->hedging = clmp_u8(hg);
+    }
+    if (open_loop && p->target_topic == open_loop->target_topic_id){
+        int32_t hg = (int32_t)p->hedging
+                   + (int32_t)(open_loop->shame_cost / 20u)
+                   + (int32_t)(open_loop->avoidance_pressure / 28u);
         p->hedging = clmp_u8(hg);
     }
 

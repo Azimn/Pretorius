@@ -1053,6 +1053,21 @@ int persona_process_input(Engine *eng,
         if ((persona_rng_u32(&eng->state) & 0xFFu) < 100u)
             eng->state.current_intent = PE_INTENT_PAUSE;
     }
+    {
+        const pe_open_loop_t *loop =
+            pe_open_loops_latest_for_actor(&eng->open_loops, eng->relation.user_hash);
+        uint16_t pressure = pe_open_loop_pressure(loop, eng->state.turn_count);
+        if (loop && pressure >= 700
+            && eng->input_class == 0
+            && eng->matched_group == 0xFFFF
+            && eng->state.current_intent != PE_INTENT_PAUSE
+            && eng->state.current_intent != PE_INTENT_WITHDRAW){
+            if (loop->avoidance_pressure > loop->urgency + 180u)
+                eng->state.current_intent = PE_INTENT_REDIRECT;
+            else
+                eng->state.current_intent = PE_INTENT_INITIATE;
+        }
+    }
 
     /* 9a. v2: build rhetorical plan before realization */
     pe_build_plan(eng);

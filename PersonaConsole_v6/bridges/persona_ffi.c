@@ -301,6 +301,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"voice_choice\":%u,"
         "\"last_template_group\":%u,"
         "\"last_template_intent\":\"%s\","
+        "\"target_topic\":%u,"
         "\"unresolved_count\":%u,"
         "\"open_loop_count\":%u,"
         "\"open_loop_resolved_count\":%u,"
@@ -336,6 +337,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         eng->state.last_voice_choice,
         eng->last_template_group,
         intent_name(eng->last_template_intent),
+        (unsigned)eng->state.last_target_topic,
         (unsigned)eng->state.unresolved_count,
         (unsigned)pe_open_loops_count(&eng->open_loops),
         (unsigned)pe_open_loops_count_status(&eng->open_loops, PE_OL_RESOLVED),

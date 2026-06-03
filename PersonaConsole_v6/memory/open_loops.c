@@ -110,6 +110,37 @@ const pe_open_loop_t *pe_open_loops_latest_active(const pe_open_loops_t *ol){
     return NULL;
 }
 
+const pe_open_loop_t *pe_open_loops_latest_for_actor(const pe_open_loops_t *ol,
+                                                     uint32_t actor_id){
+    if (!ol || ol->header.magic != PE_OPEN_LOOPS_MAGIC
+        || ol->header.entry_count == 0) return NULL;
+    uint32_t count = ol->header.entry_count;
+    if (count > PE_OPEN_LOOPS_RING_SIZE) count = PE_OPEN_LOOPS_RING_SIZE;
+    for (uint32_t step = 0; step < count; ++step){
+        uint32_t idx = (ol->head + PE_OPEN_LOOPS_RING_SIZE - 1u - step)
+                     % PE_OPEN_LOOPS_RING_SIZE;
+        const pe_open_loop_t *loop = &ol->loops[idx];
+        if (loop->status != PE_OL_ACTIVE) continue;
+        if (loop->target_actor_id != 0 && actor_id != 0
+            && loop->target_actor_id != actor_id) continue;
+        return loop;
+    }
+    return NULL;
+}
+
+uint16_t pe_open_loop_pressure(const pe_open_loop_t *loop,
+                               uint32_t turn_count){
+    if (!loop || loop->status != PE_OL_ACTIVE) return 0;
+    uint32_t age = turn_count > loop->created_turn
+                 ? turn_count - loop->created_turn : 0u;
+    if (age > 96u) age = 96u;
+    uint32_t v = loop->urgency
+               + loop->shame_cost / 3u
+               + loop->avoidance_pressure / 4u
+               + age * 4u;
+    return (uint16_t)(v > 1000u ? 1000u : v);
+}
+
 uint32_t pe_open_loops_expire_to(pe_open_loops_t *ol, uint32_t turn_count){
     if (!ol || ol->header.magic != PE_OPEN_LOOPS_MAGIC) return 0;
     uint32_t changed = 0;
