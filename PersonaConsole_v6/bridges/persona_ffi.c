@@ -308,6 +308,12 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"open_loop_expired_count\":%u,"
         "\"turns_since_question\":%u,"
         "\"last_reply_had_question\":%u,"
+        "\"habit_question_bias\":%u,"
+        "\"habit_brevity_bias\":%u,"
+        "\"habit_initiative_bias\":%u,"
+        "\"habit_avg_reply_words\":%u,"
+        "\"habit_turns_observed\":%u,"
+        "\"habit_no_question_streak\":%u,"
         "\"want_ages\":[%u,%u,%u],"
         "\"disposition\":%d,"
         "\"user_id\":\"%s\","
@@ -344,6 +350,12 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         (unsigned)pe_open_loops_count_status(&eng->open_loops, PE_OL_EXPIRED),
         (unsigned)eng->state.turns_since_question,
         (unsigned)eng->state.last_reply_had_question,
+        (unsigned)eng->speech_habits.question_bias,
+        (unsigned)eng->speech_habits.brevity_bias,
+        (unsigned)eng->speech_habits.initiative_bias,
+        (unsigned)(eng->speech_habits.avg_reply_words_q8 >> 8),
+        (unsigned)eng->speech_habits.turns_observed,
+        (unsigned)eng->speech_habits.no_question_streak,
         (unsigned)eng->state.want_turns_since_engaged[0],
         (unsigned)eng->state.want_turns_since_engaged[1],
         (unsigned)eng->state.want_turns_since_engaged[2],

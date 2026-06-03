@@ -78,6 +78,8 @@ extern "C" {
 #include "dissonance.h"
 /* V6 Phase 6: open loops / carried intentions. */
 #include "open_loops.h"
+/* V6 Phase 6: lightweight conversation rhythm habits. */
+#include "speech_habits.h"
 
 /* V6 Phase 5d: recall modes — per V6_DOCTRINE §16, the same memory
  * store supports many retrieval intents; the planner selects one based
@@ -613,6 +615,7 @@ struct Engine {
     pe_relation_dims_t relation_dims;         /* V6 Phase 4: multi-dim relational profile for current actor */
     pe_dissonance_t    dissonance;            /* V6 Phase 5b: ideal/ought/feared accumulators */
     pe_open_loops_t    open_loops;            /* V6 Phase 6: carried intentions */
+    pe_speech_habits_t speech_habits;         /* V6 Phase 6: conversation rhythm habits */
     uint8_t            current_recall_mode;   /* V6 Phase 5d: selected per-turn from state */
     SchemaState      schema;                /* V4: per-relation compressed beliefs */
 

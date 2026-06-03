@@ -82,7 +82,7 @@ function makeLegacyCart(){
 }
 
 function wipeTempState(){
-  for (const f of ['state.bin', 'memory.bin', 'chapters.bin', 'reflections.bin','open_loops.bin']){
+  for (const f of ['state.bin', 'memory.bin', 'chapters.bin', 'reflections.bin','open_loops.bin','speech_habits.bin']){
     try { fs.unlinkSync(path.join(TMPDIR, f)); } catch {}
   }
   for (const d of ['relations', 'aether']){

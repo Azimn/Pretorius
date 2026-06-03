@@ -24,7 +24,7 @@ const RDIR  = path.join(CHDIR, 'relations');
 
 function wipe(){
   for (const f of ['state.bin','memory.bin','chapters.bin','reflections.bin',
-                   'actor_index.bin','speech_events.bin','open_loops.bin']){
+                   'actor_index.bin','speech_events.bin','open_loops.bin','speech_habits.bin']){
     try { fs.unlinkSync(path.join(CHDIR, f)); } catch {}
   }
   for (const d of ['relations','aether']){

@@ -672,6 +672,8 @@ int persona_open(Engine *eng, const char *character_dir){
     pe_dissonance_load(&eng->dissonance, eng->char_dir);
     /* V6 Phase 6: carried intentions / open loops sidecar. */
     pe_open_loops_load(&eng->open_loops, eng->char_dir);
+    /* V6 Phase 6: lightweight rhythm habits sidecar. */
+    pe_speech_habits_load(&eng->speech_habits, eng->char_dir);
 
     if (!had_state) {
         seed_drives(eng);
@@ -812,6 +814,7 @@ int persona_save(Engine *eng){
     pe_speech_ledger_save(&eng->speech_ledger, eng->char_dir);
     pe_dissonance_save(&eng->dissonance, eng->char_dir);
     pe_open_loops_save(&eng->open_loops, eng->char_dir);
+    pe_speech_habits_save(&eng->speech_habits, eng->char_dir);
     pe_save_relation(eng);
     /* v3.1: chapters — non-fatal if write fails (re-crystallised on next load) */
     pe_path_join(p, sizeof(p), eng->char_dir, "chapters.bin");
@@ -1053,6 +1056,18 @@ int persona_process_input(Engine *eng,
         if ((persona_rng_u32(&eng->state) & 0xFFu) < 100u)
             eng->state.current_intent = PE_INTENT_PAUSE;
     }
+    if (eng->speech_habits.question_bias >= 180u
+        && eng->input_class != 2
+        && eng->input_class != 3
+        && eng->input_class != 4
+        && eng->state.current_intent != PE_INTENT_PAUSE
+        && eng->state.current_intent != PE_INTENT_WITHDRAW
+        && eng->state.current_intent != PE_INTENT_ATTEND
+        && eng->state.current_intent != PE_INTENT_REMINISCE){
+        eng->state.current_intent =
+            (eng->speech_habits.initiative_bias > eng->speech_habits.question_bias + 60u)
+            ? PE_INTENT_INITIATE : PE_INTENT_PROBE;
+    }
     {
         const pe_open_loop_t *loop =
             pe_open_loops_latest_for_actor(&eng->open_loops, eng->relation.user_hash);
@@ -1149,6 +1164,7 @@ post_render:;
         if (asked) eng->state.turns_since_question = 0;
         else if (eng->state.turns_since_question < 255)
             eng->state.turns_since_question++;
+        pe_speech_habits_update(&eng->speech_habits, out, asked, eng->input_class);
     }
 
     /* 11b. v3.0: at end-of-turn, predict next input given what we just

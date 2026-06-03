@@ -204,6 +204,8 @@ void pe_build_plan(Engine *eng){
             verb -= 20;
             if (verb < 0) verb = 0;
         }
+        if (eng->speech_habits.brevity_bias > 0)
+            verb -= (int32_t)eng->speech_habits.brevity_bias / 5;
         p->verbosity = clmp_u8(verb);
     }
 
@@ -224,6 +226,8 @@ void pe_build_plan(Engine *eng){
         th += eng->state.intoxication / 8;
         th -= eng->state.exhaustion / 6;
         if (eng->state.fixation_strength > 500) th += 40;
+        if (eng->speech_habits.brevity_bias > 250u)
+            th -= (int32_t)eng->speech_habits.brevity_bias / 10;
         p->theatricality = clmp_u8(th);
     }
 

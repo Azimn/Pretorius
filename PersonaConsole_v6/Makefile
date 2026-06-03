@@ -65,7 +65,8 @@ MEMORY_SRC := \
     memory/speech_ledger.c   \
     memory/relation_dims.c   \
     memory/dissonance.c       \
-    memory/open_loops.c
+    memory/open_loops.c       \
+    memory/speech_habits.c
 
 SCHEMA_SRC := \
     schema/schema_state.c
@@ -125,6 +126,7 @@ CORE_HEADERS := \
 MEMORY_HEADERS := \
     memory/aether.h memory/aether_internal.h memory/lsh_memory.h \
     memory/consolidate.h memory/reflection.h memory/recall_plasticity.h
+MEMORY_HEADERS += memory/speech_habits.h
 RENDER_HEADERS := \
     render/templates/ngram_lm.h render/templates/mutator.h
 
@@ -485,7 +487,7 @@ v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v5_clock_replay_run v5_actor_tagged_memory_run \
               v6_self_ledger_run v6_relation_dims_run \
               v6_dissonance_run v6_withhold_logging_run v6_recall_modes_run \
-              v6_open_loops_run v4_firewall_run lint_test
+              v6_open_loops_run v6_speech_habits_run v4_firewall_run lint_test
 	@echo "--- V4 tests: green ---"
 
 # Preferred V5 aliases for the pre-push gate. Same dep list as v4_all_tests so
@@ -551,6 +553,12 @@ v6_recall_modes_run: build/persona_host profiles/pretorius/pretorius.cart
 v6_open_loops_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/replay/open_loops_test.js
+
+# V6 Phase 6: speech habits. Asserts that the conversation-rhythm
+# sidecar is written, exposed in state JSON, persisted, and replay-stable.
+v6_speech_habits_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/replay/speech_habits_test.js
 
 # ----- profile sanity drivers -----
 character: profiles/pretorius/pretorius.cart
