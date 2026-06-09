@@ -134,6 +134,21 @@ void pe_speech_ledger_record(pe_speech_ledger_t *led,
 /* Inspection helpers. */
 uint32_t                  pe_speech_ledger_count(const pe_speech_ledger_t *led);
 const pe_speech_event_t  *pe_speech_ledger_last (const pe_speech_ledger_t *led);
+const pe_speech_event_t  *pe_speech_ledger_last_speech_act(const pe_speech_ledger_t *led,
+                                                           uint8_t speech_act);
+const pe_speech_event_t  *pe_speech_ledger_last_by_actor_topic(const pe_speech_ledger_t *led,
+                                                               uint32_t actor_id,
+                                                               uint16_t topic_id,
+                                                               uint8_t speech_act);
+const pe_speech_event_t  *pe_speech_ledger_last_refusal(const pe_speech_ledger_t *led);
+const pe_speech_event_t  *pe_speech_ledger_last_promise(const pe_speech_ledger_t *led);
+const pe_speech_event_t  *pe_speech_ledger_last_apology(const pe_speech_ledger_t *led);
+const pe_speech_event_t  *pe_speech_ledger_last_contradiction_candidate(const pe_speech_ledger_t *led,
+                                                                        uint32_t actor_id,
+                                                                        uint16_t topic_id);
+int                       pe_speech_ledger_recent_repeated_act(const pe_speech_ledger_t *led,
+                                                               uint8_t speech_act,
+                                                               uint32_t window);
 
 /* Engine-side conveniences: map a current PE_INTENT_* to a default
  * PE_SA_*, and a name lookup for state-trace / debug output. The

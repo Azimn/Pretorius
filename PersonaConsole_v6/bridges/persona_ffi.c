@@ -321,6 +321,13 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"speech_event_count\":%u,"
         "\"last_speech_act\":\"%s\","
         "\"last_withhold_reason\":\"%s\","
+        "\"last_audit_result\":%u,"
+        "\"frame\":{\"actor_id\":%u,\"input_class\":%u,\"primary_topic\":%u,"
+                  "\"selected_goal\":%u,\"selected_intent\":\"%s\","
+                  "\"speech_act\":\"%s\",\"stance\":%u,\"rhetorical_mode\":\"%s\","
+                  "\"recall_mode\":\"%s\",\"open_loop_pressure\":%u,"
+                  "\"ideal_gap\":%u,\"ought_gap\":%u,\"feared_gap\":%u,"
+                  "\"max_words\":%u,\"require_question\":%u,\"allow_empty\":%u},"
         "\"relation_dims\":{\"trust\":%u,\"threat\":%u,\"intimacy\":%u,"
                           "\"resentment\":%u,\"dependency\":%u,\"obligation\":%u,"
                           "\"envy\":%u,\"admiration\":%u,\"embarrassment\":%u},"
@@ -369,6 +376,23 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         pe_withhold_reason_name(pe_speech_ledger_last(&eng->speech_ledger)
                                 ? pe_speech_ledger_last(&eng->speech_ledger)->withhold_reason
                                 : PE_WR_NONE),
+        (unsigned)eng->last_audit_result,
+        (unsigned)eng->frame.actor_id,
+        (unsigned)eng->frame.input_class,
+        (unsigned)eng->frame.primary_topic,
+        (unsigned)eng->frame.selected_goal,
+        intent_name(eng->frame.selected_intent),
+        pe_speech_act_name(eng->frame.speech_act),
+        (unsigned)eng->frame.stance,
+        rhet_name(eng->frame.rhetorical_mode),
+        pe_recall_mode_name((uint8_t)eng->frame.recall_mode),
+        (unsigned)eng->frame.open_loop_pressure,
+        (unsigned)eng->frame.ideal_gap,
+        (unsigned)eng->frame.ought_gap,
+        (unsigned)eng->frame.feared_gap,
+        (unsigned)eng->frame.max_words,
+        (unsigned)eng->frame.require_question,
+        (unsigned)eng->frame.allow_empty,
         (unsigned)eng->relation_dims.trust,
         (unsigned)eng->relation_dims.threat,
         (unsigned)eng->relation_dims.intimacy,

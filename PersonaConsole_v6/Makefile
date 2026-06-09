@@ -148,7 +148,8 @@ RENDER_HEADERS := \
         host host_run host_test \
         forge_cart_test forge_bundle_test forge_dialogue_test \
         forge_archetypes_test forge_parsers_test inspector_test web_presence_test \
-        demo_package release_check micro micro_size_report micro_replay_run
+        demo_package release_check micro micro_size_report micro_replay_run \
+        strict_check strict_gate v6_believability_battery_run v6_recall_mode_order_run
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
      build/compile_cartridge build/compile_pretorius build/compile_kiki \
@@ -349,6 +350,11 @@ voice_test: build/voice_test
 voice_run: voice_test character
 	./build/voice_test
 
+build/recall_mode_order_test: tests/replay/recall_mode_order_test.c build/libpersona.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) tests/replay/recall_mode_order_test.c build/libpersona.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+v6_recall_mode_order_run: build/recall_mode_order_test
+	./build/recall_mode_order_test
+
 # ----- Forge end-to-end tests (node) -----
 forge_cart_test: build/persona_host build/cartridge_lint
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH — skipping"; exit 0; }
@@ -516,6 +522,10 @@ v5_believability_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/believability_trial.js
 
+v6_believability_battery_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/believability_battery.js
+
 lint_test: build/cartridge_lint profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart
 	./build/cartridge_lint profiles/pretorius/pretorius.cart
 	./build/cartridge_lint profiles/kiki/kiki.cart
@@ -552,6 +562,20 @@ v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
 # clock-pinned determinism test).
 runtime_gate: v4_all_tests
 v5_gate: v4_all_tests
+
+strict_check:
+	@test "$(STRICT_TESTS)" = "1" || { echo "Set STRICT_TESTS=1 for strict gate"; exit 2; }
+	@command -v node >/dev/null 2>&1 || { echo "STRICT_TESTS: node missing"; exit 1; }
+	@command -v unzip >/dev/null 2>&1 || { echo "STRICT_TESTS: unzip missing"; exit 1; }
+	@command -v $(CC) >/dev/null 2>&1 || { echo "STRICT_TESTS: compiler '$(CC)' missing"; exit 1; }
+	@test -f profiles/pretorius/pretorius.cart || { echo "STRICT_TESTS: Pretorius cart missing"; exit 1; }
+	@test -f tests/replay/replay_determinism_test.js || { echo "STRICT_TESTS: replay test missing"; exit 1; }
+	@test -f tests/continuity/believability_trial.js || { echo "STRICT_TESTS: believability test missing"; exit 1; }
+
+strict_gate: strict_check micro_replay_run v4_replay_run v6_recall_modes_run \
+             v6_open_loops_run v6_self_ledger_run v6_recall_mode_order_run \
+             v6_believability_battery_run
+	@echo "--- STRICT_TESTS gate: green ---"
 
 # Clock-pinned replay: proves Layer 1 state is reproducible from the
 # canonical five-tuple (cartridge, seed, WAL, inputs, clock).

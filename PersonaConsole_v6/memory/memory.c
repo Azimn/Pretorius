@@ -218,12 +218,24 @@ const char *pe_recall_mode_name(uint8_t m){
  * Phase 5c's withhold-reason cascade, deterministic over the five-tuple. */
 static uint8_t pick_recall_mode(const Engine *eng){
     if (eng->dissonance.feared_gap > 400)      return PE_RECALL_SHAME_AVOIDANT;
+    if (eng->relation_dims.threat > 700)       return PE_RECALL_DEFENSIVE;
     if (eng->relation_dims.resentment > 400)   return PE_RECALL_ACCUSATORY;
     if (eng->relation_dims.intimacy > 600)     return PE_RECALL_INTIMACY_SEEKING;
     if (eng->state.obsession_pressure > 600)   return PE_RECALL_OBSESSION_DRIVEN;
+    if (eng->state.drive_values[PE_DRIVE_CONTINUITY] > 800
+        && eng->state.mood > -150)             return PE_RECALL_NOSTALGIC;
     if (eng->state.mood < -200 || eng->state.mood > 200)
                                                 return PE_RECALL_MOOD_CONGRUENT;
     return PE_RECALL_ACCURATE;
+}
+
+static int topic_is_obsession(const Engine *eng, uint16_t topic_id){
+    if (topic_id == 0xFFFFu || topic_id == 0) return 0;
+    for (int i = 0; i < PE_OBSESSION_COUNT; ++i){
+        if (!eng->identity.obsessions[i]) break;
+        if (eng->identity.obsessions[i] == topic_id) return 1;
+    }
+    return 0;
 }
 
 void pe_associative_recall(Engine *eng, const EmotionVector *ev){
@@ -296,15 +308,30 @@ void pe_associative_recall(Engine *eng, const EmotionVector *ev){
         }
 
         /* V6 Phase 5d: recall-mode scoring shift. Same memory store,
-         * different retrieval intent — mood-congruent recall (Bower 1981)
-         * boosts emotionally-matching memories; shame-avoidant recall
-         * dampens negative-valence memories. Other modes (defensive,
-         * accusatory, intimacy-seeking, etc.) land in future Phase 5+
-         * commits; this commit ships ACCURATE / MOOD_CONGRUENT /
-         * SHAME_AVOIDANT as the first three. The shift is modest — it
-         * changes which memories surface at the margin, not which
-         * memories exist. */
+         * different retrieval intent. Modifiers are deliberately modest,
+         * integer-only, and inspectable: they change ranking at the
+         * margins without inventing, deleting, or rewriting memories. */
         switch (mode){
+        case PE_RECALL_DEFENSIVE:
+            if (m->emotion.dominance < 0 || m->emotion.valence < 0) match += 24;
+            if (m->emotion.valence > 40) match -= 12;
+            break;
+        case PE_RECALL_NOSTALGIC:
+            if (m->core_memory || m->memory_type == MEM_CORE) match += 26;
+            if (m->emotion.valence > 0 && m->emotion.arousal < 65) match += 18;
+            break;
+        case PE_RECALL_ACCUSATORY:
+            if (m->emotion.valence < 0) match += 28;
+            if (m->emotion.dominance < 0) match += 12;
+            break;
+        case PE_RECALL_INTIMACY_SEEKING:
+            if (m->private_threshold > 0) match += 30;
+            if (m->emotion.valence > -20 && m->emotion.arousal < 70) match += 14;
+            break;
+        case PE_RECALL_OBSESSION_DRIVEN:
+            if (topic_is_obsession(eng, m->topic_id)) match += 42;
+            if (eng->primary_topic != 0xFFFFu && m->topic_id == eng->primary_topic) match += 18;
+            break;
         case PE_RECALL_MOOD_CONGRUENT: {
             int mood_pos = eng->state.mood > 0;
             int mem_pos  = m->emotion.valence > 0;

@@ -52,6 +52,7 @@ typedef struct {
     const Engine             *npc;        /* canonical state, read-only */
     const RetrievedMemorySet *memories;
     const UtterancePlan      *plan;       /* rhetorical + stance + thresholds */
+    const CanonicalTurnFrame *frame;      /* V6 symbolic turn decision frame */
     const Relation           *relation;   /* current interlocutor */
     const SchemaState        *schema;     /* compressed beliefs */
     uint32_t                  seed;       /* deterministic RNG seed for this turn */

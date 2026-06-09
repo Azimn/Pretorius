@@ -73,6 +73,91 @@ const pe_speech_event_t *pe_speech_ledger_last(const pe_speech_ledger_t *led){
     return &led->events[last];
 }
 
+static const pe_speech_event_t *ledger_scan_back(const pe_speech_ledger_t *led,
+                                                 uint32_t actor_id,
+                                                 uint16_t topic_id,
+                                                 uint8_t speech_act,
+                                                 int filter_actor,
+                                                 int filter_topic,
+                                                 int filter_act){
+    if (!led || led->header.entry_count == 0) return NULL;
+    uint32_t count = led->header.entry_count;
+    if (count > PE_SPEECH_LEDGER_RING_SIZE) count = PE_SPEECH_LEDGER_RING_SIZE;
+    for (uint32_t step = 0; step < count; ++step){
+        uint32_t idx = (led->head + PE_SPEECH_LEDGER_RING_SIZE - 1u - step)
+                     % PE_SPEECH_LEDGER_RING_SIZE;
+        const pe_speech_event_t *ev = &led->events[idx];
+        if (filter_actor && actor_id != 0 && ev->target_actor_id != actor_id) continue;
+        if (filter_topic && topic_id != 0xFFFFu && ev->target_topic_id != topic_id) continue;
+        if (filter_act && ev->speech_act != speech_act) continue;
+        return ev;
+    }
+    return NULL;
+}
+
+const pe_speech_event_t *pe_speech_ledger_last_speech_act(const pe_speech_ledger_t *led,
+                                                          uint8_t speech_act){
+    return ledger_scan_back(led, 0, 0xFFFFu, speech_act, 0, 0, 1);
+}
+
+const pe_speech_event_t *pe_speech_ledger_last_by_actor_topic(const pe_speech_ledger_t *led,
+                                                              uint32_t actor_id,
+                                                              uint16_t topic_id,
+                                                              uint8_t speech_act){
+    return ledger_scan_back(led, actor_id, topic_id, speech_act, 1, 1, 1);
+}
+
+const pe_speech_event_t *pe_speech_ledger_last_refusal(const pe_speech_ledger_t *led){
+    const pe_speech_event_t *best = NULL;
+    const uint8_t acts[] = { PE_SA_REFUSAL, PE_SA_EVASION, PE_SA_DEFLECTION,
+                             PE_SA_PAUSE, PE_SA_WITHDRAWAL };
+    for (size_t i = 0; i < sizeof(acts)/sizeof(acts[0]); ++i){
+        const pe_speech_event_t *ev = pe_speech_ledger_last_speech_act(led, acts[i]);
+        if (ev && (!best || ev->turn_count > best->turn_count)) best = ev;
+    }
+    return best;
+}
+
+const pe_speech_event_t *pe_speech_ledger_last_promise(const pe_speech_ledger_t *led){
+    return pe_speech_ledger_last_speech_act(led, PE_SA_PROMISE);
+}
+
+const pe_speech_event_t *pe_speech_ledger_last_apology(const pe_speech_ledger_t *led){
+    return pe_speech_ledger_last_speech_act(led, PE_SA_APOLOGY);
+}
+
+const pe_speech_event_t *pe_speech_ledger_last_contradiction_candidate(const pe_speech_ledger_t *led,
+                                                                       uint32_t actor_id,
+                                                                       uint16_t topic_id){
+    const pe_speech_event_t *best = NULL;
+    const uint8_t acts[] = { PE_SA_ASSERTION, PE_SA_DISCLOSURE,
+                             PE_SA_CONFESSION, PE_SA_CONCESSION };
+    for (size_t i = 0; i < sizeof(acts)/sizeof(acts[0]); ++i){
+        const pe_speech_event_t *ev =
+            pe_speech_ledger_last_by_actor_topic(led, actor_id, topic_id, acts[i]);
+        if (ev && (!best || ev->turn_count > best->turn_count)) best = ev;
+    }
+    return best;
+}
+
+int pe_speech_ledger_recent_repeated_act(const pe_speech_ledger_t *led,
+                                         uint8_t speech_act,
+                                         uint32_t window){
+    const pe_speech_event_t *last = pe_speech_ledger_last_speech_act(led, speech_act);
+    if (!last) return 0;
+    uint32_t hits = 0;
+    uint32_t count = led->header.entry_count;
+    if (count > PE_SPEECH_LEDGER_RING_SIZE) count = PE_SPEECH_LEDGER_RING_SIZE;
+    for (uint32_t step = 0; step < count; ++step){
+        uint32_t idx = (led->head + PE_SPEECH_LEDGER_RING_SIZE - 1u - step)
+                     % PE_SPEECH_LEDGER_RING_SIZE;
+        const pe_speech_event_t *ev = &led->events[idx];
+        if (last->turn_count > ev->turn_count + window) break;
+        if (ev->speech_act == speech_act && ++hits >= 2u) return 1;
+    }
+    return 0;
+}
+
 /* Map an engine intent to a default speech act. Intentionally simple in
  * Phase 3; Phase 5's speech-act classifier will refine this from input
  * appraisal + plan jointly. The mapping is character-agnostic — no

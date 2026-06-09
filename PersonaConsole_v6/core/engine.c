@@ -164,6 +164,109 @@ static MemoryNode *recent_topic_memory(Engine *eng, uint16_t topic_id, uint16_t 
     return NULL;
 }
 
+static void lowercase_copy(char *dst, size_t n, const char *src){
+    size_t i = 0;
+    if (!dst || n == 0) return;
+    if (!src) src = "";
+    for (; src[i] && i + 1 < n; ++i){
+        unsigned char c = (unsigned char)src[i];
+        dst[i] = (char)((c >= 'A' && c <= 'Z') ? c + 32 : c);
+    }
+    dst[i] = 0;
+}
+
+static int has_any_token(const char *s, const char *const *tokens, size_t count){
+    for (size_t i = 0; i < count; ++i)
+        if (tokens[i] && strstr(s, tokens[i])) return 1;
+    return 0;
+}
+
+static void pe_build_turn_frame(Engine *eng){
+    CanonicalTurnFrame *f = &eng->frame;
+    memset(f, 0, sizeof(*f));
+    f->actor_id            = eng->relation.user_hash;
+    f->input_class         = (uint8_t)eng->input_class;
+    f->primary_topic       = eng->primary_topic;
+    f->selected_goal       = eng->state.current_goal;
+    f->selected_intent     = (uint8_t)eng->state.current_intent;
+    f->speech_act          = pe_speech_act_from_intent(eng->state.current_intent);
+    f->stance              = (uint8_t)eng->plan.stance;
+    f->rhetorical_mode     = eng->plan.rhetorical_mode;
+    f->recall_mode         = eng->current_recall_mode;
+    f->relation_trust      = eng->relation_dims.trust;
+    f->relation_threat     = eng->relation_dims.threat;
+    f->relation_intimacy   = eng->relation_dims.intimacy;
+    f->relation_resentment = eng->relation_dims.resentment;
+    f->relation_obligation = eng->relation_dims.obligation;
+    f->relation_dependency = eng->relation_dims.dependency;
+    f->relation_envy       = eng->relation_dims.envy;
+    f->relation_admiration = eng->relation_dims.admiration;
+    f->relation_embarrassment = eng->relation_dims.embarrassment;
+    f->ideal_gap           = eng->dissonance.ideal_gap;
+    f->ought_gap           = eng->dissonance.ought_gap;
+    f->feared_gap          = eng->dissonance.feared_gap;
+    f->withhold_reason     = PE_WR_NONE;
+    f->max_words           = (eng->state.current_intent == PE_INTENT_MONOLOGUE ||
+                              eng->state.current_intent == PE_INTENT_REMINISCE) ? 48u : 32u;
+    f->require_question    = (f->speech_act == PE_SA_QUESTION) ? 1u : 0u;
+    f->allow_empty         = (f->speech_act == PE_SA_PAUSE) ? 1u : 0u;
+    f->forbid_meta         = 1u;
+    {
+        const pe_open_loop_t *loop =
+            pe_open_loops_latest_for_actor(&eng->open_loops, eng->relation.user_hash);
+        f->open_loop_pressure = pe_open_loop_pressure(loop, eng->state.turn_count);
+    }
+    for (uint16_t i = 0; i < eng->active_count && f->selected_memory_count < 4; ++i)
+        f->selected_memories[f->selected_memory_count++] = eng->active_memories[i];
+}
+
+static uint8_t pe_withhold_reason_from_frame(const Engine *eng,
+                                             const CanonicalTurnFrame *f){
+    if      (eng->state.exhaustion   > 600) return PE_WR_FATIGUE;
+    else if (f->feared_gap > 400)           return PE_WR_SHAME;
+    else if (eng->state.surprise_last > 500) return PE_WR_CONFUSION;
+    else if (f->relation_trust < 300)       return PE_WR_DISTRUST;
+    else if (f->rhetorical_mode == PE_RHET_DEFLECT) return PE_WR_STRATEGY;
+    else                                    return PE_WR_PRIVACY;
+}
+
+static int pe_render_audit_pass(const CanonicalTurnFrame *f, const char *out){
+    char low[PE_RENDER_MAX_TEXT];
+    const char *apology[]    = {"sorry","apolog","forgive","regret"};
+    const char *refusal[]    = {"no","not","refuse","will not","won't","cannot","shall not"};
+    const char *accusation[] = {"you ","your ","wrong","lie","deceiv","coward","fool","insult"};
+    const char *threat[]     = {"careful","beware","threat","danger","destroy","hurt","ruin","stop you"};
+    const char *praise[]     = {"good","excellent","brilliant","admire","impressive","credit","rare"};
+    const char *confess[]    = {"confess","admit","truth","i have","i did","i fear"};
+    const char *concede[]    = {"concede","granted","perhaps","you may be right","fair"};
+    const char *promise[]    = {"promise","i will","i shall","count on"};
+    const char *evasion[]    = {"perhaps","another time","not tonight","delicate","oblique"};
+    const char *deflect[]    = {"instead","leave that","another matter","turn to","not the point"};
+    const char *withdraw[]   = {"enough","leave","not now","silence","go"};
+    if (!f || !out) return 0;
+    lowercase_copy(low, sizeof(low), out);
+    if (!f->allow_empty && low[0] == 0) return 0;
+    if (f->forbid_meta && has_any_token(low, (const char*[]){"as an ai","language model","how can i help","let me know"}, 4))
+        return 0;
+    switch (f->speech_act){
+    case PE_SA_APOLOGY:    return has_any_token(low, apology, 4);
+    case PE_SA_REFUSAL:    return has_any_token(low, refusal, 7);
+    case PE_SA_QUESTION:   return strchr(out, '?') || has_any_token(low, (const char*[]){"what ","why ","how ","tell me","would you","do you"}, 6);
+    case PE_SA_INSULT:     return has_any_token(low, accusation, 8);
+    case PE_SA_THREAT:     return has_any_token(low, threat, 8);
+    case PE_SA_PRAISE:     return has_any_token(low, praise, 7);
+    case PE_SA_CONFESSION: return has_any_token(low, confess, 6);
+    case PE_SA_CONCESSION: return has_any_token(low, concede, 5);
+    case PE_SA_PROMISE:    return has_any_token(low, promise, 4);
+    case PE_SA_EVASION:    return has_any_token(low, evasion, 5);
+    case PE_SA_DEFLECTION: return has_any_token(low, deflect, 5);
+    case PE_SA_PAUSE:      return low[0] == 0 || strlen(low) < 12;
+    case PE_SA_WITHDRAWAL: return has_any_token(low, withdraw, 5) || strlen(low) < 80;
+    default:
+        return 1;
+    }
+}
+
 static void pe_prime_unprompted_memory(Engine *eng){
     if (!eng) return;
     if (eng->state.turns_since_unprompted_recall < 0xFFFFu)
@@ -1004,6 +1107,32 @@ int persona_process_input(Engine *eng,
 
     /* 9. intent — overridden by fixation lock if active */
     eng->state.current_intent = pe_select_intent(eng, eng->state.current_goal, &ev);
+    {
+        const pe_speech_event_t *last_refusal =
+            pe_speech_ledger_last_refusal(&eng->speech_ledger);
+        const pe_speech_event_t *last_contra =
+            pe_speech_ledger_last_contradiction_candidate(&eng->speech_ledger,
+                                                          eng->relation.user_hash,
+                                                          eng->primary_topic);
+        if (last_refusal
+            && eng->input_class == 3
+            && eng->primary_topic != 0xFFFFu
+            && last_refusal->target_topic_id == eng->primary_topic
+            && eng->state.current_intent != PE_INTENT_PAUSE){
+            eng->state.current_intent = PE_INTENT_ANSWER;
+        }
+        if (last_contra
+            && eng->negation_active
+            && eng->input_class == 3
+            && eng->state.current_intent != PE_INTENT_PAUSE){
+            eng->state.current_intent = PE_INTENT_CLARIFY;
+        }
+        if (pe_speech_ledger_recent_repeated_act(&eng->speech_ledger,
+                                                 PE_SA_QUESTION, 4)
+            && eng->state.current_intent == PE_INTENT_PROBE){
+            eng->state.current_intent = PE_INTENT_ATTEND;
+        }
+    }
     if (eng->state.fixation_topic != 0xFFFF && eng->state.fixation_strength > 500){
         /* fixation forces monologue/reminisce alternation */
         eng->state.current_intent = (eng->state.turn_count & 1)
@@ -1094,6 +1223,8 @@ int persona_process_input(Engine *eng,
 
     /* 9a. v2: build rhetorical plan before realization */
     pe_build_plan(eng);
+    pe_build_turn_frame(eng);
+    eng->last_audit_result = PE_AUDIT_PASS;
 
     /* V4: renderer dispatch.  Compose a RenderContext from Layer 1 state
      * and offer the selected backend the chance to produce the reply.
@@ -1116,6 +1247,7 @@ int persona_process_input(Engine *eng,
         ctx.npc       = eng;
         ctx.memories  = &mem;
         ctx.plan      = &eng->plan;
+        ctx.frame     = &eng->frame;
         ctx.relation  = &eng->relation;
         ctx.schema    = &eng->schema;
         ctx.seed      = eng->state.rng_state;
@@ -1146,6 +1278,13 @@ int persona_process_input(Engine *eng,
     /* 10–11. candidates, repetition, transforms, select (plan-driven) */
     pe_generate_response(eng, input_text, out, n);
 post_render:;
+
+    if (!pe_render_audit_pass(&eng->frame, out)){
+        pe_generate_response(eng, input_text, out, n);
+        eng->last_audit_result = pe_render_audit_pass(&eng->frame, out)
+                               ? PE_AUDIT_REPAIRED
+                               : PE_AUDIT_FALLBACK;
+    }
 
     /* 11b. v3.1: dream recall — prepend dream_phrase to first response after
      * a long absence.  Only fires once (dream_pending is cleared here). */
@@ -1291,7 +1430,7 @@ post_render:;
         sev.rhetorical_mode     = (uint8_t)eng->plan.rhetorical_mode;
         sev.defense_mode        = 0;                   /* Phase 5 */
         sev.repair_mode         = 0;                   /* Phase 5 */
-        sev.audit_result        = PE_AUDIT_PASS;       /* Phase 5 */
+        sev.audit_result        = eng->last_audit_result;
         sev.withheld_intent     = PE_SA_NONE;          /* Phase 5d */
         sev.regret_marker       = 0;                   /* set later */
 
@@ -1311,19 +1450,55 @@ post_render:;
          *   PRIVACY  — default catchall for refusals without a stronger
          *              triggering signal.  */
         if (pe_speech_act_is_withhold(sev.speech_act)){
-            if      (eng->state.exhaustion   > 600) sev.withhold_reason = PE_WR_FATIGUE;
-            else if (eng->dissonance.feared_gap > 400) sev.withhold_reason = PE_WR_SHAME;
-            else if (eng->state.surprise_last > 500) sev.withhold_reason = PE_WR_CONFUSION;
-            else if (eng->relation_dims.trust < 300) sev.withhold_reason = PE_WR_DISTRUST;
-            else if (eng->plan.rhetorical_mode == PE_RHET_DEFLECT)
-                                                     sev.withhold_reason = PE_WR_STRATEGY;
-            else                                     sev.withhold_reason = PE_WR_PRIVACY;
+            sev.withhold_reason = pe_withhold_reason_from_frame(eng, &eng->frame);
         } else {
             sev.withhold_reason = PE_WR_NONE;
         }
+        eng->frame.withhold_reason = sev.withhold_reason;
 
         pe_speech_ledger_record(&eng->speech_ledger, &sev);
         pe_open_loops_expire_to(&eng->open_loops, eng->state.turn_count);
+        if (sev.target_topic_id != 0xFFFFu){
+            if (eng->input_class == 3 && pe_speech_act_is_withhold(sev.speech_act)){
+                pe_open_loops_record(&eng->open_loops, sev.target_actor_id,
+                                     sev.target_topic_id, PE_SA_ASSERTION,
+                                     720, 360, 420,
+                                     eng->state.turn_count,
+                                     eng->state.turn_count + 96u);
+            }
+            if (sev.speech_act == PE_SA_EVASION
+                || sev.speech_act == PE_SA_DEFLECTION
+                || sev.speech_act == PE_SA_WITHDRAWAL
+                || sev.speech_act == PE_SA_PAUSE){
+                pe_open_loops_record(&eng->open_loops, sev.target_actor_id,
+                                     sev.target_topic_id,
+                                     eng->input_class == 3 ? PE_SA_ASSERTION : PE_SA_DISCLOSURE,
+                                     520, 420, 520,
+                                     eng->state.turn_count,
+                                     eng->state.turn_count + 96u);
+            }
+            if (sev.speech_act == PE_SA_PROMISE){
+                pe_open_loops_record(&eng->open_loops, sev.target_actor_id,
+                                     sev.target_topic_id, PE_SA_PROMISE,
+                                     780, 300, 120,
+                                     eng->state.turn_count,
+                                     eng->state.turn_count + 160u);
+            }
+            if (eng->input_class == 2){
+                pe_open_loops_record(&eng->open_loops, sev.target_actor_id,
+                                     sev.target_topic_id, PE_SA_CORRECTION,
+                                     640, 160, 260,
+                                     eng->state.turn_count,
+                                     eng->state.turn_count + 80u);
+            }
+            if (reply_has_question(out)){
+                pe_open_loops_record(&eng->open_loops, sev.target_actor_id,
+                                     sev.target_topic_id, PE_SA_QUESTION,
+                                     460, 80, 80,
+                                     eng->state.turn_count,
+                                     eng->state.turn_count + 48u);
+            }
+        }
         if (eng->input_class == 3 && !pe_speech_act_is_withhold(sev.speech_act)){
             pe_open_loops_resolve_topic(&eng->open_loops,
                                         sev.target_actor_id,

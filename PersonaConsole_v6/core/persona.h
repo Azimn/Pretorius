@@ -604,6 +604,45 @@ typedef struct {
     uint8_t  _pad;
 } UtterancePlan;
 
+/* V6: canonical per-turn decision frame.
+ *
+ * Built after goal/plan selection and before rendering. Renderers receive it
+ * read-only through RenderContext. It is symbolic only: no renderer prose and
+ * no user prose are stored here. Layer 1 remains the authority.
+ */
+typedef struct {
+    uint32_t actor_id;
+    uint8_t  input_class;
+    uint8_t  selected_intent;
+    uint8_t  speech_act;
+    uint8_t  stance;
+    uint16_t primary_topic;
+    uint16_t selected_goal;
+    uint16_t rhetorical_mode;
+    uint16_t recall_mode;
+    uint16_t selected_memories[4];
+    uint8_t  selected_memory_count;
+    uint8_t  withhold_reason;
+    uint16_t open_loop_pressure;
+    uint16_t relation_trust;
+    uint16_t relation_threat;
+    uint16_t relation_intimacy;
+    uint16_t relation_resentment;
+    uint16_t relation_obligation;
+    uint16_t relation_dependency;
+    uint16_t relation_envy;
+    uint16_t relation_admiration;
+    uint16_t relation_embarrassment;
+    uint16_t ideal_gap;
+    uint16_t ought_gap;
+    uint16_t feared_gap;
+    uint16_t max_words;
+    uint8_t  require_question;
+    uint8_t  allow_empty;
+    uint8_t  forbid_meta;
+    uint8_t  _pad;
+} CanonicalTurnFrame;
+
 /* ---------- engine ---------- */
 typedef struct Engine Engine;
 
@@ -653,12 +692,14 @@ struct Engine {
 
     int            scheduled_delay_ms;
     char           out_buffer[512];
+    uint8_t        last_audit_result;     /* PE_AUDIT_* for current/last turn */
 
     /* v2 per-turn scratch */
     char           lowered[512];      /* cached lowercased input */
     uint8_t        char_present[32];  /* 256-bit bitmap of chars in input */
     uint8_t        negation_active;   /* set if input contains negation cues */
     UtterancePlan  plan;              /* computed by planner each turn */
+    CanonicalTurnFrame frame;          /* V6 canonical render contract */
 
     /* v2.1: plasticity — n-gram LM for "Pretorianness" reranking.
      * NULL = subsystem disabled (LM file missing). */

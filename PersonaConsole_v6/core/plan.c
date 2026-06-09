@@ -52,11 +52,14 @@ static uint16_t pick_stance(const Engine *eng){
     int com    = s->drive_values[PE_DRIVE_COMMUNION];
     int rec    = s->drive_values[PE_DRIVE_RECOGNITION];
 
-    if (s->intoxication > 600 && (eng->relation.tags & PE_TAG_CONFIDANT)) return PE_STANCE_CONSPIRATORIAL;
+    if (s->intoxication > 600 && eng->relation_dims.intimacy > 650)       return PE_STANCE_CONSPIRATORIAL;
     if (s->paranoia > 600 || s->physical_fragility > 700)                 return PE_STANCE_DEFENSIVE;
+    if (eng->relation_dims.threat > 700 || eng->relation_dims.resentment > 650)
+                                                                            return PE_STANCE_DEFENSIVE;
     if (vind > 800 || (aut > 800 && eng->input_class == 2))               return PE_STANCE_DOMINANT;
     if (rec > 850)                                                        return PE_STANCE_CONDESCENDING;
-    if (com > 600 && eng->relation.disposition > 600)                     return PE_STANCE_INTIMATE;
+    if (com > 600 && eng->relation_dims.intimacy > 550 && eng->relation_dims.threat < 650)
+                                                                            return PE_STANCE_INTIMATE;
     return PE_STANCE_NEUTRAL;
 }
 
