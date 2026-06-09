@@ -4,7 +4,9 @@
 #include "cartridge.h"
 #include "ngram_lm.h"            /* v2.1: optional plasticity */
 #include "mutator.h"             /* v3.2: cartridge banks */
+#ifndef PE_DISABLE_AETHER
 #include "aether.h"              /* v3.2: long-term episodic storage */
+#endif
 #include "identity.h"
 #include "environment.h"
 #include "engine_clock.h"        /* canonical Layer 1 clock */
@@ -745,6 +747,7 @@ int persona_open(Engine *eng, const char *character_dir){
      * subdirectory.  Soft-fails: if open fails, eng->aether stays NULL and
      * memory.c gracefully skips demotion / cold recall. */
     {
+#ifndef PE_DISABLE_AETHER
         /* Route AETHER's internal timestamp helper through the canonical
          * Layer 1 clock so AETHER state replays deterministically under
          * PE_CLOCK_OVERRIDE_MS. Set once before aether_open is called. */
@@ -753,6 +756,9 @@ int persona_open(Engine *eng, const char *character_dir){
         char aether_dir[512];
         pe_path_join(aether_dir, sizeof(aether_dir), eng->char_dir, "aether");
         eng->aether = aether_open(aether_dir);
+#else
+        eng->aether = NULL;
+#endif
     }
     eng->cold_scratch_count = 0;
 
@@ -835,6 +841,7 @@ void persona_close(Engine *eng){
         eng->lm_data = NULL;
         eng->lm_size = 0;
     }
+#ifndef PE_DISABLE_AETHER
     if (eng->aether){
         /* Drain any pending writes before close.  Cheap if WAL is empty. */
         if (aether_should_consolidate(eng->aether))
@@ -842,6 +849,7 @@ void persona_close(Engine *eng){
         aether_close(eng->aether);
         eng->aether = NULL;
     }
+#endif
 }
 
 int persona_process_input(Engine *eng,
@@ -1240,11 +1248,13 @@ post_render:;
      * cold recalls see them via bucket scan (cheaper) rather than WAL
      * linear scan.  Cheap when no consolidation is needed
      * (aether_should_consolidate returns 0 quickly). */
+#ifndef PE_DISABLE_AETHER
     if (eng->aether
         && (eng->state.turn_count & 15u) == 0
         && aether_should_consolidate(eng->aether)){
         aether_consolidate(eng->aether, 0 /* incremental */);
     }
+#endif
 
     pe_prime_unprompted_memory(eng);
 

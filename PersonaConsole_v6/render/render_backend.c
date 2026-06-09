@@ -52,15 +52,19 @@ RenderBackend *render_backend_default(void){
 }
 
 void render_backends_init(void){
-    /* Idempotent — render_backend_register handles duplicate names. */
+    /* Idempotent: render_backend_register handles duplicate names. */
     RenderBackend *tpl = render_template_backend();
+#ifndef PE_DISABLE_SLM
     RenderBackend *slm = render_slm_backend();
+#endif
     render_backend_register(tpl);
+#ifndef PE_DISABLE_SLM
     render_backend_register(slm);
-    /* Call each backend's initialize() so env-var-driven config gets
-     * read (e.g. PE_OLLAMA_HOST, PE_SLM_PROVIDER) before first render.
-     * Init failures don't unregister — the render call returns
-     * "unavailable" and the host falls back to template. */
+#endif
+    /* Init reads env-var config before first render. In micro mode the
+     * optional SLM backend is not linked, so template remains canonical. */
     if (tpl && tpl->initialize) tpl->initialize(tpl);
+#ifndef PE_DISABLE_SLM
     if (slm && slm->initialize) slm->initialize(slm);
+#endif
 }

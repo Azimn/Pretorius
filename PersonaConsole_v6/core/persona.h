@@ -14,6 +14,22 @@ extern "C" {
 #endif
 
 /* ---------- compile-time limits ---------- */
+#ifdef PE_MICRO_MODE
+#define PE_MAX_ACTORS          4
+#define PE_MAX_MEMORY_SLOTS    50
+#define PE_MAX_OPEN_LOOPS      16
+#define PE_MAX_SPEECH_EVENTS   128
+#define PE_MAX_TEMPLATES       1024
+#define PE_MAX_PATTERNS        256
+#else
+#define PE_MAX_ACTORS          16
+#define PE_MAX_MEMORY_SLOTS    50
+#define PE_MAX_OPEN_LOOPS      64
+#define PE_MAX_SPEECH_EVENTS   512
+#define PE_MAX_TEMPLATES       1024
+#define PE_MAX_PATTERNS        256
+#endif
+
 #define PE_DRIVE_COUNT          8
 #define PE_OBSESSION_COUNT      8
 #define PE_TABOO_COUNT          8
@@ -24,8 +40,8 @@ extern "C" {
  * on ordinary modern hardware while remaining deterministic, offline, and
  * tiny compared with any mandatory LLM runtime. */
 #define PE_CORE_SEED_MAX        20
-#define PE_EPISODIC_MAX         50
-#define PE_SEMANTIC_USERS       16
+#define PE_EPISODIC_MAX         PE_MAX_MEMORY_SLOTS
+#define PE_SEMANTIC_USERS       PE_MAX_ACTORS
 #define PE_SEMANTIC_FACTS       30
 #define PE_FACT_LEN             64
 #define PE_SHORT_TERM_LEN       10
@@ -35,8 +51,8 @@ extern "C" {
 #define PE_PHRASE_USAGE         256
 #define PE_GOAL_MAX             24
 #define PE_TODAY_MAX            16
-#define PE_TEMPLATE_MAX         1024
-#define PE_PATTERN_MAX          256
+#define PE_TEMPLATE_MAX         PE_MAX_TEMPLATES
+#define PE_PATTERN_MAX          PE_MAX_PATTERNS
 #define PE_PATTERN_KW_LEN       32
 #define PE_TEMPLATE_TEXT        256
 #define PE_TOPIC_MAX            64

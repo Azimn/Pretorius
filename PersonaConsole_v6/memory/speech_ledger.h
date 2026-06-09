@@ -24,7 +24,7 @@
 
 #define PE_SPEECH_LEDGER_MAGIC     PE_SIDECAR_MAGIC('S','P','E','V')
 #define PE_SPEECH_LEDGER_VERSION   1
-#define PE_SPEECH_LEDGER_RING_SIZE 512u
+#define PE_SPEECH_LEDGER_RING_SIZE ((uint32_t)PE_MAX_SPEECH_EVENTS)
 
 /* ---------- speech-act enum (initial set, per V6_DOCTRINE §12) ---------- */
 enum {

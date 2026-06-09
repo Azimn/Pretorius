@@ -2,7 +2,9 @@
 #include "persona.h"
 #include "persona_internal.h"
 #include "lsh_memory.h"            /* v3.0: fuzzy semantic recall */
+#ifndef PE_DISABLE_AETHER
 #include "aether.h"                /* v3.2: long-term episodic storage */
+#endif
 #include "reflection.h"            /* v5: high-level pattern recall */
 #include "engine_clock.h"          /* canonical Layer 1 clock */
 #include <string.h>
@@ -19,6 +21,7 @@
 
 /* v3.2: convert MemoryNode → aether_event_t.  Used when a working-memory
  * node is about to be evicted by pe_commit_memory. */
+#ifndef PE_DISABLE_AETHER
 static void pe_node_to_aether(const MemoryNode *n, aether_event_t *ev){
     memset(ev, 0, sizeof(*ev));
     ev->timestamp     = pe_clock_now_s();
@@ -56,6 +59,7 @@ static void pe_aether_to_node(const aether_event_t *ev, MemoryNode *n){
     n->summary[L] = 0;
     n->lsh_sig = lsh_compute_n(n->summary, L);
 }
+#endif
 
 uint8_t pe_compute_salience(Engine *eng,
                             const EmotionVector *prev,
@@ -106,11 +110,13 @@ void pe_commit_memory(Engine *eng, const char *summary,
         /* v3.2: demote the evicted memory into AETHER long-term storage
          * before overwriting.  Working memory becomes hot tier; AETHER
          * is the cold ledger.  Soft-fails if AETHER isn't available. */
+#ifndef PE_DISABLE_AETHER
         if (eng->aether){
             aether_event_t ev_out;
             pe_node_to_aether(&m->episodic[slot], &ev_out);
             aether_put(eng->aether, &ev_out);
         }
+#endif
     }
     MemoryNode *n = &m->episodic[slot];
     memset(n, 0, sizeof(*n));
@@ -356,6 +362,7 @@ void pe_associative_recall(Engine *eng, const EmotionVector *ev){
      * indices (>= PE_EPISODIC_MAX).  Match scores are derived from
      * Hamming distance to the input SimHash so the existing sort below
      * orders cold hits relative to working-memory hits correctly. */
+#ifndef PE_DISABLE_AETHER
     if (eng->aether && eng->lowered[0]
         && (eng->active_count == 0
             || eng->active_match[0] < PE_COLD_FALLBACK_MATCH)){
@@ -382,6 +389,7 @@ void pe_associative_recall(Engine *eng, const EmotionVector *ev){
             eng->cold_scratch_count++;
         }
     }
+#endif
 
     /* simple insertion sort: highest match first */
     for (uint16_t i = 1; i < eng->active_count; ++i){

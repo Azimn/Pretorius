@@ -14,7 +14,7 @@
 
 #define PE_OPEN_LOOPS_MAGIC     PE_SIDECAR_MAGIC('O','L','O','P')
 #define PE_OPEN_LOOPS_VERSION   1
-#define PE_OPEN_LOOPS_RING_SIZE 64u
+#define PE_OPEN_LOOPS_RING_SIZE ((uint32_t)PE_MAX_OPEN_LOOPS)
 
 enum {
     PE_OL_ACTIVE = 0,

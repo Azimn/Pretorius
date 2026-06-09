@@ -110,7 +110,9 @@ RenderBackend *render_backend_default(void);
  * ((constructor)) on platforms that support it; the explicit getters
  * are for hosts that need static control. */
 RenderBackend *render_template_backend(void);
+#ifndef PE_DISABLE_SLM
 RenderBackend *render_slm_backend(void);
+#endif
 
 /* Explicit init for hosts that link the engine as a static archive
  * (constructor attribute does not fire for unreferenced .o in .a).

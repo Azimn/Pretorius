@@ -1,6 +1,6 @@
-# Persona Console V4 — Makefile
+# Persona Console V6 - Makefile
 #
-# V4 layout (production-intent reorganization):
+# V6 layout (production-intent reorganization):
 #   core/                canonical identity runtime (engine.c, plan.c, etc.)
 #   memory/              episodic + AETHER + relations + serialize
 #   render/templates/    template renderer (deterministic, default)
@@ -32,6 +32,10 @@ CFLAGS  ?= -std=c99 -O2 -Wall -Wextra \
 CFLAGS  += -Icore -Imemory -Irender/templates -Ischema -Iinstrumentation \
            -D_POSIX_C_SOURCE=200809L
 LDFLAGS ?=
+
+MICRO_CFLAGS  := $(filter-out -O2,$(CFLAGS)) -Os -ffunction-sections -fdata-sections \
+                 -DPE_MICRO_MODE -DPE_DISABLE_AETHER -DPE_DISABLE_SLM
+MICRO_LDFLAGS := $(LDFLAGS) -Wl,--gc-sections
 
 # ----- module source lists -----
 
@@ -85,8 +89,14 @@ RENDER_CORE_SRC := \
     render/slm/slm_backend.c \
     render/providers/ollama_provider.c
 
+MICRO_RENDER_CORE_SRC := \
+    render/render_backend.c
+
 ENGINE_SRC := $(CORE_SRC) $(MEMORY_SRC) $(SCHEMA_SRC) $(INSTRUMENTATION_SRC) \
               $(RENDER_TEMPLATES_SRC) $(RENDER_CORE_SRC)
+
+MICRO_ENGINE_SRC := $(CORE_SRC) $(MEMORY_SRC) $(SCHEMA_SRC) $(INSTRUMENTATION_SRC) \
+                    $(RENDER_TEMPLATES_SRC) $(MICRO_RENDER_CORE_SRC)
 
 # LSH subsystem (SimHash + consolidation) — self-contained.
 LSH_SRC := \
@@ -113,10 +123,13 @@ HOST_SRC := \
 
 # Object file rules — strip module prefix so build/ stays flat.
 ENGINE_OBJ := $(patsubst %.c,build/%.o,$(notdir $(ENGINE_SRC)))
+MICRO_ENGINE_OBJ := $(patsubst %.c,build/micro_%.o,$(notdir $(MICRO_ENGINE_SRC)))
 LSH_OBJ    := $(patsubst %.c,build/%.o,$(notdir $(LSH_SRC)))
 PLAS_OBJ   := $(patsubst %.c,build/%.o,$(notdir $(PLAS_SRC)))
+MICRO_PLAS_OBJ := $(patsubst %.c,build/micro_%.o,$(notdir $(PLAS_SRC)))
 AETHER_OBJ := $(patsubst %.c,build/%.o,$(notdir $(AETHER_SRC)))
 HOST_OBJ   := $(patsubst %.c,build/host_%.o,$(notdir $(HOST_SRC)))
+MICRO_HOST_OBJ := $(patsubst %.c,build/micro_host_%.o,$(notdir $(HOST_SRC)))
 
 # Header dependency aggregates.  Listed here so the per-object rules can
 # reference them without expanding into the 20+ headers across the tree.
@@ -135,7 +148,7 @@ RENDER_HEADERS := \
         host host_run host_test \
         forge_cart_test forge_bundle_test forge_dialogue_test \
         forge_archetypes_test forge_parsers_test inspector_test web_presence_test \
-        demo_package release_check
+        demo_package release_check micro micro_size_report micro_replay_run
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
      build/compile_cartridge build/compile_pretorius build/compile_kiki \
@@ -170,6 +183,23 @@ build/%.o: render/providers/%.c render/providers/ollama_provider.h | build
 build/host_%.o: bridges/%.c bridges/persona_ffi.h bridges/http.h bridges/json.h core/persona.h | build
 	$(CC) $(CFLAGS) -Ibridges -c $< -o $@
 
+# Micro objects use template-only runtime flags and distinct filenames so
+# standard and micro builds can coexist in build/.
+build/micro_%.o: core/%.c $(CORE_HEADERS) $(MEMORY_HEADERS) $(RENDER_HEADERS) | build
+	$(CC) $(MICRO_CFLAGS) -c $< -o $@
+build/micro_%.o: memory/%.c $(CORE_HEADERS) $(MEMORY_HEADERS) $(RENDER_HEADERS) | build
+	$(CC) $(MICRO_CFLAGS) -c $< -o $@
+build/micro_%.o: schema/%.c $(CORE_HEADERS) $(MEMORY_HEADERS) | build
+	$(CC) $(MICRO_CFLAGS) -c $< -o $@
+build/micro_%.o: instrumentation/%.c instrumentation/state_trace.h | build
+	$(CC) $(MICRO_CFLAGS) -c $< -o $@
+build/micro_%.o: render/%.c $(CORE_HEADERS) $(MEMORY_HEADERS) $(RENDER_HEADERS) render/render_backend.h render/prompt_compiler.h | build
+	$(CC) $(MICRO_CFLAGS) -c $< -o $@
+build/micro_%.o: render/templates/%.c $(CORE_HEADERS) $(MEMORY_HEADERS) $(RENDER_HEADERS) render/render_backend.h | build
+	$(CC) $(MICRO_CFLAGS) -c $< -o $@
+build/micro_host_%.o: bridges/%.c bridges/persona_ffi.h bridges/http.h bridges/json.h core/persona.h | build
+	$(CC) $(MICRO_CFLAGS) -Ibridges -c $< -o $@
+
 # ----- static libs -----
 build/libpersona.a: $(ENGINE_OBJ)
 	ar rcs $@ $^
@@ -180,6 +210,13 @@ build/libplasticity.a: $(PLAS_OBJ)
 build/libaether.a: $(AETHER_OBJ)
 	ar rcs $@ $^
 build/libpersona_host.a: $(HOST_OBJ)
+	ar rcs $@ $^
+
+build/libpersona_micro.a: $(MICRO_ENGINE_OBJ)
+	ar rcs $@ $^
+build/libplasticity_micro.a: $(MICRO_PLAS_OBJ)
+	ar rcs $@ $^
+build/libpersona_host_micro.a: $(MICRO_HOST_OBJ)
 	ar rcs $@ $^
 
 # ----- shared lib for Unity/Unreal/Godot -----
@@ -251,6 +288,25 @@ build/repl: tests/repl.c build/libpersona.a build/libplasticity.a build/liblsh.a
 
 build/persona_host: bridges/persona_host.c build/libpersona_host.a build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
 	$(CC) $(CFLAGS) -Ibridges bridges/persona_host.c build/libpersona_host.a build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+build/persona_host_micro: bridges/persona_host.c build/libpersona_host_micro.a build/libpersona_micro.a build/libplasticity_micro.a build/liblsh.a
+	$(CC) $(MICRO_CFLAGS) -Ibridges bridges/persona_host.c build/libpersona_host_micro.a build/libpersona_micro.a build/libplasticity_micro.a build/liblsh.a -o $@ $(MICRO_LDFLAGS)
+
+micro: build/persona_host_micro profiles/pretorius/pretorius.cart
+	@echo "Micro PersonaHost built: ./build/persona_host_micro"
+
+micro_size_report: micro
+	@echo "--- micro binary sections ---"
+	@size build/persona_host_micro || true
+	@echo "--- cartridge bytes ---"
+	@wc -c profiles/pretorius/pretorius.cart
+	@echo "--- mutable sidecar bytes (micro structs) ---"
+	@printf "speech_events.bin max: %u bytes\n" 6208
+	@printf "open_loops.bin max:    %u bytes\n" 576
+
+micro_replay_run: micro
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 1; }
+	PE_MICRO_HOST=build/persona_host_micro node tests/replay/micro_replay_test.js
 
 host: build/persona_host build/libpersona_host.so
 	@echo "PersonaHost built: ./build/persona_host"
