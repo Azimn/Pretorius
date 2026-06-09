@@ -82,7 +82,12 @@ const SCRIPT = [
 
 function runHost(){
   return new Promise((resolve, reject) => {
-    const stdin = SCRIPT.map(text => JSON.stringify({ method: 'chat', text })).join('\n')
+    const commands = [];
+    for (const text of SCRIPT){
+      commands.push(JSON.stringify({ method: 'chat', text }));
+      commands.push(JSON.stringify({ method: 'state' }));
+    }
+    const stdin = commands.join('\n')
                 + '\n{"method":"close"}\n';
     const proc = spawn(HOST, [CART, '--stdio'], {
       env: Object.assign({}, process.env, { PE_TODAY_SEED: '42' })
@@ -112,9 +117,11 @@ function clamp(n){ return Math.max(0, Math.min(100, Math.round(n))); }
 function scoreRepetition(replies){
   const exact = new Map();
   const openers = new Map();
-  let repeatedExact = 0, repeatedOpeners = 0;
+  const trigrams = new Map();
+  let repeatedExact = 0, repeatedOpeners = 0, repeatedTrigrams = 0;
   for (const r of replies){
-    const norm = words(r).join(' ');
+    const ws = words(r);
+    const norm = ws.join(' ');
     exact.set(norm, (exact.get(norm) || 0) + 1);
     if (exact.get(norm) === 2) repeatedExact++;
     const op = opener(r);
@@ -122,9 +129,15 @@ function scoreRepetition(replies){
       openers.set(op, (openers.get(op) || 0) + 1);
       if (openers.get(op) === 2) repeatedOpeners++;
     }
+    for (let i = 0; i + 2 < ws.length; i++){
+      const gram = ws.slice(i, i + 3).join(' ');
+      if (gram.length < 12) continue;
+      trigrams.set(gram, (trigrams.get(gram) || 0) + 1);
+      if (trigrams.get(gram) === 3) repeatedTrigrams++;
+    }
   }
-  const score = 100 - repeatedExact * 18 - repeatedOpeners * 7;
-  return { score: clamp(score), detail: `${repeatedExact} exact repeats, ${repeatedOpeners} repeated openers` };
+  const score = 100 - repeatedExact * 18 - repeatedOpeners * 7 - repeatedTrigrams * 4;
+  return { score: clamp(score), detail: `${repeatedExact} exact repeats, ${repeatedOpeners} repeated openers, ${repeatedTrigrams} repeated trigrams` };
 }
 
 function scoreQuestionRate(replies){
@@ -179,27 +192,48 @@ function scoreCallbacks(turns){
 }
 
 function scoreAwkwardness(replies){
-  let emDash = 0, braces = 0, parenAside = 0, ellipses = 0, caps = 0, veryLong = 0;
+  let emDash = 0, braces = 0, parenAside = 0, ellipses = 0, caps = 0, veryLong = 0, assistantish = 0;
   for (const r of replies){
-    if (/[—–]/.test(r)) emDash++;
+    if (/[\u2013\u2014]/.test(r)) emDash++;
     if (/[{}]/.test(r)) braces++;
     if (/\([^)]+\)/.test(r)) parenAside++;
     if (/\.{3,}/.test(r)) ellipses++;
     if (/[A-Z]{5,}/.test(r)) caps++;
     if (words(r).length > 55) veryLong++;
+    if (/as an ai|as a language model|how can i help|let me know if|i hope that helps/i.test(r))
+      assistantish++;
   }
-  const penalty = emDash * 3 + braces * 18 + parenAside * 4 + ellipses * 3 + caps * 5 + veryLong * 5;
-  return { score: clamp(100 - penalty), detail: `emDash=${emDash}, braces=${braces}, parens=${parenAside}, ellipses=${ellipses}, caps=${caps}, veryLong=${veryLong}` };
+  const penalty = emDash * 3 + braces * 18 + parenAside * 4 + ellipses * 3 + caps * 5 + veryLong * 5 + assistantish * 30;
+  return { score: clamp(100 - penalty), detail: `dash=${emDash}, braces=${braces}, parens=${parenAside}, ellipses=${ellipses}, caps=${caps}, veryLong=${veryLong}, assistantish=${assistantish}` };
 }
 
 function scorePlainSpeech(replies){
   const plain = replies.filter(r => {
     const n = words(r).length;
-    return n >= 2 && n <= 18 && !/[—–;]/.test(r);
+    return n >= 2 && n <= 18 && !/[\u2013\u2014;]/.test(r);
   }).length;
   const rate = plain / replies.length;
   const score = rate >= 0.25 ? 100 : rate * 400;
   return { score: clamp(score), detail: `${plain}/${replies.length} replies are short plain-speech turns (${Math.round(rate * 100)}%)` };
+}
+
+function scoreHabitPressure(states){
+  if (!states.length)
+    return { score: 0, detail: 'no state samples collected' };
+  const last = states[states.length - 1];
+  const observed = Number(last.habit_turns_observed || 0);
+  const avgWords = Number(last.habit_avg_reply_words || 0);
+  const qBias = Number(last.habit_question_bias || 0);
+  const bBias = Number(last.habit_brevity_bias || 0);
+  const iBias = Number(last.habit_initiative_bias || 0);
+  let score = 100;
+  if (observed < SCRIPT.length) score -= (SCRIPT.length - observed) * 3;
+  if (avgWords > 34 && bBias < 80) score -= 25;
+  if (qBias > 900 || bBias > 900 || iBias > 900) score -= 10;
+  return {
+    score: clamp(score),
+    detail: `observed=${observed}, avgWords=${avgWords}, qBias=${qBias}, brevityBias=${bBias}, initiativeBias=${iBias}`
+  };
 }
 
 (async function main(){
@@ -212,6 +246,9 @@ function scorePlainSpeech(replies){
   }
   const turns = res.stdout.split('\n')
     .filter(l => l.startsWith('{"reply"'))
+    .map(l => JSON.parse(l));
+  const states = res.stdout.split('\n')
+    .filter(l => l.startsWith('{"name"'))
     .map(l => JSON.parse(l));
   if (turns.length !== SCRIPT.length){
     console.error(`expected ${SCRIPT.length} replies, got ${turns.length}`);
@@ -232,6 +269,7 @@ function scorePlainSpeech(replies){
     callbacks: scoreCallbacks(turns),
     awkwardness: scoreAwkwardness(replies),
     plain_speech: scorePlainSpeech(replies),
+    habit_pressure: scoreHabitPressure(states),
   };
   let total = 0;
   for (const [name, r] of Object.entries(axes)){

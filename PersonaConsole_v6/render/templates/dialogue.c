@@ -25,6 +25,7 @@
 #define PE_TEMPLATE_BLACKOUT_TURNS 48u
 #define PE_FALLBACK_BLACKOUT_TURNS 48u
 #define PE_MEMORY_BLACKOUT_TURNS   48u
+#define PE_STYLE_BLACKOUT_TURNS    16u
 
 static uint32_t usage_id(uint32_t ns, uint32_t value){
     uint32_t h = value ^ ns;
@@ -352,7 +353,7 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
             uint32_t idx = (start + i) % PE_FLOURISH_COUNT;
             const char *candidate = eng->identity.flourishes[idx];
             uint32_t candidate_id = usage_id(PE_USAGE_FLOURISH, persona_hash(candidate));
-            if (candidate[0] && !phrase_recently_used(eng, candidate_id, 4u)){
+            if (candidate[0] && !phrase_recently_used(eng, candidate_id, PE_STYLE_BLACKOUT_TURNS)){
                 f = candidate;
                 fid = candidate_id;
                 break;
@@ -394,7 +395,7 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
             uint32_t idx = (start + i) % PE_EXPANSION_COUNT;
             const char *candidate = eng->identity.expansions[idx];
             uint32_t candidate_id = usage_id(PE_USAGE_EXPANSION, persona_hash(candidate));
-            if (candidate[0] && !phrase_recently_used(eng, candidate_id, 4u)){
+            if (candidate[0] && !phrase_recently_used(eng, candidate_id, PE_STYLE_BLACKOUT_TURNS)){
                 ex = candidate;
                 exid = candidate_id;
                 break;
@@ -613,9 +614,13 @@ static int render_reflection_callback(Engine *eng, char *out, size_t n){
         return 0;
     char text[256];
     if (pe_reflection_render(eng, m, text, (int)sizeof(text)) <= 0) return 0;
+    uint32_t text_id = usage_id(PE_USAGE_CALLBACK, persona_hash(text));
+    if (phrase_recently_used(eng, text_id, PE_TEMPLATE_BLACKOUT_TURNS))
+        return 0;
     snprintf(out, n, "Ah. %s", text);
     record_use(&eng->memory, usage_id(PE_USAGE_CALLBACK, m->id), eng->state.turn_count);
     record_use(&eng->memory, usage_id(PE_USAGE_MEMORY, m->id), eng->state.turn_count);
+    record_use(&eng->memory, text_id, eng->state.turn_count);
     return 1;
 }
 

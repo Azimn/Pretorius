@@ -4039,6 +4039,7 @@ function buildCart(ch){
 
 function dialogueQualityReport(ch){
   const dp = ch && ch.dialoguePack;
+  const id = (ch && ch.identity) || {};
   const templates = (dp && dp.templates && dp.templates.length) ? dp.templates : GENERIC_TEMPLATES;
   const fallbacks = (dp && dp.fallbacks) ? dp.fallbacks : GENERIC_FALLBACKS;
   const lines = templates.map(t => String(t.text || '')).filter(Boolean);
@@ -4084,6 +4085,28 @@ function dialogueQualityReport(ch){
     issue('info', `Repeated openers detected: ${repeatedOpeners.slice(0,3).map(([k,v]) => `"${k}" x${v}`).join(', ')}.`);
   if (fbCounts.some(n => n < 4))
     issue('warn', 'Fallback tiers should have at least four lines each so unclear input does not loop.');
+
+  function styleBank(kind, list, minLive){
+    const live = (list || []).map(s => String(s || '').trim()).filter(Boolean);
+    const seen = new Map();
+    const dup = [];
+    let dashy = 0;
+    for (const s of live){
+      const key = s.toLowerCase().replace(/\s+/g, ' ');
+      if (seen.has(key)) dup.push(s);
+      seen.set(key, true);
+      if (/[\u2013\u2014]|--/.test(s)) dashy++;
+    }
+    if (live.length < minLive)
+      issue('warn', `${kind} has only ${live.length} live phrase(s); add more variety or disable that style feature.`);
+    if (dup.length)
+      issue('warn', `${kind} contains duplicate phrases; repeated style injections are very noticeable.`);
+    if (dashy > live.length / 2 && live.length > 1)
+      issue('info', `${kind} is dash-heavy (${dashy}/${live.length}); ordinary chat may read as LLM-ish.`);
+  }
+  const flags = new Set(id.voice_flags || []);
+  styleBank('Flourishes', id.flourishes, flags.has('METAPHOR') ? 3 : 1);
+  styleBank('Expansions', id.expansions, 2);
 
   return {
     template_count: lines.length,

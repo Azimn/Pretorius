@@ -89,6 +89,37 @@ static int topic_exists(const TopicTable *t, uint32_t id){
     return 0;
 }
 
+static int has_dash_smell(const char *s){
+    return s && (strstr(s, "--")
+        || strstr(s, "\xE2\x80\x94")
+        || strstr(s, "\xE2\x80\x93"));
+}
+
+static void lint_style_bank(const char *label,
+                            const char bank[][PE_FLOURISH_LEN],
+                            int count,
+                            int min_live){
+    int live = 0, dashy = 0;
+    for (int i = 0; i < count; ++i){
+        if (!bank[i][0]) continue;
+        ++live;
+        if (has_dash_smell(bank[i])) ++dashy;
+        for (int j = i + 1; j < count; ++j){
+            if (bank[j][0] && !strcmp(bank[i], bank[j])){
+                warn("%s slot %d duplicates slot %d exactly; style injections will feel repetitive",
+                     label, j + 1, i + 1);
+                break;
+            }
+        }
+    }
+    if (live < min_live)
+        warn("%s has only %d live phrase(s); add more or disable the corresponding voice flag",
+             label, live);
+    if (dashy > live / 2 && live > 1)
+        info("%s is dash-heavy (%d/%d); ordinary chat may read as LLM-ish",
+             label, dashy, live);
+}
+
 static int is_valid_slot(const char *key){
     static const char *slots[] = {
         "user","address","topic","memory","name","preoccupation",
@@ -155,6 +186,10 @@ int main(int argc, char **argv){
         && !id->agreeableness && !id->neuroticism)
         warn("all Big Five traits are 0 — flat personality; planner stance will not vary by trait");
 
+    section("style banks");
+    lint_style_bank("flourishes", id->flourishes, PE_FLOURISH_COUNT,
+                    (id->voice_flags & PE_VF_METAPHOR) ? 3 : 1);
+    lint_style_bank("expansions", id->expansions, PE_EXPANSION_COUNT, 2);
     /* ---------------- topics ---------------- */
     section("topics");
     if (tpsize < 0 || tp->count == 0)
