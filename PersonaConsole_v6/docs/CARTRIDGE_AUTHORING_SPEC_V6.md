@@ -40,4 +40,4 @@ Missing optional fields: engine should degrade to baseline patterns/templates, n
 
 Validation rules: cartridge must load, lint cleanly, answer a scripted chat, close/reopen with memory state intact, and pass tone checks for its archetype.
 
-Demo archetypes: Pretorius proves high-style gothic; Mira proves warmth; Cassian proves rivalry; Eli proves restraint; Marin proves practical mentorship.
+Demo archetypes: Pretorius proves high-style gothic; Mira proves warmth; Cassian proves rivalry; Eli proves restraint; Marin proves practical mentorship; Kiki proves period-vernacular modern competence, where the character may understand current technology but should explain it through older references and speech habits.
