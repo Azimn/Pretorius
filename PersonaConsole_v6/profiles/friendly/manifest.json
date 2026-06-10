@@ -1,0 +1,14 @@
+{
+  "output": "profiles/friendly/friendly.cart",
+  "sections": [
+    {"name": "identity.bin", "path": "profiles/friendly/identity.bin"},
+    {"name": "drives.bin", "path": "profiles/friendly/drives.bin"},
+    {"name": "today.bin", "path": "profiles/friendly/today.bin"},
+    {"name": "banks.bin", "path": "profiles/friendly/banks.bin"},
+    {"name": "dialogue/patterns.bin", "path": "profiles/friendly/dialogue/patterns.bin"},
+    {"name": "dialogue/templates.bin", "path": "profiles/friendly/dialogue/templates.bin"},
+    {"name": "dialogue/fallback.bin", "path": "profiles/friendly/dialogue/fallback.bin"},
+    {"name": "dialogue/topics.bin", "path": "profiles/friendly/dialogue/topics.bin"},
+    {"name": "dialogue/goals.bin", "path": "profiles/friendly/dialogue/goals.bin"}
+  ]
+}

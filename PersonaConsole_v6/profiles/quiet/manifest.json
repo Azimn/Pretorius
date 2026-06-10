@@ -1,0 +1,14 @@
+{
+  "output": "profiles/quiet/quiet.cart",
+  "sections": [
+    {"name": "identity.bin", "path": "profiles/quiet/identity.bin"},
+    {"name": "drives.bin", "path": "profiles/quiet/drives.bin"},
+    {"name": "today.bin", "path": "profiles/quiet/today.bin"},
+    {"name": "banks.bin", "path": "profiles/quiet/banks.bin"},
+    {"name": "dialogue/patterns.bin", "path": "profiles/quiet/dialogue/patterns.bin"},
+    {"name": "dialogue/templates.bin", "path": "profiles/quiet/dialogue/templates.bin"},
+    {"name": "dialogue/fallback.bin", "path": "profiles/quiet/dialogue/fallback.bin"},
+    {"name": "dialogue/topics.bin", "path": "profiles/quiet/dialogue/topics.bin"},
+    {"name": "dialogue/goals.bin", "path": "profiles/quiet/dialogue/goals.bin"}
+  ]
+}

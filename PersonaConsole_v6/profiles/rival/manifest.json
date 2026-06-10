@@ -1,0 +1,14 @@
+{
+  "output": "profiles/rival/rival.cart",
+  "sections": [
+    {"name": "identity.bin", "path": "profiles/rival/identity.bin"},
+    {"name": "drives.bin", "path": "profiles/rival/drives.bin"},
+    {"name": "today.bin", "path": "profiles/rival/today.bin"},
+    {"name": "banks.bin", "path": "profiles/rival/banks.bin"},
+    {"name": "dialogue/patterns.bin", "path": "profiles/rival/dialogue/patterns.bin"},
+    {"name": "dialogue/templates.bin", "path": "profiles/rival/dialogue/templates.bin"},
+    {"name": "dialogue/fallback.bin", "path": "profiles/rival/dialogue/fallback.bin"},
+    {"name": "dialogue/topics.bin", "path": "profiles/rival/dialogue/topics.bin"},
+    {"name": "dialogue/goals.bin", "path": "profiles/rival/dialogue/goals.bin"}
+  ]
+}

@@ -1,0 +1,63 @@
+/* compile_demo_pack.c -- compact V6 demo cartridge pack compiler. */
+#include "persona.h"
+#include "persona_internal.h"
+#include "mutator.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+enum { T_SELF=1, T_WORK, T_USER, T_MEMORY, T_CONFLICT, T_REPAIR, T_BOUNDARY, T_FUTURE };
+enum { G_GREETING=1, G_WORK, G_MEMORY, G_CONFLICT, G_REPAIR, G_BOUNDARY };
+
+typedef struct {
+    const char *slug, *name, *corpus;
+    uint16_t O,C,E,A,N;
+    uint32_t flags;
+    const char *addr[4];
+    const char *pre[3];
+    const char *want[3];
+    const char *mem[4];
+    const char *line[7];
+    const char *fb[3];
+    int rival;
+} DemoChar;
+
+static const DemoChar DEMOS[] = {
+ {"friendly","Mira","data/corpus_demo_friendly.txt",0xB800,0x9000,0xA800,0xE800,0x5000,PE_VF_ALLOW_CALLBACK|PE_VF_ALLOW_CONTRADICT|(3u<<5),
+  {"friend","there","dear one","my friend"},{"keeping the room gentle","remembering what mattered","looking for the honest thread"},{"keep the user emotionally safe","notice returning concerns","repair small hurts early"},
+  {"The first time someone returned and trusted me with a fear","Learning that warmth can still have boundaries","A quiet promise to remember names and small details","The relief after a repaired misunderstanding"},
+  {"I am glad you are here.","I am trying to understand what would actually help you.","I remember the shape of that concern.","I do not want to fight you, but I will not pretend that did not matter.","We can repair this carefully.","No. I can stay kind and still keep that boundary.","What would feel useful to talk through first?"},
+  {"Tell me a little more.","I can stay with that.","Let us take it one clear step at a time."},0},
+ {"rival","Cassian Vale","data/corpus_demo_rival.txt",0xC000,0xA000,0xB000,0x3800,0x9000,PE_VF_SARDONIC|PE_VF_ALLOW_CALLBACK|PE_VF_ALLOW_CONTRADICT|(4u<<5),
+  {"competitor","you","rival","equal"},{"measuring the room","noting who overreaches","keeping score without admitting it"},{"win respect","expose weak claims","force a fair rematch"},
+  {"A public loss that taught me never to look away first","An opponent who earned my respect by refusing flattery","The sting of being underestimated","A truce that felt more dangerous than victory"},
+  {"You again. Good. I was nearly bored.","I am sharpening the argument, not serving it to you.","I remember losses better than compliments.","Careful. I know the difference between critique and surrender.","Repair is possible. Cheap forgiveness is not.","No. I do not yield merely because you prefer the sound of it.","What are you prepared to defend?"},
+  {"Try that again with more spine.","Interesting. Not convincing yet.","I will hear the argument, not the posture."},1},
+ {"quiet","Eli Rowan","data/corpus_demo_quiet.txt",0x9000,0xB000,0x2800,0xA000,0x6800,PE_VF_ALLOW_CALLBACK|PE_VF_ALLOW_CONTRADICT|(1u<<5),
+  {"you","friend","old friend","trusted one"},{"sorting what can be said","letting the silence settle","keeping a small note of the last thread"},{"answer only what matters","protect quiet","return to unfinished things"},
+  {"A winter morning when silence was safer than speech","The first apology I accepted slowly","A note folded twice and kept for years","A promise not to fill every room with noise"},
+  {"Hello.","I am working slowly. That is usually best.","Yes. I remember that.","That hurt. I need a moment before I answer fully.","We can try again, quietly.","No. Not that.","What should I hold onto from this?"},
+  {"Say it plainly.","I am listening.","A little less at once."},0},
+ {"mentor","Marin Hale","data/corpus_demo_mentor.txt",0xA000,0xE000,0x7000,0xB800,0x3000,PE_VF_ALLOW_CALLBACK|PE_VF_ALLOW_CONTRADICT|(2u<<5),
+  {"student","there","colleague","partner"},{"turning the problem into steps","checking the next useful action","separating signal from noise"},{"help the user act clearly","teach durable habits","repair confusion without drama"},
+  {"The first apprentice who improved by asking better questions","A failed plan that became useful after review","A checklist that saved an important morning","Learning that directness can be kind"},
+  {"Good. Let us get oriented.","I am breaking the work into the next practical step.","I remember the useful detail, not the noise.","I disagree with that reading. Let us test it.","We repair by naming the miss and choosing the next step.","No. That would blur the boundary and make the work worse.","What outcome are you trying to reach?"},
+  {"Start with the concrete part.","Useful. Now narrow it.","One step, then evidence."},0}
+};
+
+static int write_section(const char *dir,const char *name,const void *buf,size_t n){ char path[512], d[512]; if(pe_path_join(path,sizeof(path),dir,name)!=0) return -1; snprintf(d,sizeof(d),"%s",path); char *s=strrchr(d,'/'); if(s){*s=0; pe_mkdir_p(d);} return pe_write_file_atomic(path,buf,n); }
+static void init_banks(BankRegistry *b){ memset(b,0,sizeof(*b)); b->magic=PE_BANK_REGISTRY_MAGIC; b->version=PE_BANK_REGISTRY_VERSION; }
+static void identity(const DemoChar *c, Identity *id){ memset(id,0,sizeof(*id)); snprintf(id->character_name,PE_NAME_LEN,"%s",c->name); id->openness=c->O; id->conscientiousness=c->C; id->extraversion=c->E; id->agreeableness=c->A; id->neuroticism=c->N; id->voice_flags=c->flags; id->obsessions[0]=T_WORK; id->obsessions[1]=T_MEMORY; id->taboos[0]=T_BOUNDARY; id->obsession_strength[0]=70; id->obsession_strength[1]=55; for(int i=0;i<4;i++) snprintf(id->address_user_as[i],PE_ADDRESS_LEN,"%s",c->addr[i]); for(int i=0;i<3;i++){ snprintf(id->current_preoccupations[i],PE_PREOCCUPATION_LEN,"%s",c->pre[i]); snprintf(id->wants[i].name,PE_WANT_NAME_LEN,"%s",c->want[i]); id->wants[i].target_topic_id=(uint16_t)(T_USER+i); id->wants[i].intensity=(uint8_t)(150-i*15); } snprintf(id->resumption_lines[0],PE_RESUMPTION_LEN,"You came back. I remember where we left it."); snprintf(id->resumption_lines[1],PE_RESUMPTION_LEN,"A day passed. The thread is still here."); snprintf(id->resumption_lines[2],PE_RESUMPTION_LEN,"It has been a while. I kept the important part."); snprintf(id->resumption_lines[3],PE_RESUMPTION_LEN,"Long absence. We can resume carefully."); id->milestone_days[0]=1; snprintf(id->milestone_lines[0],PE_MILESTONE_LEN,"Second visit. That changes the pattern."); id->milestone_days[1]=7; snprintf(id->milestone_lines[1],PE_MILESTONE_LEN,"A week is enough time to notice a habit."); for(int i=0;i<4;i++){ MemoryNode *m=&id->core_memories_seed[i]; m->id=i+1; m->salience=220; m->core_memory=1; m->memory_type=MEM_CORE; m->topic_id=(uint16_t)(T_SELF+i); m->emotion.valence=(int8_t)(i==1?-5:35); m->emotion.arousal=40; m->emotion.dominance=(int8_t)(i==1?-10:20); snprintf(m->summary,PE_MEM_SUMMARY_LEN,"%s",c->mem[i]); } id->core_memory_count=4; }
+static void drives(const DemoChar *c, DriveTable *dt){ memset(dt,0,sizeof(*dt)); const char *n[]={"Recognition","Stimulation","Provocation","Communion","Autonomy","Continuity","Vindication","Repose"}; int16_t b[]={420,420,260,620,520,520,260,420}; int8_t mw[]={3,3,-3,6,2,3,-5,1}; for(int i=0;i<PE_DRIVE_COUNT;i++){ dt->drives[i].id=(uint8_t)i; snprintf(dt->drives[i].name,16,"%s",n[i]); dt->drives[i].baseline=b[i]; dt->drives[i].decay_per_minute=-6; dt->drives[i].mood_weight=mw[i]; } if(c->rival){ dt->drives[PE_DRIVE_VINDICATION].baseline=620; dt->drives[PE_DRIVE_COMMUNION].baseline=300; } if(!strcmp(c->slug,"quiet")){ dt->drives[PE_DRIVE_REPOSE].baseline=760; dt->drives[PE_DRIVE_STIMULATION].baseline=260; } }
+static void topics(TopicTable *tt){ memset(tt,0,sizeof(*tt)); const char *n[]={"self","work","user","memory","conflict","repair","boundary","future"}; tt->count=8; for(uint32_t i=0;i<8;i++){ tt->topics[i].id=(uint32_t)(i+1); snprintf(tt->topics[i].name,PE_TOPIC_NAME,"%s",n[i]); for(int k=0;k<6;k++) tt->topics[i].adjacents[k]=0xFFFF; } }
+static void pat(PatternTable *pt,const char *kw,uint16_t topic,int8_t v,int8_t a,int8_t cls,uint16_t g){ Pattern *p=&pt->entries[pt->count++]; memset(p,0,sizeof(*p)); snprintf(p->keyword,PE_PATTERN_KW_LEN,"%s",kw); p->topic_id=topic; p->delta_valence=v; p->delta_arousal=a; p->input_class=cls; p->template_group=g; p->kw_len=(uint8_t)strlen(kw); p->first_char=(uint8_t)kw[0]; }
+static void patterns(PatternTable *pt){ memset(pt,0,sizeof(*pt)); pat(pt,"work",T_WORK,5,25,3,G_WORK); pat(pt,"remember",T_MEMORY,5,25,3,G_MEMORY); pat(pt,"memory",T_MEMORY,5,25,3,G_MEMORY); pat(pt,"wrong",T_CONFLICT,-20,45,2,G_CONFLICT); pat(pt,"contradict",T_CONFLICT,-10,40,3,G_CONFLICT); pat(pt,"sorry",T_REPAIR,15,30,0,G_REPAIR); pat(pt,"boundary",T_BOUNDARY,0,30,3,G_BOUNDARY); }
+static void tmpl(TemplateTable *t,uint16_t g,uint8_t in,int16_t base,const char *s){ Template *e=&t->entries[t->count]; memset(e,0,sizeof(*e)); e->id=(uint16_t)t->count; e->group=g; e->intent=in; e->base_score=base; e->mood_min=-1000; e->mood_max=1000; e->drive_bias_id=-1; e->rhetorical_mask=0xFFFF; e->stance_mask=0xFFFF; snprintf(e->text,PE_TEMPLATE_TEXT,"%s",s); t->count++; }
+static void templates(const DemoChar *c, TemplateTable *t){ memset(t,0,sizeof(*t)); tmpl(t,G_GREETING,PE_INTENT_ANSWER,80,c->line[0]); tmpl(t,G_WORK,PE_INTENT_ANSWER,85,c->line[1]); tmpl(t,G_MEMORY,PE_INTENT_REMINISCE,85,c->line[2]); tmpl(t,G_CONFLICT,PE_INTENT_ACCUSE,80,c->line[3]); tmpl(t,G_REPAIR,PE_INTENT_ANSWER,85,c->line[4]); tmpl(t,G_BOUNDARY,PE_INTENT_EVADE,80,c->line[5]); tmpl(t,0xFFFF,PE_INTENT_PROBE,70,c->line[6]); tmpl(t,0xFFFF,PE_INTENT_INITIATE,70,c->line[6]); tmpl(t,0xFFFF,PE_INTENT_ATTEND,60,"I hear the important part."); tmpl(t,0xFFFF,PE_INTENT_PAUSE,90,""); tmpl(t,0xFFFF,PE_INTENT_CLARIFY,75,"Which part should I treat as certain?"); }
+static void fallbacks(const DemoChar *c,FallbackTable *fb){ memset(fb,0,sizeof(*fb)); for(int i=0;i<3;i++) snprintf(i<2?fb->tier1[i]:fb->tier2[0],PE_TEMPLATE_TEXT,"%s",c->fb[i]); fb->tier1_count=2; fb->tier2_count=1; }
+static void goals(GoalTable *g){ memset(g,0,sizeof(*g)); const char *n[]={"answer","repair","remember","challenge","initiate"}; uint16_t in[]={PE_INTENT_ANSWER,PE_INTENT_ATTEND,PE_INTENT_REMINISCE,PE_INTENT_ACCUSE,PE_INTENT_INITIATE}; for(int i=0;i<5;i++){ g->entries[i].id=(uint32_t)i; g->entries[i].base_priority=80; g->entries[i].intent_id=in[i]; g->entries[i].bias_topic=(i==1?T_REPAIR:(i==2?T_MEMORY:0xFFFF)); snprintf(g->entries[i].name,16,"%s",n[i]); } g->count=5; }
+static void today(TodayTable *td){ memset(td,0,sizeof(*td)); td->count=1; snprintf(td->entries[0].label,PE_TODAY_LABEL,"clear"); td->entries[0].goal_override=0xFFFF; }
+static int manifest(const DemoChar *c){ char p[256]; snprintf(p,sizeof(p),"profiles/%s/manifest.json",c->slug); FILE *f=fopen(p,"wb"); if(!f) return -1; fprintf(f,"{\n  \"output\": \"profiles/%s/%s.cart\",\n  \"sections\": [\n",c->slug,c->slug); const char *s[]={"identity.bin","drives.bin","today.bin","banks.bin","dialogue/patterns.bin","dialogue/templates.bin","dialogue/fallback.bin","dialogue/topics.bin","dialogue/goals.bin"}; for(int i=0;i<9;i++) fprintf(f,"    {\"name\": \"%s\", \"path\": \"profiles/%s/%s\"}%s\n",s[i],c->slug,s[i],i==8?"":","); fprintf(f,"  ]\n}\n"); fclose(f); return 0; }
+static int corpus(const DemoChar *c){ FILE *f=fopen(c->corpus,"wb"); if(!f) return -1; for(int i=0;i<7;i++) fprintf(f,"%s\n",c->line[i]); fclose(f); return 0; }
+static int emit(const DemoChar *c){ char dir[256],dd[256]; snprintf(dir,sizeof(dir),"profiles/%s",c->slug); snprintf(dd,sizeof(dd),"profiles/%s/dialogue",c->slug); pe_mkdir_p(dir); pe_mkdir_p(dd); Identity id; DriveTable dt; TopicTable tt; PatternTable pt; TemplateTable tm; FallbackTable fb; GoalTable gt; TodayTable td; BankRegistry bk; identity(c,&id); drives(c,&dt); topics(&tt); patterns(&pt); templates(c,&tm); fallbacks(c,&fb); goals(&gt); today(&td); init_banks(&bk); int rc=0; rc|=write_section(dir,"identity.bin",&id,sizeof(id)); rc|=write_section(dir,"drives.bin",&dt,sizeof(dt)); rc|=write_section(dir,"today.bin",&td,sizeof(td)); rc|=write_section(dir,"banks.bin",&bk,sizeof(bk)); rc|=write_section(dir,"dialogue/patterns.bin",&pt,sizeof(pt)); rc|=write_section(dir,"dialogue/templates.bin",&tm,sizeof(tm)); rc|=write_section(dir,"dialogue/fallback.bin",&fb,sizeof(fb)); rc|=write_section(dir,"dialogue/topics.bin",&tt,sizeof(tt)); rc|=write_section(dir,"dialogue/goals.bin",&gt,sizeof(gt)); rc|=manifest(c); rc|=corpus(c); if(!rc) printf("%s compiled into %s\n",c->name,dir); return rc; }
+int main(void){ int rc=0; for(size_t i=0;i<sizeof(DEMOS)/sizeof(DEMOS[0]);i++) rc|=emit(&DEMOS[i]); return rc?1:0; }

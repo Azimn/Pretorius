@@ -42,6 +42,28 @@ These fields are part of what prevents Forge-built characters from being
 "V5-inert." Exported carts are validated by the engine-side
 `cartridge_lint` test.
 
+
+### V6 Completeness Status
+
+The V6 engine adds CanonicalTurnFrame, render audit, speech ledger, recall modes, open loops, relation dimensions, and contradiction protocol hooks. Those systems are engine-side and do not require the Forge to become a runtime.
+
+Forge exports must not silently ignore V6 cartridge fields. Until the UI fully authors every field, the Forge should validate and warn for:
+
+- symbolic self fields: ideal_self, ought_self, feared_self
+- tone and voice profile completeness
+- topics and stable topic ids
+- wants and preoccupations
+- taboos and obsessions
+- open-loop hook coverage
+- contradiction defaults
+- refusal defaults
+- repair defaults
+- memory seed schema
+- relation defaults
+- Micro Mode compatibility
+
+Current limitation: the self-contained Forge UI does not yet provide full dedicated controls for every V6 field above. Treat unsupported fields as explicit TODOs, not as absent requirements. Engine-side demo cartridges and `docs/CARTRIDGE_AUTHORING_SPEC_V6.md` are the current authority for complete V6 authoring.
+
 ### Import Chat History
 
 Drop in a chat log file. The Forge parses it client-side and extracts:

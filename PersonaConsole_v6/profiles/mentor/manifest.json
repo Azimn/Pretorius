@@ -1,0 +1,14 @@
+{
+  "output": "profiles/mentor/mentor.cart",
+  "sections": [
+    {"name": "identity.bin", "path": "profiles/mentor/identity.bin"},
+    {"name": "drives.bin", "path": "profiles/mentor/drives.bin"},
+    {"name": "today.bin", "path": "profiles/mentor/today.bin"},
+    {"name": "banks.bin", "path": "profiles/mentor/banks.bin"},
+    {"name": "dialogue/patterns.bin", "path": "profiles/mentor/dialogue/patterns.bin"},
+    {"name": "dialogue/templates.bin", "path": "profiles/mentor/dialogue/templates.bin"},
+    {"name": "dialogue/fallback.bin", "path": "profiles/mentor/dialogue/fallback.bin"},
+    {"name": "dialogue/topics.bin", "path": "profiles/mentor/dialogue/topics.bin"},
+    {"name": "dialogue/goals.bin", "path": "profiles/mentor/dialogue/goals.bin"}
+  ]
+}

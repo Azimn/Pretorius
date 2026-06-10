@@ -98,12 +98,12 @@ ENGINE_SRC := $(CORE_SRC) $(MEMORY_SRC) $(SCHEMA_SRC) $(INSTRUMENTATION_SRC) \
 MICRO_ENGINE_SRC := $(CORE_SRC) $(MEMORY_SRC) $(SCHEMA_SRC) $(INSTRUMENTATION_SRC) \
                     $(RENDER_TEMPLATES_SRC) $(MICRO_RENDER_CORE_SRC)
 
-# LSH subsystem (SimHash + consolidation) — self-contained.
+# LSH subsystem (SimHash + consolidation) ??? self-contained.
 LSH_SRC := \
     memory/lsh_memory.c \
     memory/consolidate.c
 
-# Plasticity subsystem (n-gram LM + template mutator) — self-contained.
+# Plasticity subsystem (n-gram LM + template mutator) ??? self-contained.
 PLAS_SRC := \
     render/templates/ngram_lm.c \
     render/templates/mutator.c
@@ -115,13 +115,13 @@ AETHER_SRC := \
     memory/aether_bucket.c     \
     memory/aether_consolidate.c
 
-# PersonaHost — HTTP + JSON-over-stdio + FFI wrapper.
+# PersonaHost ??? HTTP + JSON-over-stdio + FFI wrapper.
 HOST_SRC := \
     bridges/persona_ffi.c \
     bridges/json.c        \
     bridges/http.c
 
-# Object file rules — strip module prefix so build/ stays flat.
+# Object file rules ??? strip module prefix so build/ stays flat.
 ENGINE_OBJ := $(patsubst %.c,build/%.o,$(notdir $(ENGINE_SRC)))
 MICRO_ENGINE_OBJ := $(patsubst %.c,build/micro_%.o,$(notdir $(MICRO_ENGINE_SRC)))
 LSH_OBJ    := $(patsubst %.c,build/%.o,$(notdir $(LSH_SRC)))
@@ -149,13 +149,13 @@ RENDER_HEADERS := \
         forge_cart_test forge_bundle_test forge_dialogue_test \
         forge_archetypes_test forge_parsers_test inspector_test web_presence_test \
         demo_package release_check micro micro_size_report micro_replay_run \
-        strict_check strict_gate v6_believability_battery_run v6_recall_mode_order_run
+        strict_check strict_gate v6_believability_battery_run v6_demo_pack_battery_run v6_recall_mode_order_run v6_contradiction_protocol_run
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
-     build/compile_cartridge build/compile_pretorius build/compile_kiki \
+     build/compile_cartridge build/compile_pretorius build/compile_kiki build/compile_demo_pack \
      build/repl build/build_lm build/cartridge_stats build/cartridge_lint \
      profiles/pretorius/voice.lm profiles/kiki/voice.lm \
-     profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart
+     profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart $(DEMO_CARTS)
 
 build:
 	@mkdir -p build
@@ -180,7 +180,7 @@ build/%.o: render/slm/%.c render/render_backend.h render/prompt_compiler.h rende
 build/%.o: render/providers/%.c render/providers/ollama_provider.h | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# PersonaHost objects — same include set + the host's own headers.
+# PersonaHost objects ??? same include set + the host's own headers.
 build/host_%.o: bridges/%.c bridges/persona_ffi.h bridges/http.h bridges/json.h core/persona.h | build
 	$(CC) $(CFLAGS) -Ibridges -c $< -o $@
 
@@ -241,6 +241,9 @@ build/compile_pretorius: tools/compile_pretorius.c build/libpersona.a build/libp
 build/compile_kiki: tools/compile_kiki.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
 	$(CC) $(CFLAGS) tools/compile_kiki.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
 
+build/compile_demo_pack: tools/compile_demo_pack.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) tools/compile_demo_pack.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
 build/build_lm: tools/build_lm.c build/libplasticity.a
 	$(CC) $(CFLAGS) tools/build_lm.c build/libplasticity.a -o $@ $(LDFLAGS)
 
@@ -251,6 +254,18 @@ cartridge_stats: build/cartridge_stats profiles/pretorius/pretorius.cart
 	./build/cartridge_stats profiles/pretorius/pretorius.cart
 
 # ----- profile bins + cart bundling -----
+
+DEMO_SLUGS := friendly rival quiet mentor
+DEMO_CARTS := $(foreach c,$(DEMO_SLUGS),profiles/$(c)/$(c).cart)
+
+profiles/demo_pack/.stamp: build/compile_demo_pack
+	./build/compile_demo_pack
+	@mkdir -p profiles/demo_pack
+	@touch $@
+
+profiles/friendly/friendly.cart profiles/rival/rival.cart profiles/quiet/quiet.cart profiles/mentor/mentor.cart: profiles/demo_pack/.stamp build/compile_cartridge
+	./build/compile_cartridge profiles/$(notdir $(basename $@))/manifest.json
+
 profiles/pretorius/.bins.stamp: build/compile_pretorius
 	./build/compile_pretorius profiles/pretorius
 	@touch $@
@@ -275,14 +290,7 @@ profiles/pretorius/pretorius.cart: profiles/pretorius/manifest.json profiles/pre
 profiles/kiki/kiki.cart: profiles/kiki/manifest.json profiles/kiki/.bins.stamp build/compile_cartridge profiles/kiki/voice.lm
 	./build/compile_cartridge profiles/kiki/manifest.json
 
-cartridges: profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart
-
-demo_package: build/persona_host profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart
-	powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/package_demo.ps1
-
-release_check: demo_package
-	powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/release_check.ps1
-
+cartridges: profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart $(DEMO_CARTS)
 # ----- REPL + host -----
 build/repl: tests/repl.c build/libpersona.a build/libplasticity.a build/liblsh.a build/libaether.a
 	$(CC) $(CFLAGS) tests/repl.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
@@ -315,7 +323,7 @@ host: build/persona_host build/libpersona_host.so
 build/host_test: tests/host_test.c build/libpersona_host.a build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
 	$(CC) $(CFLAGS) -Ibridges tests/host_test.c build/libpersona_host.a build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
 
-host_test: build/host_test profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart
+host_test: build/host_test profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart $(DEMO_CARTS)
 
 host_run: host_test
 	./build/host_test
@@ -357,7 +365,7 @@ v6_recall_mode_order_run: build/recall_mode_order_test
 
 # ----- Forge end-to-end tests (node) -----
 forge_cart_test: build/persona_host build/cartridge_lint
-	@command -v node >/dev/null 2>&1 || { echo "node not in PATH — skipping"; exit 0; }
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH ??? skipping"; exit 0; }
 	node tests/forge_cart_test.js
 forge_bundle_test: build/persona_host
 	@command -v node  >/dev/null 2>&1 || { echo "node not in PATH";  exit 0; }
@@ -406,7 +414,7 @@ build/v4_instr_test: tests/replay/instrumentation_test.c build/libpersona.a buil
 v4_instr_run: build/v4_instr_test
 	./build/v4_instr_test
 
-# Canonical continuity benchmark — measures the properties the AI
+# Canonical continuity benchmark ??? measures the properties the AI
 # industry does NOT measure: emotional persistence, schema stability,
 # relational continuity, autobiographical consistency, renderer
 # invariance.  Pass threshold = 60/100.
@@ -503,12 +511,12 @@ v4_recall_plasticity_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/recall_plasticity_test.js
 
-# Behavioral Drift Index — measures identity divergence between renderers.
+# Behavioral Drift Index ??? measures identity divergence between renderers.
 v4_drift_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/behavioral_drift.js
 
-# Hallucination firewall — operationally proves renderer output cannot
+# Hallucination firewall ??? operationally proves renderer output cannot
 # contaminate Layer 1 state, even under adversarial SLM injection.
 v4_firewall_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
@@ -526,7 +534,11 @@ v6_believability_battery_run: build/persona_host profiles/pretorius/pretorius.ca
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/believability_battery.js
 
-lint_test: build/cartridge_lint profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart
+v6_demo_pack_battery_run: build/persona_host cartridges
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/demo_pack_battery.js
+
+lint_test: build/cartridge_lint profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart $(DEMO_CARTS)
 	./build/cartridge_lint profiles/pretorius/pretorius.cart
 	./build/cartridge_lint profiles/kiki/kiki.cart
 	@echo "--- lint: showcase carts clean ---"
@@ -573,10 +585,9 @@ strict_check:
 	@test -f tests/continuity/believability_trial.js || { echo "STRICT_TESTS: believability test missing"; exit 1; }
 
 strict_gate: strict_check micro_replay_run v4_replay_run v6_recall_modes_run \
-             v6_open_loops_run v6_self_ledger_run v6_recall_mode_order_run \
-             v6_believability_battery_run
+             v6_open_loops_run v6_self_ledger_run v6_recall_mode_order_run v6_contradiction_protocol_run \
+             v6_believability_battery_run v6_demo_pack_battery_run
 	@echo "--- STRICT_TESTS gate: green ---"
-
 # Clock-pinned replay: proves Layer 1 state is reproducible from the
 # canonical five-tuple (cartridge, seed, WAL, inputs, clock).
 v5_clock_replay_run: build/persona_host profiles/pretorius/pretorius.cart
@@ -626,6 +637,11 @@ v6_withhold_logging_run: build/persona_host profiles/pretorius/pretorius.cart
 v6_recall_modes_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/replay/recall_modes_test.js
+
+
+v6_contradiction_protocol_run: build/persona_host profiles/friendly/friendly.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/replay/contradiction_protocol_test.js
 
 # V6 Phase 6: open loops / carried intentions. Asserts that a
 # half-spoken unresolved thread writes open_loops.bin, exposes count in
