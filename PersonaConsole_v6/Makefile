@@ -328,6 +328,12 @@ host_test: build/host_test profiles/pretorius/pretorius.cart profiles/kiki/kiki.
 host_run: host_test
 	./build/host_test
 
+demo_package: build/persona_host cartridges
+	powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/package_demo.ps1
+
+release_check: demo_package
+	powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/release_check.ps1
+
 # ----- subsystem tests -----
 build/lsh_test: tests/lsh_test.c build/liblsh.a
 	$(CC) $(CFLAGS) tests/lsh_test.c build/liblsh.a -o $@ $(LDFLAGS)
