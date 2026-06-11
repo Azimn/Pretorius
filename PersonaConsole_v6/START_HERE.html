@@ -13,8 +13,11 @@ header{border-bottom:1px solid var(--border);padding-bottom:22px;margin-bottom:2
 h1{font-size:30px;margin:0 0 6px;color:var(--accent);font-weight:650}
 p{color:var(--muted);margin:0}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.launch-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:14px}
 .card{display:block;color:inherit;text-decoration:none;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:22px}
 .card:hover{border-color:var(--accent);background:var(--panel-2)}
+.launch{display:block;color:inherit;text-decoration:none;background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
+.launch:hover{border-color:var(--accent)}
 .card h2{font-size:18px;margin:0 0 8px;font-weight:600}
 .card p{font-size:14px}
 .steps{margin-top:26px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
@@ -31,6 +34,27 @@ code{color:var(--accent);font-family:ui-monospace,SFMono-Regular,Menlo,monospace
     <p>A deterministic character operating system: local-first, low-hardware, template-first, with optional local SLM rendering.</p>
   </header>
 
+  <section class="steps">
+    <h2>Chat With A Character</h2>
+    <p>This page is static. The chat UI works after the local PersonaHost server is running.</p>
+    <ol>
+      <li>Double-click one of the launcher files below in this folder.</li>
+      <li>Your browser should open to <code>http://127.0.0.1:7777/</code>.</li>
+      <li>If the browser does not open, click <a href="http://127.0.0.1:7777/">Open Chat UI</a> after starting a launcher.</li>
+      <li>When finished, double-click <code>Stop_Server.cmd</code>.</li>
+    </ol>
+    <div class="launch-grid">
+      <a class="launch" href="Run_pretorius.cmd">Run Pretorius</a>
+      <a class="launch" href="Run_kiki.cmd">Run Kiki</a>
+      <a class="launch" href="Run_friendly.cmd">Run Mira</a>
+      <a class="launch" href="Run_rival.cmd">Run Cassian</a>
+      <a class="launch" href="Run_quiet.cmd">Run Eli</a>
+      <a class="launch" href="Run_mentor.cmd">Run Marin</a>
+      <a class="launch" href="Run_Pretorius_Ollama_Optional.cmd">Optional Ollama</a>
+      <a class="launch" href="Stop_Server.cmd">Stop Server</a>
+    </div>
+  </section>
+
   <section class="grid">
     <a class="card" href="CartridgeForge/forge.html">
       <h2>Build A Character</h2>
@@ -41,8 +65,8 @@ code{color:var(--accent);font-family:ui-monospace,SFMono-Regular,Menlo,monospace
       <p>Drop in a .cart file to check identity format, memories, dialogue coverage, and V6 continuity hooks.</p>
     </a>
     <a class="card" href="docs/FIRST_RUN_DEMO_V6.md">
-      <h2>First-Run Demo</h2>
-      <p>Run a character, talk, close, reopen, and verify local memory persistence without an LLM.</p>
+      <h2>First-Run Docs</h2>
+      <p>Read the nontechnical test flow: launch, talk, close, reopen, and verify memory persistence.</p>
     </a>
     <a class="card" href="docs/IMPORTED_PERSONA_FIDELITY_V6.md">
       <h2>Imported Personas</h2>
