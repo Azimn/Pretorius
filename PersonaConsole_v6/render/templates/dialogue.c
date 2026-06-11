@@ -8,6 +8,7 @@
 #include "environment.h"
 #include "reflection.h"
 #include <string.h>
+#include <strings.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <time.h>
@@ -303,6 +304,43 @@ static int contains_ci(const char *hay, const char *needle){
         if (i == nl) return 1;
     }
     return 0;
+}
+
+static const char *find_ci(const char *hay, const char *needle){
+    if (!hay || !needle || !*needle) return NULL;
+    size_t nl = strlen(needle);
+    for (const char *p = hay; *p; ++p){
+        size_t i = 0;
+        while (i < nl && p[i]
+            && tolower((unsigned char)p[i]) == tolower((unsigned char)needle[i]))
+            ++i;
+        if (i == nl) return p;
+    }
+    return NULL;
+}
+
+static int extract_remembered_phrase(const char *summary, char *out, size_t n){
+    const char *p;
+    size_t w = 0;
+    if (!summary || !out || n == 0) return 0;
+    out[0] = 0;
+    p = find_ci(summary, "remember");
+    if (!p) return 0;
+    p += 8;
+    while (*p == ' ' || *p == ':' || *p == '"' || *p == '\'') p++;
+    if (!strncasecmp(p, "that ", 5)) p += 5;
+    if (!strncasecmp(p, "this ", 5)) p += 5;
+    if (!strncasecmp(p, "the phrase ", 11)) p += 11;
+    while (*p && w + 1 < n){
+        char c = *p++;
+        if (c == '\r' || c == '\n') break;
+        if (c == '"' || c == '\'') continue;
+        out[w++] = c;
+    }
+    out[w] = 0;
+    trim_terminal_punctuation(out);
+    while (w > 0 && isspace((unsigned char)out[w - 1])) out[--w] = 0;
+    return w > 0;
 }
 
 static const char *topic_name_for_reply(const Engine *eng, uint16_t topic_id){
@@ -647,6 +685,25 @@ static int render_direct_callback_question(Engine *eng, const char *input,
         const char *tn = topic_name_for_reply(eng,
             eng->plan.target_topic != 0xFFFF ? eng->plan.target_topic : eng->primary_topic);
         snprintf(out, n, "Next time, ask me about %s. I want to see where that thought leads you.", tn);
+        return 1;
+    }
+
+    for (uint16_t pos = eng->memory.episodic_count; pos > 0; --pos){
+        uint16_t idx = (uint16_t)(pos - 1u);
+        const MemoryNode *m;
+        char phrase[PE_MEM_SUMMARY_LEN];
+        m = &eng->memory.episodic[idx];
+        if (m->memory_type == MEM_CORE || m->core_memory) continue;
+        {
+            uint32_t actor = pe_actor_index_get(&eng->actor_index, idx);
+            if (actor != 0 && eng->relation.user_hash != 0
+                && actor != eng->relation.user_hash)
+                continue;
+        }
+        if (!extract_remembered_phrase(m->summary, phrase, sizeof(phrase)))
+            continue;
+        snprintf(out, n, "You asked me to remember %s.", phrase);
+        record_use(&eng->memory, usage_id(PE_USAGE_MEMORY, m->id), eng->state.turn_count);
         return 1;
     }
 

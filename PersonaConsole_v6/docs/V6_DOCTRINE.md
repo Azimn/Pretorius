@@ -22,6 +22,41 @@ cartridge artifacts, line endings) lives in `DEV_WORKFLOW.md`.
 
 ---
 
+## Part 0 — The Low-Hardware Soul Rule
+
+PersonaConsole is an ownable, low-hardware deterministic character core.
+This is not a side constraint; it is the product.
+
+The deployable persona core is:
+
+- engine,
+- cartridge,
+- compact sidecar state and memory,
+- optional portrait/assets.
+
+It must not require a GPU, cloud service, account, network connection,
+model download, JavaScript runtime, database server, vector store, or
+LLM. Forge, import tools, inspectors, evaluators, package builders, and
+optional renderers may be heavier because they are authoring and testing
+tools. They are not the soul.
+
+Every engine feature should be judged by the old-game test: could a
+bounded version of this idea run on laughably weak hardware and still
+make the character feel more alive? Prefer symbolic records, fixed
+capacity, integer scoring, small scans, and deterministic callbacks over
+large dynamic systems. Do not add a large subsystem when a meaningful
+salience flag, commitment record, open loop, or diary callback will do.
+
+The goal is not to remember everything. The goal is to remember what
+makes a persona feel alive: names, promises, private jokes, explicit
+remember requests, conflicts, apologies, preferences, emotional turning
+points, unfinished business, and relationship milestones.
+
+Optional SLM/frontier renderers can improve phrasing, but they are never
+the source of identity. The renderer decorates. Layer 1 decides.
+
+---
+
 ## Part I — The V6 thesis
 
 ### 1. Bounded continuity under pressure
