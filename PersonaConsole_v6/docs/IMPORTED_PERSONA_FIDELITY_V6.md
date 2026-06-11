@@ -16,6 +16,6 @@ Author these fields for imported personas:
 - Memory protections: facts that can be corrected, facts that require clarification, and core memories that should resist revision.
 - NPC/entity relationships: bonds to actors other than the current user, including affection, rivalry, obligation, resentment, grief, and loyalty.
 
-Kiki is the reference case for this layer. She can understand modern technology, but should phrase it through older comparisons and social habits. The battery checks that she avoids modern leakage such as casual current slang, even though the engine itself knows nothing about Kiki specifically.
+Kiki is the reference case for this layer. She can understand modern technology, but should phrase it through late-80s/90s teen slang, mall-era comparisons, and social habits. The battery checks that she avoids modern platform leakage while allowing voice markers such as "like" and "vibe" when they fit her register. The engine itself knows nothing about Kiki specifically.
 
 Do not solve fidelity by adding more prose alone. Add symbolic constraints, then give templates and fallback lines enough voice to express those constraints.

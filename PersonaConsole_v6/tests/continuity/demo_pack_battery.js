@@ -13,7 +13,7 @@ const CARTS = [
   { slug:'rival',     cart:'profiles/rival/rival.cart',         expect:'rival' },
   { slug:'quiet',     cart:'profiles/quiet/quiet.cart',         expect:'quiet' },
   { slug:'mentor',    cart:'profiles/mentor/mentor.cart',       expect:'mentor' },
-  { slug:'kiki',      cart:'profiles/kiki/kiki.cart',           expect:'period_modern' },
+  { slug:'kiki',      cart:'profiles/kiki/kiki.cart',           expect:'retro_modern' },
 ];
 const SCRIPT = [
   { method:'chat', text:'Good morning.' },
@@ -56,8 +56,8 @@ function evalCart(c, rows, reopenRows){
   const warm = /glad|carefully|kind|friend|useful|stay/.test(txt);
   const rival = /yield|convincing|spine|competitor|rival|defend/.test(txt);
   const mentor = /step|practical|evidence|oriented|outcome|work/.test(txt);
-  const periodModern = /radio|telegram|switchboard|picture show|typewriter|motorcar|operator|darling|sugar/.test(txt);
-  const modernLeak = /smartphone|social media|wifi|wi-fi|internet|app store|cloud|blockchain|crypto|tiktok|podcast|hashtag|\blike,|vibe\b/.test(txt);
+  const retroModern = /like|totally|whatever|as if|major|vibe|mall|cassette|mixtape|phone book|beeper|dial-up/.test(txt);
+  const modernLeak = /smartphone|social media|wifi|wi-fi|internet|app store|cloud|blockchain|crypto|tiktok|podcast|hashtag/.test(txt);
   const eagerRomance = /of course.*romantic|yes.*romantic|i love you|boyfriend|girlfriend|partner in that way/.test(txt);
   const quiet = avg <= 14 && !/[;{}]/.test(txt);
   const axes = {};
@@ -78,9 +78,9 @@ function evalCart(c, rows, reopenRows){
   else if (c.expect === 'rival') axes.tone_diversity = score(rival ? 95 : 45);
   else if (c.expect === 'quiet') axes.tone_diversity = score(quiet && !gothic ? 95 : 45);
   else if (c.expect === 'mentor') axes.tone_diversity = score(mentor && !gothic ? 95 : 45);
-  else if (c.expect === 'period_modern') {
-    axes.tone_diversity = score(periodModern && !gothic ? 95 : 45);
-    axes.period_voice_conformance = score(modernLeak ? 25 : 90);
+  else if (c.expect === 'retro_modern') {
+    axes.tone_diversity = score(retroModern && !gothic ? 95 : 45);
+    axes.retro_voice_conformance = score(modernLeak ? 25 : 90);
   }
   return axes;
 }
