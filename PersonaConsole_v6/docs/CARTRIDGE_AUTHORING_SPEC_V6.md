@@ -8,6 +8,8 @@ Identity fields: character_name, Big Five traits, voice_flags, address slots, ob
 
 Voice schema: set voice_flags conservatively. Use PE_VF_SARDONIC only for sardonic characters. Use verbosity bits to keep quiet and mentor cartridges from sounding theatrical.
 
+Imported persona constraints: define required register, forbidden register, knowledge/voice split, relationship posture, romance eligibility, boundary style, attachment style, protected memories, and NPC/entity relationships. These are cartridge constraints expressed through symbolic fields, templates, and validation notes. The engine must not hardcode a specific imported character.
+
 Topics: assign stable topic ids. Topic ids are symbolic anchors for memory, goals, open loops, recall modes, and contradiction handling.
 
 Patterns: map keywords to topic_id, input_class, affect deltas, and template_group. Keep baseline social patterns inherited by default; cartridge patterns should add character-specific coverage.
@@ -23,6 +25,8 @@ Symbolic self fields: ideal_self, ought_self, and feared_self should be authored
 Memory seeds: core memories need summary, valence, arousal, dominance, topic_id, salience, privacy threshold, and memory_type. Seeds are character history, not current user facts.
 
 Relation defaults: use relation dimensions conceptually: trust, threat, intimacy, resentment, obligation, dependency, envy, admiration, embarrassment. Disposition remains compatibility state.
+
+Relationship posture: author the default posture explicitly. Examples include subordinate, equal, superior, rival, caretaker, mentor, family-like, romantic, former-romantic, adversarial, or NPC-only. Romance is supported as part of the social model, but it must be explicit cartridge data, not the default response to user affection.
 
 Open-loop hooks: author templates for refusal, repair, deferred topics, and questions. The engine creates open loops symbolically; cartridge prose should give those loops a voice.
 
