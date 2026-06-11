@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 /* ollama_provider_test.js — proves the SLM backend dispatches to an
  * Ollama-compatible endpoint and that the result wins over the
- * template path in the engine's response pipeline.
+ * template path when it passes the engine's render audit.
  *
  * Strategy: spawn a tiny HTTP/1.1 mock that speaks Ollama's
  * /api/generate contract.  The mock echoes back a deterministic
  * marker plus the seed it received, so we can verify:
  *   - the engine reached the provider
  *   - the per-turn seed propagated (determinism)
- *   - the engine USED the provider's reply instead of the template
+ *   - the engine USED the provider's audit-compatible reply instead of
+ *     repairing/falling back to the template
  *
  * Implementation note: persona_host must run under async spawn — a
  * spawnSync blocks node's event loop and the mock TCP server can
@@ -28,7 +29,15 @@ const MARKER = 'MOCK-OLLAMA-REPLY';
 if (!fs.existsSync(HOST)){ console.error('persona_host not built'); process.exit(2); }
 
 function wipeState(){
-  for (const f of ['state.bin', 'memory.bin', 'chapters.bin']){
+  for (const f of fs.readdirSync(CHDIR)){
+    if (/\.schema$/.test(f)) {
+      try { fs.unlinkSync(path.join(CHDIR, f)); } catch {}
+    }
+  }
+  for (const f of ['state.bin', 'memory.bin', 'chapters.bin',
+                   'reflections.bin', 'actor_index.bin',
+                   'speech_events.bin', 'dissonance.bin',
+                   'open_loops.bin', 'speech_habits.bin']){
     try { fs.unlinkSync(path.join(CHDIR, f)); } catch {}
   }
   for (const d of ['relations', 'aether']){
@@ -60,7 +69,10 @@ function makeMock(){
       try { req = JSON.parse(body.slice(0, exp).toString('utf-8')); }
       catch (e){ console.error('[mock] JSON parse fail:', e.message); return; }
       seedsSeen.push(req.options && req.options.seed);
-      const replyText = `${MARKER}-seed${req.options.seed}`;
+      /* The V6 render audit may require question realization on a turn.
+       * Keep the marker, but make the mock text question-compatible so this
+       * provider test does not accidentally become an audit-fallback test. */
+      const replyText = `${MARKER}-seed${req.options.seed}?`;
       const respBody = JSON.stringify({
         model: req.model, response: replyText, done: true,
       });

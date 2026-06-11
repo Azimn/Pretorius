@@ -20,7 +20,7 @@
       <p class="today" id="today-label"></p>
       <div class="presence" id="presence">offline-ready</div>
 
-      <button type="button" class="secondary-button" id="prompt-character">Let them speak</button>
+      <button type="button" class="secondary-button ghost-button" id="prompt-character">Let them speak</button>
 
       <details class="advanced">
         <summary>Advanced</summary>
@@ -50,6 +50,23 @@
           <h2>Renderer</h2>
           <p class="fineprint">Offline template mode is active by default. Local/API models are optional upgrades.</p>
           <button type="button" class="secondary-button" id="connect-model">connect local model</button>
+        </div>
+
+        <div class="inner-life" aria-label="Character state cues">
+          <h2>State cues</h2>
+          <p id="current-thought">turning something over</p>
+          <div class="need-meter">
+            <span>focus</span>
+            <i class="meter"><b id="need-focus"></b></i>
+          </div>
+          <div class="need-meter">
+            <span>energy</span>
+            <i class="meter"><b id="need-energy"></b></i>
+          </div>
+          <div class="need-meter">
+            <span>rapport</span>
+            <i class="meter"><b id="need-rapport"></b></i>
+          </div>
         </div>
 
         <dl class="state">

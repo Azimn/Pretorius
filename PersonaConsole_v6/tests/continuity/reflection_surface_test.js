@@ -93,13 +93,15 @@ const PROBES = [
 (async function main(){
   console.log('--- reflection surface test ---');
   wipeState();
-  const setup = FOCUSED.map(text => ({ method: 'chat', text }));
-  setup.push({ method: 'reflections' });
-  const first = await run(setup);
-  const refl = first.find(r => typeof r.count === 'number' && Array.isArray(r.reflections));
+  const commands = FOCUSED.map(text => ({ method: 'chat', text }));
+  commands.push({ method: 'reflections' });
+  for (const text of PROBES) commands.push({ method: 'chat', text });
+
+  const all = await run(commands);
+  const refl = all.find(r => typeof r.count === 'number' && Array.isArray(r.reflections));
   ok(refl && refl.count >= 1, 'setup synthesized at least one reflection');
 
-  const rows = await run(PROBES.map(text => ({ method: 'chat', text })));
+  const rows = all.slice(FOCUSED.length + 1);
   const surfaced = rows.find(r => typeof r.reply === 'string'
     && /(always .* returns|sense its weight|pattern in how we talk|accumulating|circled|unfinished between us|comes back to me now|years are not kind)/i.test(r.reply)
     && !/\[reflection/i.test(r.reply));

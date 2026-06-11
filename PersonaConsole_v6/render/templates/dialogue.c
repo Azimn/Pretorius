@@ -641,10 +641,20 @@ static const char *fallback_line(Engine *eng){
 
 static int render_reflection_callback(Engine *eng, char *out, size_t n){
     if (!eng || !out || n == 0) return 0;
-    if (eng->plan.callback_memory == 0xFFFF) return 0;
-    const MemoryNode *m = pe_active_node(eng, eng->plan.callback_memory);
-    if (!m || m->memory_type != MEM_CACHE || strncmp(m->summary, "[reflection", 11))
-        return 0;
+    MemoryNode queried;
+    const MemoryNode *m = NULL;
+    if (eng->plan.callback_memory != 0xFFFF) {
+        m = pe_active_node(eng, eng->plan.callback_memory);
+        if (!m || m->memory_type != MEM_CACHE || strncmp(m->summary, "[reflection", 11))
+            m = NULL;
+    }
+    if (!m && eng->reflections.count > 0
+        && pe_query_reflections(eng, eng->input_sig, eng->primary_topic, &queried, 1) > 0) {
+        m = &queried;
+    }
+    if (!m && eng->reflections.count > 0)
+        m = &eng->reflections.memories[0];
+    if (!m) return 0;
     /* Repeat-suppress on a callback-specific namespace, not the shared memory
      * namespace: ordinary recall of this reflection must not block its first
      * spoken surfacing. */
@@ -655,7 +665,10 @@ static int render_reflection_callback(Engine *eng, char *out, size_t n){
     uint32_t text_id = usage_id(PE_USAGE_CALLBACK, persona_hash(text));
     if (phrase_recently_used(eng, text_id, PE_TEMPLATE_BLACKOUT_TURNS))
         return 0;
-    snprintf(out, n, "Ah. %s", text);
+    if (eng->frame.speech_act == PE_SA_QUESTION)
+        snprintf(out, n, "Ah. %s What do you make of that?", text);
+    else
+        snprintf(out, n, "Ah. %s", text);
     record_use(&eng->memory, usage_id(PE_USAGE_CALLBACK, m->id), eng->state.turn_count);
     record_use(&eng->memory, usage_id(PE_USAGE_MEMORY, m->id), eng->state.turn_count);
     record_use(&eng->memory, text_id, eng->state.turn_count);
@@ -668,12 +681,16 @@ static int render_direct_callback_question(Engine *eng, const char *input,
     int asks_memory = contains_ci(input, "remember")
                    || contains_ci(input, "discussed")
                    || contains_ci(input, "earlier");
+    int asks_pattern = contains_ci(input, "pattern")
+                    || contains_ci(input, "circling")
+                    || contains_ci(input, "keep returning")
+                    || contains_ci(input, "comes back");
     int asks_absence = contains_ci(input, "i was gone")
                     || contains_ci(input, "been gone")
                     || contains_ci(input, "you were gone")
                     || contains_ci(input, "while away");
     int asks_next = contains_ci(input, "next time");
-    if (!asks_memory && !asks_absence && !asks_next) return 0;
+    if (!asks_memory && !asks_pattern && !asks_absence && !asks_next) return 0;
 
     if (asks_absence){
         snprintf(out, n, "In your absence, I kept returning to %s.",
@@ -687,6 +704,21 @@ static int render_direct_callback_question(Engine *eng, const char *input,
         snprintf(out, n, "Next time, ask me about %s. I want to see where that thought leads you.", tn);
         return 1;
     }
+
+    if (asks_pattern && eng->reflections.count > 0) {
+        char text[256];
+        const MemoryNode *m = &eng->reflections.memories[0];
+        if (pe_reflection_render(eng, m, text, (int)sizeof(text)) > 0) {
+            if (eng->frame.speech_act == PE_SA_QUESTION)
+                snprintf(out, n, "Ah. %s What do you make of that?", text);
+            else
+                snprintf(out, n, "Ah. %s", text);
+            record_use(&eng->memory, usage_id(PE_USAGE_MEMORY, m->id), eng->state.turn_count);
+            return 1;
+        }
+    }
+    if (asks_pattern && render_reflection_callback(eng, out, n))
+        return 1;
 
     for (uint16_t pos = eng->memory.episodic_count; pos > 0; --pos){
         uint16_t idx = (uint16_t)(pos - 1u);
@@ -814,6 +846,12 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
     }
 
     if (render_direct_callback_question(eng, input, out, n)){
+        eng->last_template_intent = PE_INTENT_REMINISCE;
+        return 0;
+    }
+
+    if (eng->state.current_intent == PE_INTENT_REMINISCE
+        && render_reflection_callback(eng, out, n)){
         eng->last_template_intent = PE_INTENT_REMINISCE;
         return 0;
     }
