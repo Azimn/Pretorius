@@ -2,77 +2,95 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>PersonaHost - chat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PersonaConsole Chat</title>
   <link rel="stylesheet" href="/web/style.css">
 </head>
 <body>
   <main class="app">
-    <aside class="character">
-      <div class="portrait" id="portrait">
-        <img id="portrait-img" alt="" aria-hidden="true">
+    <aside class="sidebar" aria-label="Character">
+      <div class="portrait" id="portrait" title="Character portrait">
+        <img id="portrait-img" alt="">
         <span id="portrait-initial">?</span>
       </div>
-      <h1 id="character-name">...</h1>
+      <button type="button" class="portrait-action" id="portrait-action">change picture</button>
+      <input type="file" id="portrait-file" accept="image/*" hidden>
+
+      <h1 id="character-name">PersonaConsole</h1>
       <p class="today" id="today-label"></p>
-      <div class="presence" id="presence">waiting</div>
-      <dl class="state">
-        <dt>mood</dt>      <dd id="mood">-</dd>
-        <dt>intent</dt>    <dd id="intent">-</dd>
-        <dt>mode</dt>      <dd id="mode">-</dd>
-        <dt>turn</dt>      <dd id="turn">0</dd>
-        <dt>intox</dt>     <dd id="intox">0</dd>
-        <dt>exhaust</dt>   <dd id="exhaust">0</dd>
-        <dt>voice d</dt>   <dd id="voice-delta">0</dd>
-        <dt>disp.</dt>     <dd id="disp">-</dd>
-      </dl>
-      <div class="inner-life">
-        <h2>Inner Loop</h2>
-        <div class="thought" id="current-thought">gathering himself</div>
-        <div class="need">
-          <span>focus</span>
-          <div class="meter"><i id="need-focus"></i></div>
+      <div class="presence" id="presence">offline-ready</div>
+
+      <button type="button" class="secondary-button" id="prompt-character">Let them speak</button>
+
+      <details class="advanced">
+        <summary>Advanced</summary>
+        <div class="settings">
+          <h2>Presence</h2>
+          <label>
+            <input type="checkbox" id="proactive-enabled">
+            character may speak during quiet
+          </label>
+          <label>
+            <input type="checkbox" id="speak-first">
+            character may speak first
+          </label>
+          <label class="select-label">
+            idle delay
+            <select id="idle-delay">
+              <option value="15000">15 sec</option>
+              <option value="30000">30 sec</option>
+              <option value="45000">45 sec</option>
+              <option value="90000">90 sec</option>
+              <option value="180000">3 min</option>
+            </select>
+          </label>
         </div>
-        <div class="need">
-          <span>energy</span>
-          <div class="meter"><i id="need-energy"></i></div>
+
+        <div class="settings">
+          <h2>Renderer</h2>
+          <p class="fineprint">Offline template mode is active by default. Local/API models are optional upgrades.</p>
+          <button type="button" class="secondary-button" id="connect-model">connect local model</button>
         </div>
-        <div class="need">
-          <span>rapport</span>
-          <div class="meter"><i id="need-rapport"></i></div>
-        </div>
-        <button type="button" class="ghost-button" id="prompt-character">prompt character</button>
-      </div>
-      <div class="settings">
-        <h2>Presence</h2>
-        <label>
-          <input type="checkbox" id="proactive-enabled">
-          character may speak during quiet
-        </label>
-        <label>
-          <input type="checkbox" id="speak-first">
-          character may speak first
-        </label>
-        <label class="select-label">
-          idle delay
-          <select id="idle-delay">
-            <option value="15000">15 sec</option>
-            <option value="30000">30 sec</option>
-            <option value="45000">45 sec</option>
-            <option value="90000">90 sec</option>
-            <option value="180000">3 min</option>
-          </select>
-        </label>
-      </div>
+
+        <dl class="state">
+          <dt>mood</dt>      <dd id="mood">-</dd>
+          <dt>intent</dt>    <dd id="intent">-</dd>
+          <dt>mode</dt>      <dd id="mode">-</dd>
+          <dt>turn</dt>      <dd id="turn">0</dd>
+          <dt>intox</dt>     <dd id="intox">0</dd>
+          <dt>exhaust</dt>   <dd id="exhaust">0</dd>
+          <dt>voice d</dt>   <dd id="voice-delta">0</dd>
+          <dt>disp.</dt>     <dd id="disp">-</dd>
+        </dl>
+      </details>
     </aside>
 
-    <section class="chat">
-      <div class="messages" id="messages"></div>
-      <form class="input-row" id="input-form" autocomplete="off">
-        <input type="text" id="input" placeholder="say something..." autofocus>
-        <button type="submit" id="send">send</button>
+    <section class="chat" aria-label="Chat">
+      <header class="chat-header">
+        <div>
+          <strong id="chat-title">Chat</strong>
+          <span id="chat-subtitle">private local session</span>
+        </div>
+      </header>
+
+      <div class="messages" id="messages" aria-live="polite"></div>
+
+      <form class="composer" id="input-form" autocomplete="off">
+        <button type="button" class="icon-button" id="attach-button" aria-label="Attach file" title="Attach file">+</button>
+        <input type="text" id="input" placeholder="Message..." autofocus>
+        <button type="submit" id="send">Send</button>
       </form>
     </section>
   </main>
+
+  <div class="modal-backdrop" id="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <h2 id="modal-title">Feature unavailable</h2>
+      <p id="modal-message"></p>
+      <button type="button" id="modal-close">OK</button>
+    </div>
+  </div>
+
   <script src="/web/app.js"></script>
 </body>
 </html>

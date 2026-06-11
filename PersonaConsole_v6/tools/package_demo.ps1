@@ -129,7 +129,11 @@ if (Test-PortOpen $Port) {
 
 $args = @("--port", "$Port", "--web-root", "host/web", $cart)
 $proc = Start-Process -FilePath $hostExe -ArgumentList $args -WindowStyle Hidden -PassThru
-Set-Content -LiteralPath $pidFile -Value $proc.Id
+try {
+  Set-Content -LiteralPath $pidFile -Value $proc.Id -ErrorAction Stop
+} catch {
+  # Best-effort only. Stop_Server.cmd can still stop persona_host by process name.
+}
 Start-Sleep -Seconds 1
 Start-Process $url
 
@@ -143,6 +147,8 @@ if ($Renderer -eq "ollama") {
 Write-Host "To stop it, run Stop_Server.ps1 or Stop_Server.cmd"
 '@
 Write-Utf8NoBom (Join-Path $OutDir "Run_Character.ps1") $launcher
+Copy-RequiredFile (Join-Path $Root "Start_Chat.ps1") (Join-Path $OutDir "Start_Chat.ps1")
+Copy-RequiredFile (Join-Path $Root "Start_Chat.cmd") (Join-Path $OutDir "Start_Chat.cmd")
 
 $stopScript = @'
 $ErrorActionPreference = "SilentlyContinue"
@@ -197,15 +203,14 @@ code{background:#24262b;padding:2px 5px;border-radius:4px}
 <body>
 <main>
   <h1>PersonaConsole V6 Test Build</h1>
-  <p>Start with any <code>Run_*.cmd</code> file. Template mode is the default and needs no GPU, account, internet, model download, or cloud service.</p>
+  <p>Double-click <code>Start_Chat.cmd</code>, choose a character, and start talking. Template mode is the default and needs no GPU, account, internet, model download, or cloud service.</p>
   <div class="grid">
-    <div class="card"><strong>Characters</strong><br><span class="muted">Pretorius, Kiki, Mira, Cassian, Eli, and Marin are included in <code>characters/</code>.</span></div>
+    <a href="Start_Chat.cmd"><strong>Start Chat</strong><br><span class="muted">Pick Pretorius, Kiki, Mira, Cassian, Eli, or Marin.</span></a>
     <a href="Forge/forge.html"><strong>Open Cartridge Forge</strong><br><span class="muted">Create or inspect V6 cartridge authoring data.</span></a>
     <a href="Inspector/cartridge_inspector.html"><strong>Open Cartridge Inspector</strong><br><span class="muted">Check cartridge structure before sharing.</span></a>
     <a href="TESTER_GUIDE.md"><strong>Tester Guide</strong><br><span class="muted">Prompts and feedback questions for real-user testing.</span></a>
-    <div class="card"><strong>Optional local LLM</strong><br><span class="muted">Run <code>Run_Pretorius_Ollama_Optional.cmd</code> after starting Ollama locally. Templates remain the fallback.</span></div>
-    <div class="card"><strong>Stop the server</strong><br><span class="muted">Run <code>Stop_Server.cmd</code> when finished.</span></div>
   </div>
+  <p>Advanced: <code>Run_Pretorius_Ollama_Optional.cmd</code> tests local Ollama if you already have it running. It is not required. Run <code>Stop_Server.cmd</code> when finished.</p>
   <p>Close and reopen the same character to test local memory persistence. Runtime sidecars stay beside each cartridge on your disk.</p>
 </main>
 </body>
@@ -217,11 +222,12 @@ $readme = @'
 PersonaConsole V6 Test Build
 
 Fast start:
-1. Double-click Run_pretorius.cmd, Run_kiki.cmd, Run_friendly.cmd, Run_rival.cmd, Run_quiet.cmd, or Run_mentor.cmd.
-2. Your browser should open to http://127.0.0.1:7777/.
-3. Talk to the character.
-4. Run Stop_Server.cmd when finished.
-5. Reopen the same character and ask what they remember.
+1. Double-click Start_Chat.cmd.
+2. Pick a character.
+3. Your browser should open to http://127.0.0.1:7777/.
+4. Talk to the character.
+5. Run Stop_Server.cmd when finished.
+6. Reopen the same character and ask what they remember.
 
 Included characters:
 - Pretorius: sardonic gothic scientist.

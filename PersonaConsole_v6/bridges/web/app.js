@@ -1,4 +1,4 @@
-/* app.js -- lightweight chat UI with Sims-style presence cues. */
+/* app.js -- chat-first UI for the deterministic PersonaConsole host. */
 
 const $ = (id) => document.getElementById(id);
 
@@ -29,6 +29,15 @@ const els = {
     needEnergy:$("need-energy"),
     needRapport:$("need-rapport"),
     promptCharacter: $("prompt-character"),
+    chatTitle: $("chat-title"),
+    chatSubtitle: $("chat-subtitle"),
+    attach: $("attach-button"),
+    connectModel: $("connect-model"),
+    portraitAction: $("portrait-action"),
+    portraitFile: $("portrait-file"),
+    modalBackdrop: $("modal-backdrop"),
+    modalMessage: $("modal-message"),
+    modalClose: $("modal-close"),
 };
 
 const SETTINGS_KEY = "persona_presence_settings_v1";
@@ -111,10 +120,10 @@ function updateInnerLife(s) {
     const focus = clampPct(Number(s.obsession_pressure || 0) / 10);
     const energy = clampPct(100 - Number(s.exhaustion || 0) / 10);
     const rapport = clampPct((Number(s.disposition || 500) - 400) / 4);
-    els.needFocus.style.width = `${focus}%`;
-    els.needEnergy.style.width = `${energy}%`;
-    els.needRapport.style.width = `${rapport}%`;
-    els.thought.textContent = thoughtFromState(s);
+    if (els.needFocus) els.needFocus.style.width = `${focus}%`;
+    if (els.needEnergy) els.needEnergy.style.width = `${energy}%`;
+    if (els.needRapport) els.needRapport.style.width = `${rapport}%`;
+    if (els.thought) els.thought.textContent = thoughtFromState(s);
     els.promptCharacter.disabled = idleRequestInFlight || manualProbeTurn === latestTurn;
 }
 
@@ -136,6 +145,8 @@ function loadPortrait() {
 }
 
 function addMessage(role, text, meta) {
+    const hint = document.querySelector(".empty-hint");
+    if (hint) hint.remove();
     const div = document.createElement("div");
     div.className = `msg ${role}`;
     div.textContent = text;
@@ -154,6 +165,8 @@ function setState(s) {
     els.name.textContent    = s.name || "-";
     els.initial.textContent = (s.name || "?").charAt(0).toUpperCase();
     els.today.textContent   = s.today || "";
+    els.chatTitle.textContent = s.name || "Chat";
+    els.chatSubtitle.textContent = "private local session";
     els.mood.textContent    = s.mood;
     els.intent.textContent  = s.intent;
     els.mode.textContent    = s.rhetorical_mode;
@@ -270,6 +283,15 @@ async function sendMessage(text) {
     }
 }
 
+function showModal(message) {
+    els.modalMessage.textContent = message;
+    els.modalBackdrop.hidden = false;
+}
+
+function hideModal() {
+    els.modalBackdrop.hidden = true;
+}
+
 els.form.addEventListener("submit", (e) => {
     e.preventDefault();
     const text = els.input.value.trim();
@@ -305,7 +327,38 @@ els.promptCharacter.addEventListener("click", () => {
     requestIdleProbe({ allowFresh: true, allowManual: true, meta: "prompted" });
 });
 
+els.attach.addEventListener("click", () => {
+    showModal("Attachments require a renderer that supports file input through an API or multimodal local model. Offline template chat is still fully available.");
+});
+
+els.connectModel.addEventListener("click", () => {
+    showModal("Local model rendering is optional. Start PersonaConsole with the optional Ollama launcher to test it. The default offline cartridge mode does not need a model.");
+});
+
+els.portraitAction.addEventListener("click", () => {
+    els.portraitFile.click();
+});
+
+els.portraitFile.addEventListener("change", () => {
+    const file = els.portraitFile.files && els.portraitFile.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    els.portraitImg.src = url;
+    els.portraitImg.classList.add("loaded");
+    els.initial.style.display = "none";
+    showModal("Portrait preview loaded for this browser session. Cartridge-bundled portraits will be supported through the authoring flow.");
+});
+
+els.modalClose.addEventListener("click", hideModal);
+els.modalBackdrop.addEventListener("click", (e) => {
+    if (e.target === els.modalBackdrop) hideModal();
+});
+
 applySettingsToControls();
+const hint = document.createElement("div");
+hint.className = "empty-hint";
+hint.textContent = "Start the conversation whenever you are ready. This is running locally in offline template mode unless you chose an optional renderer at launch.";
+els.messages.appendChild(hint);
 fetchState().then(maybeSpeakFirst);
 loadPortrait();
 scheduleIdleProbe();

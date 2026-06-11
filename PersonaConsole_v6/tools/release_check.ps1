@@ -44,6 +44,8 @@ Require-File $ZipPath
 Require-File (Join-Path $DemoDir "START_HERE.html")
 Require-File (Join-Path $DemoDir "README_FIRST.txt")
 Require-File (Join-Path $DemoDir "TESTER_GUIDE.md")
+Require-File (Join-Path $DemoDir "Start_Chat.ps1")
+Require-File (Join-Path $DemoDir "Start_Chat.cmd")
 Require-File (Join-Path $DemoDir "Run_Character.ps1")
 Require-File (Join-Path $DemoDir "Run_pretorius.cmd")
 Require-File (Join-Path $DemoDir "Run_kiki.cmd")
@@ -76,7 +78,7 @@ foreach ($needle in @("no GPU", "internet", "model download", "Ollama", "Cloud/A
 }
 
 $start = Get-Content -LiteralPath (Join-Path $DemoDir "START_HERE.html") -Raw
-foreach ($needle in @("Run_*.cmd", "Forge/forge.html", "Inspector/cartridge_inspector.html", "TESTER_GUIDE.md", "Optional local LLM")) {
+foreach ($needle in @("Start_Chat.cmd", "Forge/forge.html", "Inspector/cartridge_inspector.html", "TESTER_GUIDE.md", "Ollama")) {
   if ($start -notmatch [regex]::Escape($needle)) { Fail "START_HERE.html missing path: $needle" }
 }
 
@@ -107,7 +109,7 @@ try {
   if (-not $ready) { Fail "persona_host did not answer /state on port $Port" }
 
   $html = Invoke-WebRequest -Uri "$base/" -UseBasicParsing -TimeoutSec 3
-  if ($html.StatusCode -ne 200 -or $html.Content -notmatch "PersonaHost - chat" -or $html.Content -notmatch 'id="messages"') {
+  if ($html.StatusCode -ne 200 -or $html.Content -notmatch "PersonaConsole Chat" -or $html.Content -notmatch 'id="messages"') {
     Fail "web UI did not serve index.html"
   }
 

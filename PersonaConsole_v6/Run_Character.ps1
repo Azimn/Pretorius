@@ -69,7 +69,11 @@ if (Test-PortOpen $Port) {
 
 $args = @("--port", "$Port", "--web-root", $webRoot, $cart)
 $proc = Start-Process -FilePath $hostExe -ArgumentList $args -WindowStyle Hidden -PassThru
-Set-Content -LiteralPath $pidFile -Value $proc.Id
+try {
+  Set-Content -LiteralPath $pidFile -Value $proc.Id -ErrorAction Stop
+} catch {
+  # Best-effort only. Stop_Server.cmd can still stop persona_host by process name.
+}
 Start-Sleep -Seconds 1
 Start-Process $url
 
