@@ -211,7 +211,7 @@ static void test_prompt_compiler(void){
     RenderContext ctx;
     memset(&ctx, 0, sizeof(ctx));
 
-    char buf[1024];
+    char buf[PE_PROMPT_MAX_BYTES];
     int n = prompt_compile(&ctx, NULL, buf, sizeof(buf));
     CHECK(n > 0, "prompt_compile: emits output for empty context");
     CHECK(strstr(buf, "[IDENTITY]") != NULL,
@@ -229,8 +229,12 @@ static void test_prompt_compiler(void){
     n = prompt_compile(&ctx, &cfg, buf, sizeof(buf));
     CHECK(n > 0 && strstr(buf, "renderer_profile=tiny") != NULL,
           "prompt_compile: tiny profile labeled");
-    CHECK(strstr(buf, "no atmospheric filler") != NULL,
+    CHECK(strstr(buf, "Do not begin with weather") != NULL,
           "prompt_compile: tiny profile blocks filler");
+    CHECK(strstr(buf, "[EXAMPLES]") != NULL &&
+          strstr(buf, "<START>") != NULL &&
+          strstr(buf, "Precision first") != NULL,
+          "prompt_compile: tiny profile includes fixed examples");
 
     cfg.render_profile = PE_SLM_PROFILE_BALANCED;
     n = prompt_compile(&ctx, &cfg, buf, sizeof(buf));
@@ -238,6 +242,8 @@ static void test_prompt_compiler(void){
           "prompt_compile: balanced profile labeled");
     CHECK(strstr(buf, "one to three sentences") != NULL,
           "prompt_compile: balanced profile favors concise answers");
+    CHECK(strstr(buf, "[EXAMPLES]") == NULL,
+          "prompt_compile: balanced profile omits tiny examples");
 
     cfg.render_profile = PE_SLM_PROFILE_EXPRESSIVE;
     n = prompt_compile(&ctx, &cfg, buf, sizeof(buf));
@@ -245,6 +251,8 @@ static void test_prompt_compiler(void){
           "prompt_compile: expressive profile labeled");
     CHECK(strstr(buf, "richer phrasing is allowed") != NULL,
           "prompt_compile: expressive profile allows range");
+    CHECK(strstr(buf, "[EXAMPLES]") == NULL,
+          "prompt_compile: expressive profile omits tiny examples");
 }
 
 int main(void){

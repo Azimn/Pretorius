@@ -71,6 +71,10 @@ function makeMock(){
       seedsSeen.push(req.options && req.options.seed);
       if (req.prompt && req.prompt.includes('renderer_profile=tiny'))
         seedsSeen.profileTiny = (seedsSeen.profileTiny || 0) + 1;
+      if (req.prompt && req.prompt.includes('[EXAMPLES]') &&
+          req.prompt.includes('<START>') &&
+          req.prompt.includes('Precision first'))
+        seedsSeen.tinyExamples = (seedsSeen.tinyExamples || 0) + 1;
       /* The V6 render audit may require question realization on a turn.
        * Keep the marker, but make the mock text question-compatible so this
        * provider test does not accidentally become an audit-fallback test. */
@@ -156,6 +160,12 @@ async function main(){
     console.log('ok:   SLM profile policy reached Ollama prompt');
   } else {
     console.error(`FAIL: expected tiny profile in all prompts, got ${m1.seedsSeen.profileTiny || 0}`);
+    ++fail;
+  }
+  if (m1.seedsSeen.tinyExamples === 3){
+    console.log('ok:   tiny example scaffold reached Ollama prompt');
+  } else {
+    console.error(`FAIL: expected tiny examples in all prompts, got ${m1.seedsSeen.tinyExamples || 0}`);
     ++fail;
   }
   for (let i = 0; i < replies1.length; ++i){

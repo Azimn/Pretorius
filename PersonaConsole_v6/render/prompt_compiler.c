@@ -154,6 +154,18 @@ static const char *topic_name_lookup(const Engine *eng, uint16_t topic_id){
     return NULL;
 }
 
+static void append_tiny_examples(const Engine *eng, char *buf, int cap, int *pos){
+    const char *who = (eng && eng->identity.character_name[0])
+                    ? eng->identity.character_name : "{{char}}";
+    append(buf, cap, pos, "\n[EXAMPLES]\n");
+    append(buf, cap, pos, "<START>\n{{user}}: What happened that night?\n");
+    append(buf, cap, pos, "%s: Precision first. Are you asking about the hour, the method, or what came after?\n", who);
+    append(buf, cap, pos, "<START>\n{{user}}: Do you regret it?\n");
+    append(buf, cap, pos, "%s: Regret implies I would choose differently. I would not. Ask me something harder.\n", who);
+    append(buf, cap, pos, "<START>\n{{user}}: So you admit you're the monster.\n");
+    append(buf, cap, pos, "%s: I admit nothing. I built something that outlived its maker's nerve. Draw your own conclusions, carefully.\n", who);
+}
+
 int prompt_compile(const RenderContext *ctx,
                    const PromptCompilerConfig *cfg,
                    char *out_buf, int out_cap){
@@ -303,6 +315,9 @@ int prompt_compile_with_input(const RenderContext *ctx,
     if (cfg->include_current_input && user_input && user_input[0]){
         append(out_buf, cap, &pos, "\n[USER]\n%.256s\n", user_input);
     }
+
+    if (cfg->render_profile == PE_SLM_PROFILE_TINY)
+        append_tiny_examples(eng, out_buf, cap, &pos);
 
     /* ----- [TASK] — instruction; rigid + short ----- */
     append(out_buf, cap, &pos, "\n[TASK]\n");
