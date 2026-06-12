@@ -39,6 +39,7 @@ typedef struct {
     char model_name[64];
     char provider[32];
     int  profile;
+    int  chat_format;
     int  available;
     OllamaConfig ollama;
     ApiConfig api;
@@ -82,6 +83,18 @@ static int profile_from_env_or_model(const char *provider, const char *model){
     return PE_SLM_PROFILE_BALANCED;
 }
 
+static int chat_format_from_env_or_model(const char *model){
+    const char *env = getenv("PE_SLM_CHAT_FORMAT");
+    if (env && env[0]){
+        if (!strcmp(env, "gemma") || !strcmp(env, "gemma3"))
+            return PE_SLM_CHAT_GEMMA;
+        return PE_SLM_CHAT_FLAT;
+    }
+    if (contains_ci(model, "gemma"))
+        return PE_SLM_CHAT_GEMMA;
+    return PE_SLM_CHAT_FLAT;
+}
+
 static int slm_init(RenderBackend *self){
     SlmPriv *p = (SlmPriv*)self->priv;
     if (!p) return -1;
@@ -90,10 +103,13 @@ static int slm_init(RenderBackend *self){
     snprintf(p->provider,   sizeof(p->provider),   "%s", prov  ? prov  : "none");
     snprintf(p->model_name, sizeof(p->model_name), "%s", model ? model : "unset");
     p->profile = profile_from_env_or_model(p->provider, p->model_name);
+    p->chat_format = chat_format_from_env_or_model(p->model_name);
     /* For Ollama: pull host/port/model/timeout/temp from env so the
      * runtime can be pointed at any local instance without rebuilds. */
     ollama_load_config(&p->ollama);
     if (model) snprintf(p->ollama.model, sizeof(p->ollama.model), "%s", model);
+    if (p->chat_format == PE_SLM_CHAT_GEMMA && !getenv("PE_OLLAMA_RAW"))
+        p->ollama.raw = 1;
     /* For frontier/OpenAI-compatible APIs: runtime-optional curl transport.
      * This remains renderer-only and never becomes a Layer 1 dependency. */
     api_load_config(&p->api);
@@ -181,6 +197,7 @@ static int slm_render(RenderBackend *self,
     PromptCompilerConfig pcfg;
     prompt_compiler_default_config(&pcfg);
     pcfg.render_profile = p->profile;
+    pcfg.chat_format = p->chat_format;
     int pn = prompt_compile_with_input(ctx, &pcfg, ctx->user_input,
                                        prompt, (int)sizeof(prompt));
     if (pn <= 0){

@@ -52,6 +52,11 @@ typedef enum {
     PE_SLM_PROFILE_EXPRESSIVE = 2,
 } SlmRenderProfile;
 
+typedef enum {
+    PE_SLM_CHAT_FLAT  = 0,
+    PE_SLM_CHAT_GEMMA = 1,
+} SlmChatFormat;
+
 typedef struct {
     int     max_bytes;          /* hard cap on emitted prompt */
     int     include_memory_hooks; /* default 1 */
@@ -60,6 +65,7 @@ typedef struct {
     int     include_intent;       /* default 1 */
     int     include_current_input; /* default 1 — the user's last utterance */
     int     render_profile;       /* SlmRenderProfile, default balanced */
+    int     chat_format;          /* SlmChatFormat, default flat */
 } PromptCompilerConfig;
 
 void prompt_compiler_default_config(PromptCompilerConfig *out);

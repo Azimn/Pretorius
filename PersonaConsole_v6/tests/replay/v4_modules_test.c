@@ -253,6 +253,16 @@ static void test_prompt_compiler(void){
           "prompt_compile: expressive profile allows range");
     CHECK(strstr(buf, "[EXAMPLES]") == NULL,
           "prompt_compile: expressive profile omits tiny examples");
+
+    cfg.render_profile = PE_SLM_PROFILE_TINY;
+    cfg.chat_format = PE_SLM_CHAT_GEMMA;
+    n = prompt_compile_with_input(&ctx, &cfg, "Good evening.", buf, sizeof(buf));
+    CHECK(n > 0 && strstr(buf, "<start_of_turn>user") != NULL &&
+          strstr(buf, "<start_of_turn>model") != NULL,
+          "prompt_compile: gemma format uses native turn markers");
+    CHECK(strstr(buf, "Understood.<end_of_turn>") != NULL &&
+          strstr(buf, "Good evening.<end_of_turn>") != NULL,
+          "prompt_compile: gemma format includes ack and live user turn");
 }
 
 int main(void){

@@ -34,6 +34,7 @@ typedef struct {
     int  timeout_ms;
     int  temperature_per_mille;   /* 0 = greedy / deterministic */
     int  num_predict;
+    int  raw;                     /* bypass Ollama template when nonzero */
 } OllamaConfig;
 
 /* Populate defaults + env overrides.  Always succeeds. */

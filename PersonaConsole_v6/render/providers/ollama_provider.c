@@ -27,6 +27,7 @@ void ollama_load_config(OllamaConfig *cfg){
     const char *to    = getenv("PE_OLLAMA_TIMEOUT_MS");
     const char *temp  = getenv("PE_OLLAMA_TEMP");
     const char *npred = getenv("PE_OLLAMA_NUM_PRED");
+    const char *raw   = getenv("PE_OLLAMA_RAW");
 
     snprintf(cfg->host,  sizeof(cfg->host),  "%s", host  ? host  : "127.0.0.1");
     snprintf(cfg->model, sizeof(cfg->model), "%s", model ? model : "gemma2:2b");
@@ -34,6 +35,7 @@ void ollama_load_config(OllamaConfig *cfg){
     cfg->timeout_ms            = to    ? atoi(to)    : 8000;
     cfg->temperature_per_mille = temp  ? atoi(temp)  : 0;
     cfg->num_predict           = npred ? atoi(npred) : 160;
+    cfg->raw                   = raw   ? atoi(raw)   : 0;
 
     if (cfg->port <= 0 || cfg->port > 65535) cfg->port = 11434;
     if (cfg->timeout_ms < 100) cfg->timeout_ms = 100;
@@ -209,11 +211,13 @@ int ollama_generate(const OllamaConfig *cfg,
     p += snprintf(body + p, sizeof(body) - p,
                   "{\"model\":\"%s\",\"stream\":false,"
                   "\"options\":{\"temperature\":%.3f,\"num_predict\":%d,\"seed\":%u},"
+                  "\"raw\":%s,"
                   "\"prompt\":\"",
                   cfg->model,
                   (double)cfg->temperature_per_mille / 1000.0,
                   cfg->num_predict,
-                  seed);
+                  seed,
+                  cfg->raw ? "true" : "false");
     if (p < 0 || p >= (int)sizeof(body)) return -2;
     if (!json_escape_append(body, (int)sizeof(body), &p, prompt)) return -2;
     if (p >= (int)sizeof(body) - 2) return -2;

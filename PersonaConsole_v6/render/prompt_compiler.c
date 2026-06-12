@@ -26,6 +26,13 @@ static int slm_profile_from_string(const char *s){
     return PE_SLM_PROFILE_BALANCED;
 }
 
+static int slm_chat_format_from_string(const char *s){
+    if (!s || !s[0]) return PE_SLM_CHAT_FLAT;
+    if (!strcmp(s, "gemma") || !strcmp(s, "gemma3"))
+        return PE_SLM_CHAT_GEMMA;
+    return PE_SLM_CHAT_FLAT;
+}
+
 void prompt_compiler_default_config(PromptCompilerConfig *out){
     if (!out) return;
     out->max_bytes              = PE_PROMPT_MAX_BYTES;
@@ -35,6 +42,7 @@ void prompt_compiler_default_config(PromptCompilerConfig *out){
     out->include_intent         = 1;
     out->include_current_input  = 1;
     out->render_profile         = slm_profile_from_string(getenv("PE_SLM_PROFILE"));
+    out->chat_format            = slm_chat_format_from_string(getenv("PE_SLM_CHAT_FORMAT"));
 }
 
 /* Bounded append helper.  Returns 0 if out of space. */
@@ -166,6 +174,61 @@ static void append_tiny_examples(const Engine *eng, char *buf, int cap, int *pos
     append(buf, cap, pos, "%s: I admit nothing. I built something that outlived its maker's nerve. Draw your own conclusions, carefully.\n", who);
 }
 
+static void append_topics_line(const Engine *eng, char *buf, int cap, int *pos){
+    append(buf, cap, pos, "known=");
+    int shown = 0;
+    if (eng){
+        for (uint32_t i = 0; i < eng->topics.count && shown < 10; ++i){
+            if (!eng->topics.topics[i].name[0]) continue;
+            append(buf, cap, pos, "%s%s", shown ? ", " : "", eng->topics.topics[i].name);
+            ++shown;
+        }
+    }
+    if (!shown) append(buf, cap, pos, "current conversation");
+    append(buf, cap, pos, "\n");
+}
+
+static int prompt_compile_gemma_raw(const RenderContext *ctx,
+                                    const PromptCompilerConfig *cfg,
+                                    const char *user_input,
+                                    char *out_buf, int cap){
+    const Engine *eng = ctx->npc;
+    const char *who = (eng && eng->identity.character_name[0])
+                    ? eng->identity.character_name : "the character";
+    int pos = 0;
+
+    append(out_buf, cap, &pos, "<start_of_turn>user\n");
+    append(out_buf, cap, &pos, "PersonaConsole state packet. Reply only as %s.\n", who);
+    append(out_buf, cap, &pos, "renderer_profile=%s chat_format=gemma\n", profile_token(cfg->render_profile));
+    append(out_buf, cap, &pos, "Speak in complete, short, grounded dialogue turns. No assistant phrasing.\n");
+    append(out_buf, cap, &pos, "No atmosphere-setting filler. Do not begin with weather, darkness, silence, ash, or bones.\n");
+    append(out_buf, cap, &pos, "Use the current user line directly before expanding.\n");
+    append(out_buf, cap, &pos, "Only named cartridge facts exist. ");
+    append_topics_line(eng, out_buf, cap, &pos);
+    if (eng){
+        append(out_buf, cap, &pos, "affect=mood:%d obsession:%d exhaustion:%d\n",
+               eng->state.mood, eng->state.obsession_pressure, eng->state.exhaustion);
+        append(out_buf, cap, &pos, "intent=%s\n", intent_token(eng->state.current_intent));
+        if (ctx->frame){
+            const char *tn = topic_name_lookup(eng, ctx->frame->primary_topic);
+            if (tn && tn[0]) append(out_buf, cap, &pos, "topic=%s\n", tn);
+            append(out_buf, cap, &pos, "speech_act=%s\n", speech_act_token(ctx->frame->speech_act));
+        }
+    }
+    append(out_buf, cap, &pos, "Study this voice shape and continue it.<end_of_turn>\n");
+    append(out_buf, cap, &pos, "<start_of_turn>model\nUnderstood.<end_of_turn>\n");
+    append(out_buf, cap, &pos, "<start_of_turn>user\nWhat happened that night?<end_of_turn>\n");
+    append(out_buf, cap, &pos, "<start_of_turn>model\nPrecision first. Are you asking about the hour, the method, or what came after?<end_of_turn>\n");
+    append(out_buf, cap, &pos, "<start_of_turn>user\nDo you regret it?<end_of_turn>\n");
+    append(out_buf, cap, &pos, "<start_of_turn>model\nRegret implies I would choose differently. I would not. Ask me something harder.<end_of_turn>\n");
+    append(out_buf, cap, &pos, "<start_of_turn>user\nSo you admit you're the monster.<end_of_turn>\n");
+    append(out_buf, cap, &pos, "<start_of_turn>model\nI admit nothing. I built something that outlived its maker's nerve. Draw your own conclusions, carefully.<end_of_turn>\n");
+    append(out_buf, cap, &pos, "<start_of_turn>user\n%.256s<end_of_turn>\n", user_input ? user_input : "");
+    append(out_buf, cap, &pos, "<start_of_turn>model\n");
+    (void)cfg;
+    return pos;
+}
+
 int prompt_compile(const RenderContext *ctx,
                    const PromptCompilerConfig *cfg,
                    char *out_buf, int out_cap){
@@ -182,6 +245,9 @@ int prompt_compile_with_input(const RenderContext *ctx,
     if (!cfg){ prompt_compiler_default_config(&dc); cfg = &dc; }
     int cap = cfg->max_bytes < out_cap ? cfg->max_bytes : out_cap;
     int pos = 0;
+
+    if (cfg->chat_format == PE_SLM_CHAT_GEMMA)
+        return prompt_compile_gemma_raw(ctx, cfg, user_input, out_buf, cap);
 
     const Engine *eng = ctx->npc;
     const char *who = (eng && eng->identity.character_name[0])

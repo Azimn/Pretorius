@@ -75,6 +75,11 @@ function makeMock(){
           req.prompt.includes('<START>') &&
           req.prompt.includes('Precision first'))
         seedsSeen.tinyExamples = (seedsSeen.tinyExamples || 0) + 1;
+      if (req.raw === true && req.prompt &&
+          req.prompt.includes('<start_of_turn>user') &&
+          req.prompt.includes('<start_of_turn>model') &&
+          req.prompt.includes('Understood.<end_of_turn>'))
+        seedsSeen.gemmaRaw = (seedsSeen.gemmaRaw || 0) + 1;
       /* The V6 render audit may require question realization on a turn.
        * Keep the marker, but make the mock text question-compatible so this
        * provider test does not accidentally become an audit-fallback test. */
@@ -99,7 +104,7 @@ function runHost(port, scriptLines){
     const env = Object.assign({}, process.env, {
       PE_RENDER_BACKEND: 'slm',
       PE_SLM_PROVIDER:   'ollama',
-      PE_SLM_MODEL:      'mock-model',
+      PE_SLM_MODEL:      'gemma3:1b',
       PE_OLLAMA_HOST:    '127.0.0.1',
       PE_OLLAMA_PORT:    String(port),
       PE_OLLAMA_TIMEOUT_MS: '3000',
@@ -162,10 +167,10 @@ async function main(){
     console.error(`FAIL: expected tiny profile in all prompts, got ${m1.seedsSeen.profileTiny || 0}`);
     ++fail;
   }
-  if (m1.seedsSeen.tinyExamples === 3){
-    console.log('ok:   tiny example scaffold reached Ollama prompt');
+  if (m1.seedsSeen.gemmaRaw === 3){
+    console.log('ok:   Gemma raw turn scaffold reached Ollama prompt');
   } else {
-    console.error(`FAIL: expected tiny examples in all prompts, got ${m1.seedsSeen.tinyExamples || 0}`);
+    console.error(`FAIL: expected Gemma raw turn scaffold in all prompts, got ${m1.seedsSeen.gemmaRaw || 0}`);
     ++fail;
   }
   for (let i = 0; i < replies1.length; ++i){
