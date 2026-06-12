@@ -38,6 +38,7 @@ function wipeState(){
 
 function makeMock(){
   const requests = [];
+  let expressiveCount = 0;
   const server = net.createServer(sock => {
     let chunks = [];
     let totalBytes = 0;
@@ -58,6 +59,7 @@ function makeMock(){
       requests.push(req);
       const prompt = req.messages && req.messages[1] && req.messages[1].content || '';
       const hasFrame = prompt.includes('[TASK]') && prompt.includes('[WORLD]');
+      if (prompt.includes('renderer_profile=expressive')) expressiveCount++;
       let reply = `${MARKER}-${requests.length}${hasFrame ? '-grounded' : '-missing-frame'}?`;
       if (requests.length === 1) {
         reply += ' ' + Array.from({ length: 80 }, (_, i) =>
@@ -77,7 +79,7 @@ function makeMock(){
       sock.end();
     });
   });
-  return { server, requests };
+  return { server, requests, get expressiveCount(){ return expressiveCount; } };
 }
 
 function runHost(port){
@@ -129,6 +131,12 @@ async function main(){
     ++fail;
   } else {
     console.log('ok:   API provider dispatched 3 local mock requests');
+  }
+  if (mock.expressiveCount === 3){
+    console.log('ok:   expressive profile policy reached API prompt');
+  } else {
+    console.error(`FAIL: expected expressive profile in all API prompts, got ${mock.expressiveCount}`);
+    ++fail;
   }
   const replies = res.stdout.split('\n')
     .filter(l => l.startsWith('{"reply"'))

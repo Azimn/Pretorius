@@ -13,8 +13,18 @@
 #include "../core/persona.h"
 #include "../schema/schema_state.h"
 #include <stdarg.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+static int slm_profile_from_string(const char *s){
+    if (!s || !s[0]) return PE_SLM_PROFILE_BALANCED;
+    if (!strcmp(s, "tiny") || !strcmp(s, "micro") || !strcmp(s, "edge"))
+        return PE_SLM_PROFILE_TINY;
+    if (!strcmp(s, "expressive") || !strcmp(s, "frontier") || !strcmp(s, "large"))
+        return PE_SLM_PROFILE_EXPRESSIVE;
+    return PE_SLM_PROFILE_BALANCED;
+}
 
 void prompt_compiler_default_config(PromptCompilerConfig *out){
     if (!out) return;
@@ -24,6 +34,7 @@ void prompt_compiler_default_config(PromptCompilerConfig *out){
     out->include_voice_mask     = 1;
     out->include_intent         = 1;
     out->include_current_input  = 1;
+    out->render_profile         = slm_profile_from_string(getenv("PE_SLM_PROFILE"));
 }
 
 /* Bounded append helper.  Returns 0 if out of space. */
@@ -124,6 +135,14 @@ static const char *response_band(const Engine *eng, const CanonicalTurnFrame *f)
     if (eng && eng->state.obsession_pressure > 650)
         return "allowed to elaborate";
     return "natural conversational";
+}
+
+static const char *profile_token(int profile){
+    switch (profile){
+    case PE_SLM_PROFILE_TINY:       return "tiny";
+    case PE_SLM_PROFILE_EXPRESSIVE: return "expressive";
+    default:                        return "balanced";
+    }
 }
 
 static const char *topic_name_lookup(const Engine *eng, uint16_t topic_id){
@@ -287,6 +306,7 @@ int prompt_compile_with_input(const RenderContext *ctx,
 
     /* ----- [TASK] — instruction; rigid + short ----- */
     append(out_buf, cap, &pos, "\n[TASK]\n");
+    append(out_buf, cap, &pos, "renderer_profile=%s\n", profile_token(cfg->render_profile));
     append(out_buf, cap, &pos, "Reply as %s. Pacing=%s.\n",
            who, response_band(eng, ctx->frame));
     if (ctx->frame && ctx->frame->require_question)
@@ -299,6 +319,16 @@ int prompt_compile_with_input(const RenderContext *ctx,
     append(out_buf, cap, &pos, "Only people, places, and things named in [WORLD], [MEMORY], or [USER] exist.\n");
     append(out_buf, cap, &pos, "Do NOT invent people, places, events, family, or memories not listed in [MEMORY].\n");
     append(out_buf, cap, &pos, "No assistant tone, no helpdesk phrasing, no meta-commentary.\n");
+    if (cfg->render_profile == PE_SLM_PROFILE_TINY){
+        append(out_buf, cap, &pos, "Tiny model rules: use one concrete noun from [WORLD] or [MEMORY]; no atmospheric filler.\n");
+        append(out_buf, cap, &pos, "Prefer plain subject-verb sentences. Do not begin with weather, darkness, silence, or vague mood.\n");
+    } else if (cfg->render_profile == PE_SLM_PROFILE_EXPRESSIVE){
+        append(out_buf, cap, &pos, "Expressive model rules: richer phrasing is allowed, but answer first and avoid exposition.\n");
+        append(out_buf, cap, &pos, "No assistant deference. Do not over-address the user or explain the role.\n");
+    } else {
+        append(out_buf, cap, &pos, "Balanced model rules: concise, grounded, one to three sentences unless the frame asks otherwise.\n");
+        append(out_buf, cap, &pos, "Favor direct answers over atmosphere.\n");
+    }
     append(out_buf, cap, &pos, "Do NOT use the bracket tags in your reply.\n");
 
     return pos;

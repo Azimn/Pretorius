@@ -69,6 +69,8 @@ function makeMock(){
       try { req = JSON.parse(body.slice(0, exp).toString('utf-8')); }
       catch (e){ console.error('[mock] JSON parse fail:', e.message); return; }
       seedsSeen.push(req.options && req.options.seed);
+      if (req.prompt && req.prompt.includes('renderer_profile=tiny'))
+        seedsSeen.profileTiny = (seedsSeen.profileTiny || 0) + 1;
       /* The V6 render audit may require question realization on a turn.
        * Keep the marker, but make the mock text question-compatible so this
        * provider test does not accidentally become an audit-fallback test. */
@@ -98,6 +100,7 @@ function runHost(port, scriptLines){
       PE_OLLAMA_PORT:    String(port),
       PE_OLLAMA_TIMEOUT_MS: '3000',
       PE_TODAY_SEED:     '42',
+      PE_SLM_PROFILE:    'tiny',
     });
     const proc = spawn(HOST, [CART, '--stdio'], { env });
     let stdout = '', stderr = '';
@@ -148,6 +151,12 @@ async function main(){
     console.error('  stderr:', res1.stderr.split('\n').slice(0,8).join('\n  '));
   } else {
     console.log('ok:   engine dispatched 3 generations to the provider');
+  }
+  if (m1.seedsSeen.profileTiny === 3){
+    console.log('ok:   SLM profile policy reached Ollama prompt');
+  } else {
+    console.error(`FAIL: expected tiny profile in all prompts, got ${m1.seedsSeen.profileTiny || 0}`);
+    ++fail;
   }
   for (let i = 0; i < replies1.length; ++i){
     if (replies1[i].includes(MARKER)){

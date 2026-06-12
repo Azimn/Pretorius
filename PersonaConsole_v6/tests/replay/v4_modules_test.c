@@ -222,6 +222,29 @@ static void test_prompt_compiler(void){
           "prompt_compile: not a lore dump / roleplay prompt");
     CHECK(strstr(buf, "[TASK]") != NULL,
           "prompt_compile: emits [TASK] instruction block");
+
+    PromptCompilerConfig cfg;
+    prompt_compiler_default_config(&cfg);
+    cfg.render_profile = PE_SLM_PROFILE_TINY;
+    n = prompt_compile(&ctx, &cfg, buf, sizeof(buf));
+    CHECK(n > 0 && strstr(buf, "renderer_profile=tiny") != NULL,
+          "prompt_compile: tiny profile labeled");
+    CHECK(strstr(buf, "no atmospheric filler") != NULL,
+          "prompt_compile: tiny profile blocks filler");
+
+    cfg.render_profile = PE_SLM_PROFILE_BALANCED;
+    n = prompt_compile(&ctx, &cfg, buf, sizeof(buf));
+    CHECK(n > 0 && strstr(buf, "renderer_profile=balanced") != NULL,
+          "prompt_compile: balanced profile labeled");
+    CHECK(strstr(buf, "one to three sentences") != NULL,
+          "prompt_compile: balanced profile favors concise answers");
+
+    cfg.render_profile = PE_SLM_PROFILE_EXPRESSIVE;
+    n = prompt_compile(&ctx, &cfg, buf, sizeof(buf));
+    CHECK(n > 0 && strstr(buf, "renderer_profile=expressive") != NULL,
+          "prompt_compile: expressive profile labeled");
+    CHECK(strstr(buf, "richer phrasing is allowed") != NULL,
+          "prompt_compile: expressive profile allows range");
 }
 
 int main(void){

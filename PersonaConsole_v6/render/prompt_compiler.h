@@ -46,6 +46,12 @@ extern "C" {
 
 #define PE_PROMPT_MAX_BYTES 4096
 
+typedef enum {
+    PE_SLM_PROFILE_BALANCED   = 0,
+    PE_SLM_PROFILE_TINY       = 1,
+    PE_SLM_PROFILE_EXPRESSIVE = 2,
+} SlmRenderProfile;
+
 typedef struct {
     int     max_bytes;          /* hard cap on emitted prompt */
     int     include_memory_hooks; /* default 1 */
@@ -53,6 +59,7 @@ typedef struct {
     int     include_voice_mask;   /* default 1 */
     int     include_intent;       /* default 1 */
     int     include_current_input; /* default 1 — the user's last utterance */
+    int     render_profile;       /* SlmRenderProfile, default balanced */
 } PromptCompilerConfig;
 
 void prompt_compiler_default_config(PromptCompilerConfig *out);

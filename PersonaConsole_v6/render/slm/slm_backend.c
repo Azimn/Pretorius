@@ -38,12 +38,49 @@
 typedef struct {
     char model_name[64];
     char provider[32];
+    int  profile;
     int  available;
     OllamaConfig ollama;
     ApiConfig api;
 } SlmPriv;
 
 static SlmPriv g_slm_priv;
+
+static int contains_ci(const char *hay, const char *needle){
+    if (!hay || !needle || !needle[0]) return 0;
+    size_t nl = strlen(needle);
+    for (const char *p = hay; *p; ++p){
+        size_t i = 0;
+        while (i < nl && p[i]){
+            char a = p[i], b = needle[i];
+            if (a >= 'A' && a <= 'Z') a = (char)(a - 'A' + 'a');
+            if (b >= 'A' && b <= 'Z') b = (char)(b - 'A' + 'a');
+            if (a != b) break;
+            ++i;
+        }
+        if (i == nl) return 1;
+    }
+    return 0;
+}
+
+static int profile_from_env_or_model(const char *provider, const char *model){
+    const char *env = getenv("PE_SLM_PROFILE");
+    if (env && env[0]){
+        if (!strcmp(env, "tiny") || !strcmp(env, "micro") || !strcmp(env, "edge"))
+            return PE_SLM_PROFILE_TINY;
+        if (!strcmp(env, "expressive") || !strcmp(env, "frontier") || !strcmp(env, "large"))
+            return PE_SLM_PROFILE_EXPRESSIVE;
+        return PE_SLM_PROFILE_BALANCED;
+    }
+    if (provider && !strcmp(provider, "api"))
+        return PE_SLM_PROFILE_EXPRESSIVE;
+    if (contains_ci(model, "gemma3:1b") || contains_ci(model, "1b") ||
+        contains_ci(model, "1.2b") || contains_ci(model, "lfm2.5"))
+        return PE_SLM_PROFILE_TINY;
+    if (contains_ci(model, "mistral"))
+        return PE_SLM_PROFILE_EXPRESSIVE;
+    return PE_SLM_PROFILE_BALANCED;
+}
 
 static int slm_init(RenderBackend *self){
     SlmPriv *p = (SlmPriv*)self->priv;
@@ -52,6 +89,7 @@ static int slm_init(RenderBackend *self){
     const char *model = getenv("PE_SLM_MODEL");
     snprintf(p->provider,   sizeof(p->provider),   "%s", prov  ? prov  : "none");
     snprintf(p->model_name, sizeof(p->model_name), "%s", model ? model : "unset");
+    p->profile = profile_from_env_or_model(p->provider, p->model_name);
     /* For Ollama: pull host/port/model/timeout/temp from env so the
      * runtime can be pointed at any local instance without rebuilds. */
     ollama_load_config(&p->ollama);
@@ -140,7 +178,10 @@ static int slm_render(RenderBackend *self,
      *    This is what the project calls a "behavioral topology
      *    projection" — not a lore dump, not roleplay prompting. */
     char prompt[PE_PROMPT_MAX_BYTES];
-    int pn = prompt_compile_with_input(ctx, NULL, ctx->user_input,
+    PromptCompilerConfig pcfg;
+    prompt_compiler_default_config(&pcfg);
+    pcfg.render_profile = p->profile;
+    int pn = prompt_compile_with_input(ctx, &pcfg, ctx->user_input,
                                        prompt, (int)sizeof(prompt));
     if (pn <= 0){
         out->flags = 2u;
