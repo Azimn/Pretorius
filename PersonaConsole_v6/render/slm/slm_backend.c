@@ -33,6 +33,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define PE_SLM_WIDE_TEXT 2048
+
 typedef struct {
     char model_name[64];
     char provider[32];
@@ -68,6 +70,58 @@ static int slm_shutdown(RenderBackend *self){
     return 0;
 }
 
+static int compress_to_render_result(const char *wide, char *out, int out_cap){
+    if (!wide || !out || out_cap <= 1) return 0;
+
+    int len = (int)strlen(wide);
+    if (len < out_cap){
+        memcpy(out, wide, (size_t)len + 1u);
+        return len;
+    }
+
+    int limit = out_cap - 1;
+    int cut = -1;
+    for (int i = limit - 1; i >= 0; --i){
+        char c = wide[i];
+        if (c == '.' || c == '!' || c == '?'){
+            cut = i + 1;
+            break;
+        }
+    }
+    if (cut < 0){
+        for (int i = limit - 1; i >= 0; --i){
+            if (wide[i] == ' ' || wide[i] == '\n' || wide[i] == '\t'){
+                cut = i;
+                break;
+            }
+        }
+    }
+    if (cut < 0 || cut > limit) cut = limit;
+    while (cut > 0 && (wide[cut-1] == ' ' || wide[cut-1] == '\n' ||
+                       wide[cut-1] == '\r' || wide[cut-1] == '\t'))
+        --cut;
+    memcpy(out, wide, (size_t)cut);
+    out[cut] = 0;
+    return cut;
+}
+
+static void apply_frame_budget(SlmPriv *p, const RenderContext *ctx){
+    if (!p || !ctx || !ctx->frame) return;
+    int mw = ctx->frame->max_words ? (int)ctx->frame->max_words : 40;
+    int want_tokens = mw * 2 + 32;
+    if (ctx->frame->speech_act == PE_SA_CONFESSION ||
+        ctx->frame->speech_act == PE_SA_CONCESSION ||
+        ctx->frame->speech_act == PE_SA_PROMISE)
+        want_tokens += 32;
+    if (want_tokens < 96) want_tokens = 96;
+    if (want_tokens > 512) want_tokens = 512;
+
+    if (!getenv("PE_OLLAMA_NUM_PRED"))
+        p->ollama.num_predict = want_tokens;
+    if (!getenv("PE_API_MAX_TOKENS"))
+        p->api.max_tokens = want_tokens;
+}
+
 static int slm_render(RenderBackend *self,
                       const RenderContext *ctx,
                       RenderResult *out){
@@ -92,14 +146,17 @@ static int slm_render(RenderBackend *self,
         out->flags = 2u;
         return 0;
     }
+    apply_frame_budget(p, ctx);
 
     /* 2. Ship to the configured provider.  Currently: Ollama.
      *    More providers slot in here behind the same dispatch. */
     if (!strcmp(p->provider, "ollama")){
+        char wide[PE_SLM_WIDE_TEXT];
         int n = ollama_generate(&p->ollama, prompt, ctx->seed,
-                                out->output, (int)sizeof(out->output));
+                                wide, (int)sizeof(wide));
         if (n > 0){
-            out->output_len = n;
+            out->output_len = compress_to_render_result(
+                wide, out->output, (int)sizeof(out->output));
             out->confidence = 750;   /* placeholder until logprob-based */
             out->flags = 0;
             return 0;
@@ -110,10 +167,12 @@ static int slm_render(RenderBackend *self,
     }
 
     if (!strcmp(p->provider, "api")){
+        char wide[PE_SLM_WIDE_TEXT];
         int n = api_generate(&p->api, prompt, ctx->seed,
-                             out->output, (int)sizeof(out->output));
+                             wide, (int)sizeof(wide));
         if (n > 0){
-            out->output_len = n;
+            out->output_len = compress_to_render_result(
+                wide, out->output, (int)sizeof(out->output));
             out->confidence = 800;
             out->flags = 0;
             return 0;

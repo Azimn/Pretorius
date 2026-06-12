@@ -58,7 +58,12 @@ function makeMock(){
       requests.push(req);
       const prompt = req.messages && req.messages[1] && req.messages[1].content || '';
       const hasFrame = prompt.includes('[TASK]') && prompt.includes('[WORLD]');
-      const reply = `${MARKER}-${requests.length}${hasFrame ? '-grounded' : '-missing-frame'}?`;
+      let reply = `${MARKER}-${requests.length}${hasFrame ? '-grounded' : '-missing-frame'}?`;
+      if (requests.length === 1) {
+        reply += ' ' + Array.from({ length: 80 }, (_, i) =>
+          `wide scratch sentence ${i + 1} stays inside the provider buffer?`
+        ).join(' ');
+      }
       const respBody = JSON.stringify({
         id: 'chatcmpl-mock',
         object: 'chat.completion',
@@ -136,6 +141,12 @@ async function main(){
       ++fail;
     }
   });
+  if (replies[0] && replies[0].length < 512 && /[.!?]$/.test(replies[0])){
+    console.log('ok:   overlong API reply compressed to fixed render buffer at sentence boundary');
+  } else {
+    console.error(`FAIL: overlong API reply not cleanly compressed: len=${replies[0] && replies[0].length}`);
+    ++fail;
+  }
   if (fail){
     console.error(`FAILED - ${fail} check(s)`);
     process.exit(1);
