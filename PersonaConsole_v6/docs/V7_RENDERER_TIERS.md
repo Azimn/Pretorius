@@ -42,6 +42,19 @@ Recommended purpose:
 - small-model roleplay experiments
 - offline or LAN-only deployments with Ollama/llama.cpp-class models
 
+Candidate small models to evaluate:
+
+- `qwen3:8b` is the current best local-quality reference from early V7 tests.
+- `LFM2.5-1.2B-Instruct-GGUF` is a promising tiny/edge candidate to test as a
+  portable "small lightning" tier between `gemma3:1b` and larger 4B/8B models.
+- `LFM2.5-Audio-1.5B-GGUF` is a future voice/harness candidate, not a core
+  runtime dependency. Audio belongs outside the deterministic identity core.
+
+Evaluate models by PersonaConsole behavior, not generic benchmark scores:
+lore drift, repetition, assistant tone, speech-act obedience, character voice,
+and whether the model improves template mode without taking identity authority
+away from Layer 1.
+
 ## Tier 2: Frontier API Renderer
 
 Optional API mode for users who want frontier-model expressiveness while using
