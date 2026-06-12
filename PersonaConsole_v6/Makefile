@@ -87,7 +87,8 @@ RENDER_CORE_SRC := \
     render/render_backend.c \
     render/prompt_compiler.c \
     render/slm/slm_backend.c \
-    render/providers/ollama_provider.c
+    render/providers/ollama_provider.c \
+    render/providers/api_provider.c
 
 MICRO_RENDER_CORE_SRC := \
     render/render_backend.c
@@ -149,7 +150,8 @@ RENDER_HEADERS := \
         forge_cart_test forge_bundle_test forge_dialogue_test \
         forge_archetypes_test forge_parsers_test inspector_test web_presence_test \
         demo_package release_check micro micro_size_report micro_replay_run \
-        strict_check strict_gate v6_believability_battery_run v6_demo_pack_battery_run v6_recall_mode_order_run v6_contradiction_protocol_run
+        strict_check strict_gate v6_believability_battery_run v6_demo_pack_battery_run v6_recall_mode_order_run v6_contradiction_protocol_run \
+        v7_api_run
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
      build/compile_cartridge build/compile_pretorius build/compile_kiki build/compile_demo_pack \
@@ -177,7 +179,7 @@ build/%.o: render/templates/%.c $(CORE_HEADERS) $(MEMORY_HEADERS) $(RENDER_HEADE
 	$(CC) $(CFLAGS) -c $< -o $@
 build/%.o: render/slm/%.c render/render_backend.h render/prompt_compiler.h render/providers/ollama_provider.h | build
 	$(CC) $(CFLAGS) -c $< -o $@
-build/%.o: render/providers/%.c render/providers/ollama_provider.h | build
+build/%.o: render/providers/%.c render/providers/ollama_provider.h render/providers/api_provider.h | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # PersonaHost objects ??? same include set + the host's own headers.
@@ -409,6 +411,11 @@ v4_replay_run: build/persona_host profiles/pretorius/pretorius.cart
 v4_ollama_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/replay/ollama_provider_test.js
+
+v7_api_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	@command -v curl >/dev/null 2>&1 || { echo "curl not in PATH"; exit 0; }
+	node tests/replay/api_provider_test.js
 
 v4_schema_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }

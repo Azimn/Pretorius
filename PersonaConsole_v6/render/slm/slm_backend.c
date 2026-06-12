@@ -28,6 +28,7 @@
 #include "../render_backend.h"
 #include "../prompt_compiler.h"
 #include "../providers/ollama_provider.h"
+#include "../providers/api_provider.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,6 +38,7 @@ typedef struct {
     char provider[32];
     int  available;
     OllamaConfig ollama;
+    ApiConfig api;
 } SlmPriv;
 
 static SlmPriv g_slm_priv;
@@ -52,8 +54,12 @@ static int slm_init(RenderBackend *self){
      * runtime can be pointed at any local instance without rebuilds. */
     ollama_load_config(&p->ollama);
     if (model) snprintf(p->ollama.model, sizeof(p->ollama.model), "%s", model);
+    /* For frontier/OpenAI-compatible APIs: runtime-optional curl transport.
+     * This remains renderer-only and never becomes a Layer 1 dependency. */
+    api_load_config(&p->api);
+    if (model) snprintf(p->api.model, sizeof(p->api.model), "%s", model);
     /* availability check is delegated to the provider at first render */
-    p->available = (prov && !strcmp(prov, "ollama"));
+    p->available = (prov && (!strcmp(prov, "ollama") || !strcmp(prov, "api")));
     return 0;
 }
 
@@ -80,7 +86,8 @@ static int slm_render(RenderBackend *self,
      *    This is what the project calls a "behavioral topology
      *    projection" — not a lore dump, not roleplay prompting. */
     char prompt[PE_PROMPT_MAX_BYTES];
-    int pn = prompt_compile(ctx, NULL, prompt, (int)sizeof(prompt));
+    int pn = prompt_compile_with_input(ctx, NULL, ctx->user_input,
+                                       prompt, (int)sizeof(prompt));
     if (pn <= 0){
         out->flags = 2u;
         return 0;
@@ -98,6 +105,19 @@ static int slm_render(RenderBackend *self,
             return 0;
         }
         /* network / protocol / timeout failure → fall back to template */
+        out->flags = 2u;
+        return 0;
+    }
+
+    if (!strcmp(p->provider, "api")){
+        int n = api_generate(&p->api, prompt, ctx->seed,
+                             out->output, (int)sizeof(out->output));
+        if (n > 0){
+            out->output_len = n;
+            out->confidence = 800;
+            out->flags = 0;
+            return 0;
+        }
         out->flags = 2u;
         return 0;
     }

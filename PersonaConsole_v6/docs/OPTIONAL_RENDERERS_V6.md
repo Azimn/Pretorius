@@ -1,4 +1,4 @@
-# Optional Renderers V6
+# Optional Renderers V6/V7
 
 Template mode is canonical. It is the default, test baseline, Micro Mode renderer, and lowest-hardware path.
 
@@ -13,7 +13,20 @@ $env:PE_OLLAMA_MODEL="gemma2:2b"
 
 The V6 test package includes `Run_Pretorius_Ollama_Optional.cmd`. Ollama must already be installed and running locally. If the provider is unavailable, PersonaConsole falls back to deterministic templates.
 
-Cloud/API rendering is not required and is not enabled in the release-candidate binary. It should be added only as a renderer-only provider behind the same Layer 1 boundary:
+V7 adds an optional OpenAI-compatible API provider for frontier models:
+
+```powershell
+$env:PE_RENDER_BACKEND="slm"
+$env:PE_SLM_PROVIDER="api"
+$env:PE_API_URL="https://api.openai.com/v1/chat/completions"
+$env:PE_API_KEY="..."
+$env:PE_API_MODEL="gpt-4.1-mini"
+```
+
+The API path uses `curl` at runtime and is never required for template mode,
+Micro Mode, or local Ollama mode. See `docs/V7_RENDERER_TIERS.md`.
+
+Cloud/API rendering must remain renderer-only behind the same Layer 1 boundary:
 
 - Renderer receives `CanonicalTurnFrame` read-only.
 - Renderer output never writes directly into memory.

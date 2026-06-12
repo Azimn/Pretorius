@@ -97,6 +97,7 @@ function runHost(port, scriptLines){
       PE_OLLAMA_HOST:    '127.0.0.1',
       PE_OLLAMA_PORT:    String(port),
       PE_OLLAMA_TIMEOUT_MS: '3000',
+      PE_TODAY_SEED:     '42',
     });
     const proc = spawn(HOST, [CART, '--stdio'], { env });
     let stdout = '', stderr = '';

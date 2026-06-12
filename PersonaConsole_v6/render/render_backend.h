@@ -9,9 +9,10 @@
  * state (Layer 1) and hands it to a RenderBackend.  The backend returns
  * a RenderResult.  That's the entire contract.
  *
- * Mandatory v4 backends:
+ * Mandatory V7 renderer tiers:
  *   - TemplateBackend (deterministic, default, zero deps)
- *   - TinySLMBackend  (optional, llama.cpp/Ollama target)
+ *   - TinySLMBackend  (optional, local Ollama/llama.cpp target)
+ *   - API provider     (optional frontier/OpenAI-compatible transport)
  *
  * Future backends (cloud, larger local models) plug in without altering
  * Layer 1.  Behavioral holography: identical RenderContext must produce
@@ -55,6 +56,7 @@ typedef struct {
     const CanonicalTurnFrame *frame;      /* V6 symbolic turn decision frame */
     const Relation           *relation;   /* current interlocutor */
     const SchemaState        *schema;     /* compressed beliefs */
+    const char               *user_input; /* current user utterance, read-only */
     uint32_t                  seed;       /* deterministic RNG seed for this turn */
 } RenderContext;
 

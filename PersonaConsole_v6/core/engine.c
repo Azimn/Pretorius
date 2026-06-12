@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stddef.h>
+#include <ctype.h>
 
 /* ---------- load helpers ---------- */
 static int load_or_zero(const char *dir, const char *name, void *buf, size_t n){
@@ -228,6 +229,99 @@ static uint8_t pe_withhold_reason_from_frame(const Engine *eng,
     else if (f->relation_trust < 300)       return PE_WR_DISTRUST;
     else if (f->rhetorical_mode == PE_RHET_DEFLECT) return PE_WR_STRATEGY;
     else                                    return PE_WR_PRIVACY;
+}
+
+static int word_in_text_ci(const char *text, const char *word, size_t wlen){
+    if (!text || !word || wlen == 0) return 0;
+    for (const char *p = text; *p; ++p){
+        size_t i = 0;
+        while (i < wlen && p[i]
+            && tolower((unsigned char)p[i]) == tolower((unsigned char)word[i]))
+            ++i;
+        if (i == wlen) {
+            unsigned char before = (p == text) ? 0 : (unsigned char)p[-1];
+            unsigned char after = (unsigned char)p[i];
+            if (!isalnum(before) && before != '_' && !isalnum(after) && after != '_')
+                return 1;
+        }
+    }
+    return 0;
+}
+
+static int lore_word_allowed(const Engine *eng, const char *user_input,
+                             const char *word, size_t wlen){
+    static const char *common[] = {
+        "I","A","An","The","This","That","These","Those","He","She",
+        "We","You","It","They","Yes","No","Oh","Ah","But","And","Or","If",
+        "In","On","Of","To","For","From","With","Without","When","Why",
+        "What","How","Where","Who","Do","Does","Did","Is","Are","Was",
+        "Were","Will","Would","Could","Should","Perhaps","Indeed","Well",
+        "So","Now","Then","Still","Listen","Tell","Try","Go","Come","Look",
+        "Wait","Good","Evening","Morning","Doctor","Dr","My","Your","Our",
+        NULL
+    };
+    if (!eng || !word || wlen == 0) return 0;
+    for (int i = 0; common[i]; ++i){
+        if (strlen(common[i]) == wlen && !strncmp(common[i], word, wlen))
+            return 1;
+    }
+    if (word_in_text_ci(eng->identity.character_name, word, wlen))
+        return 1;
+    for (int i = 0; i < PE_ADDRESS_COUNT; ++i){
+        if (word_in_text_ci(eng->identity.address_user_as[i], word, wlen))
+            return 1;
+    }
+    for (uint32_t i = 0; i < eng->topics.count; ++i){
+        if (word_in_text_ci(eng->topics.topics[i].name, word, wlen))
+            return 1;
+    }
+    for (uint8_t i = 0; i < eng->identity.core_memory_count; ++i){
+        if (word_in_text_ci(eng->identity.core_memories_seed[i].summary, word, wlen))
+            return 1;
+    }
+    for (uint16_t i = 0; i < eng->memory.episodic_count; ++i){
+        if (word_in_text_ci(eng->memory.episodic[i].summary, word, wlen))
+            return 1;
+    }
+    if (word_in_text_ci(user_input, word, wlen))
+        return 1;
+    return 0;
+}
+
+static int pe_lore_audit_pass(const Engine *eng, const char *user_input,
+                              const char *out){
+    if (!eng || !out || !out[0]) return 1;
+    const char *p = out;
+    while (*p){
+        if (isupper((unsigned char)*p)){
+            size_t len = 0;
+            while (isalpha((unsigned char)p[len])) ++len;
+            if (len >= 3){
+                char word[32];
+                size_t cl = len < sizeof(word) - 1u ? len : sizeof(word) - 1u;
+                memcpy(word, p, cl);
+                word[cl] = 0;
+                int all_caps = 1;
+                for (size_t j = 0; j < cl; ++j){
+                    if (isalpha((unsigned char)word[j])
+                        && !isupper((unsigned char)word[j])){
+                        all_caps = 0;
+                        break;
+                    }
+                }
+                if (all_caps) {
+                    p += len;
+                    continue;
+                }
+                if (!lore_word_allowed(eng, user_input, word, cl))
+                    return 0;
+            }
+            p += len ? len : 1u;
+        } else {
+            ++p;
+        }
+    }
+    return 1;
 }
 
 static int pe_render_audit_pass(const CanonicalTurnFrame *f, const char *out){
@@ -1225,6 +1319,7 @@ int persona_process_input(Engine *eng,
     pe_build_plan(eng);
     pe_build_turn_frame(eng);
     eng->last_audit_result = PE_AUDIT_PASS;
+    int renderer_output = 0;
 
     /* V4: renderer dispatch.  Compose a RenderContext from Layer 1 state
      * and offer the selected backend the chance to produce the reply.
@@ -1250,6 +1345,7 @@ int persona_process_input(Engine *eng,
         ctx.frame     = &eng->frame;
         ctx.relation  = &eng->relation;
         ctx.schema    = &eng->schema;
+        ctx.user_input = input_text;
         ctx.seed      = eng->state.rng_state;
 
         RenderBackend *be = render_backend_default();
@@ -1266,6 +1362,7 @@ int persona_process_input(Engine *eng,
                 if (copy >= n) copy = n - 1;
                 memcpy(out, res.output, copy);
                 out[copy] = 0;
+                renderer_output = 1;
                 goto post_render;
             }
             if (res.flags & 0x2u){
@@ -1279,11 +1376,13 @@ int persona_process_input(Engine *eng,
     pe_generate_response(eng, input_text, out, n);
 post_render:;
 
-    if (!pe_render_audit_pass(&eng->frame, out)){
+    if (!pe_render_audit_pass(&eng->frame, out)
+        || (renderer_output && !pe_lore_audit_pass(eng, input_text, out))){
         pe_generate_response(eng, input_text, out, n);
-        eng->last_audit_result = pe_render_audit_pass(&eng->frame, out)
-                               ? PE_AUDIT_REPAIRED
-                               : PE_AUDIT_FALLBACK;
+        eng->last_audit_result =
+            pe_render_audit_pass(&eng->frame, out)
+                ? PE_AUDIT_REPAIRED
+                : PE_AUDIT_FALLBACK;
     }
 
     /* 11b. v3.1: dream recall — prepend dream_phrase to first response after

@@ -87,6 +87,54 @@ static const char *stance_token(int stance){
     return "neutral";
 }
 
+static const char *speech_act_token(int act){
+    switch (act){
+    case PE_SA_APOLOGY:    return "apology";
+    case PE_SA_REFUSAL:    return "refusal";
+    case PE_SA_QUESTION:   return "question";
+    case PE_SA_INSULT:     return "accusation";
+    case PE_SA_THREAT:     return "threat";
+    case PE_SA_PRAISE:     return "praise";
+    case PE_SA_CONFESSION: return "confession";
+    case PE_SA_CONCESSION: return "concession";
+    case PE_SA_PROMISE:    return "promise";
+    case PE_SA_EVASION:    return "evasion";
+    case PE_SA_DEFLECTION: return "deflection";
+    case PE_SA_PAUSE:      return "pause";
+    case PE_SA_WITHDRAWAL: return "withdrawal";
+    case PE_SA_DISCLOSURE: return "disclosure";
+    default:               return "assertion";
+    }
+}
+
+static const char *response_band(const Engine *eng, const CanonicalTurnFrame *f){
+    if (f && f->speech_act == PE_SA_PAUSE) return "pause or near-silence";
+    if (f && (f->speech_act == PE_SA_REFUSAL || f->speech_act == PE_SA_WITHDRAWAL))
+        return "brief and final";
+    if (eng && eng->state.current_intent == PE_INTENT_MONOLOGUE)
+        return "expansive, but coherent";
+    if (eng && eng->state.current_intent == PE_INTENT_REMINISCE)
+        return "reflective";
+    if (eng && eng->state.current_intent == PE_INTENT_PROBE)
+        return "question-led";
+    if (eng && eng->state.current_intent == PE_INTENT_ATTEND)
+        return "short acknowledgement";
+    if (eng && eng->state.exhaustion > 700)
+        return "tired and compressed";
+    if (eng && eng->state.obsession_pressure > 650)
+        return "allowed to elaborate";
+    return "natural conversational";
+}
+
+static const char *topic_name_lookup(const Engine *eng, uint16_t topic_id){
+    if (!eng || topic_id == 0xFFFF) return NULL;
+    for (uint32_t i = 0; i < eng->topics.count; ++i){
+        if (eng->topics.topics[i].id == topic_id)
+            return eng->topics.topics[i].name;
+    }
+    return NULL;
+}
+
 int prompt_compile(const RenderContext *ctx,
                    const PromptCompilerConfig *cfg,
                    char *out_buf, int out_cap){
@@ -120,6 +168,27 @@ int prompt_compile_with_input(const RenderContext *ctx,
                (unsigned)((eng->identity.extraversion      * 100u) >> 16),
                (unsigned)((eng->identity.agreeableness     * 100u) >> 16),
                (unsigned)((eng->identity.neuroticism       * 100u) >> 16));
+    }
+
+    /* ----- [WORLD] (closed-world referents) ----- */
+    if (eng){
+        append(out_buf, cap, &pos, "\n[WORLD]\n");
+        append(out_buf, cap, &pos, "known_referents=");
+        int shown = 0;
+        for (uint32_t i = 0; i < eng->topics.count && shown < 12; ++i){
+            if (!eng->topics.topics[i].name[0]) continue;
+            append(out_buf, cap, &pos, "%s%s",
+                   shown ? ", " : "", eng->topics.topics[i].name);
+            ++shown;
+        }
+        for (uint8_t i = 0; i < eng->identity.core_memory_count && shown < 16; ++i){
+            const MemoryNode *m = &eng->identity.core_memories_seed[i];
+            if (!m->summary[0]) continue;
+            append(out_buf, cap, &pos, "%s%.48s",
+                   shown ? ", " : "", m->summary);
+            ++shown;
+        }
+        append(out_buf, cap, &pos, "\n");
     }
 
     /* ----- [AFFECT] ----- */
@@ -176,6 +245,13 @@ int prompt_compile_with_input(const RenderContext *ctx,
         const UtterancePlan *p = ctx->plan;
         append(out_buf, cap, &pos, "\n[INTENT]\n");
         append(out_buf, cap, &pos, "intent=%s\n", intent_token(eng->state.current_intent));
+        if (ctx->frame)
+            append(out_buf, cap, &pos, "speech_act=%s\n", speech_act_token(ctx->frame->speech_act));
+        if (ctx->frame){
+            const char *tn = topic_name_lookup(eng, ctx->frame->primary_topic);
+            if (!tn || !tn[0]) tn = topic_name_lookup(eng, p->target_topic);
+            if (tn && tn[0]) append(out_buf, cap, &pos, "topic=%s\n", tn);
+        }
         append(out_buf, cap, &pos, "rhet=%s\n",   rhet_token(p->rhetorical_mode));
         append(out_buf, cap, &pos, "stance=%s\n", stance_token(p->stance));
         append(out_buf, cap, &pos, "cert=%d aggr=%d theat=%d hedge=%d\n",
@@ -211,9 +287,18 @@ int prompt_compile_with_input(const RenderContext *ctx,
 
     /* ----- [TASK] — instruction; rigid + short ----- */
     append(out_buf, cap, &pos, "\n[TASK]\n");
-    append(out_buf, cap, &pos, "Reply as %s. One short turn, <=40 words.\n", who);
+    append(out_buf, cap, &pos, "Reply as %s. Pacing=%s.\n",
+           who, response_band(eng, ctx->frame));
+    if (ctx->frame && ctx->frame->require_question)
+        append(out_buf, cap, &pos, "End your reply with a question.\n");
+    if (ctx->frame && ctx->frame->allow_empty)
+        append(out_buf, cap, &pos, "A short pause or silence is an acceptable reply.\n");
     append(out_buf, cap, &pos, "Obey [AFFECT] [STANCE] [INTENT] [VOICE] as constraints.\n");
+    append(out_buf, cap, &pos, "Answer the current [USER] line directly before expanding.\n");
+    append(out_buf, cap, &pos, "Vary sentence shape; do not reuse a striking metaphor or opener.\n");
+    append(out_buf, cap, &pos, "Only people, places, and things named in [WORLD], [MEMORY], or [USER] exist.\n");
     append(out_buf, cap, &pos, "Do NOT invent people, places, events, family, or memories not listed in [MEMORY].\n");
+    append(out_buf, cap, &pos, "No assistant tone, no helpdesk phrasing, no meta-commentary.\n");
     append(out_buf, cap, &pos, "Do NOT use the bracket tags in your reply.\n");
 
     return pos;
