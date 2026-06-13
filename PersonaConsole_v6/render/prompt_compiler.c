@@ -166,12 +166,12 @@ static void append_tiny_examples(const Engine *eng, char *buf, int cap, int *pos
     const char *who = (eng && eng->identity.character_name[0])
                     ? eng->identity.character_name : "{{char}}";
     append(buf, cap, pos, "\n[EXAMPLES]\n");
-    append(buf, cap, pos, "<START>\n{{user}}: What happened that night?\n");
-    append(buf, cap, pos, "%s: Precision first. Are you asking about the hour, the method, or what came after?\n", who);
-    append(buf, cap, pos, "<START>\n{{user}}: Do you regret it?\n");
-    append(buf, cap, pos, "%s: Regret implies I would choose differently. I would not. Ask me something harder.\n", who);
-    append(buf, cap, pos, "<START>\n{{user}}: So you admit you're the monster.\n");
-    append(buf, cap, pos, "%s: I admit nothing. I built something that outlived its maker's nerve. Draw your own conclusions, carefully.\n", who);
+    append(buf, cap, pos, "<START>\n{{user}}: What do you mean?\n");
+    append(buf, cap, pos, "%s: I mean the important part is still unresolved. Ask it plainly.\n", who);
+    append(buf, cap, pos, "<START>\n{{user}}: Do you agree?\n");
+    append(buf, cap, pos, "%s: Not entirely. I see the point, but I do not accept the conclusion.\n", who);
+    append(buf, cap, pos, "<START>\n{{user}}: Tell me more.\n");
+    append(buf, cap, pos, "%s: One thing first: name what you want from this conversation.\n", who);
 }
 
 static void append_topics_line(const Engine *eng, char *buf, int cap, int *pos){
@@ -219,12 +219,12 @@ static int prompt_compile_gemma_raw(const RenderContext *ctx,
     }
     append(out_buf, cap, &pos, "Study this voice shape and continue it.<end_of_turn>\n");
     append(out_buf, cap, &pos, "<start_of_turn>model\nUnderstood.<end_of_turn>\n");
-    append(out_buf, cap, &pos, "<start_of_turn>user\nWhat happened that night?<end_of_turn>\n");
-    append(out_buf, cap, &pos, "<start_of_turn>model\nPrecision first. Are you asking about the hour, the method, or what came after?<end_of_turn>\n");
-    append(out_buf, cap, &pos, "<start_of_turn>user\nDo you regret it?<end_of_turn>\n");
-    append(out_buf, cap, &pos, "<start_of_turn>model\nRegret implies I would choose differently. I would not. Ask me something harder.<end_of_turn>\n");
-    append(out_buf, cap, &pos, "<start_of_turn>user\nSo you admit you're the monster.<end_of_turn>\n");
-    append(out_buf, cap, &pos, "<start_of_turn>model\nI admit nothing. I built something that outlived its maker's nerve. Draw your own conclusions, carefully.<end_of_turn>\n");
+    append(out_buf, cap, &pos, "<start_of_turn>user\nWhat do you mean?<end_of_turn>\n");
+    append(out_buf, cap, &pos, "<start_of_turn>model\nI mean the important part is still unresolved. Ask it plainly.<end_of_turn>\n");
+    append(out_buf, cap, &pos, "<start_of_turn>user\nDo you agree?<end_of_turn>\n");
+    append(out_buf, cap, &pos, "<start_of_turn>model\nNot entirely. I see the point, but I do not accept the conclusion.<end_of_turn>\n");
+    append(out_buf, cap, &pos, "<start_of_turn>user\nTell me more.<end_of_turn>\n");
+    append(out_buf, cap, &pos, "<start_of_turn>model\nOne thing first: name what you want from this conversation.<end_of_turn>\n");
     append(out_buf, cap, &pos, "<start_of_turn>user\n%.256s<end_of_turn>\n", user_input ? user_input : "");
     append(out_buf, cap, &pos, "<start_of_turn>model\n");
     (void)cfg;
