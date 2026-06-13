@@ -16,6 +16,7 @@
  *   PE_OLLAMA_TIMEOUT_MS default 8000
  *   PE_OLLAMA_TEMP       default 0     (integer per-mille, 0..2000)
  *   PE_OLLAMA_NUM_PRED   default 160   (max tokens)
+ *   PE_OLLAMA_THINK      default 0     (disable hidden reasoning when supported)
  *
  * No SSL.  Local-only by design — providers reaching the internet are
  * a separate concern and a separate file.
@@ -35,6 +36,7 @@ typedef struct {
     int  temperature_per_mille;   /* 0 = greedy / deterministic */
     int  num_predict;
     int  raw;                     /* bypass Ollama template when nonzero */
+    int  think;                   /* request hidden reasoning when nonzero */
 } OllamaConfig;
 
 /* Populate defaults + env overrides.  Always succeeds. */

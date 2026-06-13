@@ -203,6 +203,8 @@ static int prompt_compile_gemma_raw(const RenderContext *ctx,
     append(out_buf, cap, &pos, "Speak in complete, short, grounded dialogue turns. No assistant phrasing.\n");
     append(out_buf, cap, &pos, "No atmosphere-setting filler. Do not begin with weather, darkness, silence, ash, or bones.\n");
     append(out_buf, cap, &pos, "Use the current user line directly before expanding.\n");
+    append(out_buf, cap, &pos, "Speak to the other person from inside the scene. Do not say anyone \"sounds like\" or describe the role from outside.\n");
+    append(out_buf, cap, &pos, "Do not echo a distinctive phrase from the other speaker unless you are directly challenging it.\n");
     append(out_buf, cap, &pos, "Only named cartridge facts exist. ");
     append_topics_line(eng, out_buf, cap, &pos);
     if (eng){
@@ -396,6 +398,8 @@ int prompt_compile_with_input(const RenderContext *ctx,
         append(out_buf, cap, &pos, "A short pause or silence is an acceptable reply.\n");
     append(out_buf, cap, &pos, "Obey [AFFECT] [STANCE] [INTENT] [VOICE] as constraints.\n");
     append(out_buf, cap, &pos, "Answer the current [USER] line directly before expanding.\n");
+    append(out_buf, cap, &pos, "Speak from inside the scene to the addressee; do not narrate or critique what the other character sounds like.\n");
+    append(out_buf, cap, &pos, "Do not mirror the addressee's exact metaphor or catchphrase unless your speech act is a challenge or correction.\n");
     append(out_buf, cap, &pos, "Vary sentence shape; do not reuse a striking metaphor or opener.\n");
     append(out_buf, cap, &pos, "Only people, places, and things named in [WORLD], [MEMORY], or [USER] exist.\n");
     append(out_buf, cap, &pos, "Do NOT invent people, places, events, family, or memories not listed in [MEMORY].\n");

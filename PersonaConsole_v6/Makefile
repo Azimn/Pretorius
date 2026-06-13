@@ -150,7 +150,7 @@ RENDER_HEADERS := \
         forge_cart_test forge_bundle_test forge_dialogue_test \
         forge_archetypes_test forge_parsers_test inspector_test web_presence_test \
         demo_package release_check micro micro_size_report micro_replay_run \
-        strict_check strict_gate v6_believability_battery_run v6_demo_pack_battery_run v6_recall_mode_order_run v6_contradiction_protocol_run \
+        strict_check strict_gate v6_believability_battery_run v6_demo_pack_battery_run society_pair_probe v6_recall_mode_order_run v6_contradiction_protocol_run \
         v7_api_run
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
@@ -550,6 +550,10 @@ v6_believability_battery_run: build/persona_host profiles/pretorius/pretorius.ca
 v6_demo_pack_battery_run: build/persona_host cartridges
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/demo_pack_battery.js
+
+society_pair_probe: build/persona_host profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/society_pair_probe.js
 
 lint_test: build/cartridge_lint profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart $(DEMO_CARTS)
 	./build/cartridge_lint profiles/pretorius/pretorius.cart
