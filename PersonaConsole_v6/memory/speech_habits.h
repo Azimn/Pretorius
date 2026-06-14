@@ -11,7 +11,9 @@
 #include "sidecar.h"
 
 #define PE_SPEECH_HABITS_MAGIC   PE_SIDECAR_MAGIC('H','B','I','T')
-#define PE_SPEECH_HABITS_VERSION 1
+#define PE_SPEECH_HABITS_VERSION 2
+#define PE_SPEECH_FATIGUE_TERMS  8
+#define PE_SPEECH_FATIGUE_LEN    16
 
 typedef struct {
     pe_sidecar_header_t header;
@@ -24,7 +26,13 @@ typedef struct {
     uint16_t question_bias;
     uint16_t brevity_bias;
     uint16_t initiative_bias;
-    uint16_t _reserved[9];
+    uint16_t fatigue_bias;
+    uint8_t  fatigue_count;
+    uint8_t  _pad0;
+    char     fatigue_terms[PE_SPEECH_FATIGUE_TERMS][PE_SPEECH_FATIGUE_LEN];
+    uint8_t  fatigue_hits[PE_SPEECH_FATIGUE_TERMS];
+    uint8_t  _pad1[8];
+    uint16_t _reserved[4];
 } pe_speech_habits_t;
 
 #ifdef __cplusplus
@@ -39,6 +47,8 @@ void pe_speech_habits_update(pe_speech_habits_t *h,
                              const char *reply,
                              int reply_had_question,
                              int input_class);
+
+void pe_speech_habits_note_input(pe_speech_habits_t *h, const char *input);
 
 #ifdef __cplusplus
 }

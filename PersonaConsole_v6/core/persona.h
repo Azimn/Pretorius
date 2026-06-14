@@ -640,7 +640,8 @@ typedef struct {
     uint8_t  require_question;
     uint8_t  allow_empty;
     uint8_t  forbid_meta;
-    uint8_t  _pad;
+    uint8_t  fatigue_term_count;
+    char     fatigue_terms[PE_SPEECH_FATIGUE_TERMS][PE_SPEECH_FATIGUE_LEN];
 } CanonicalTurnFrame;
 
 /* ---------- engine ---------- */

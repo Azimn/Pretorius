@@ -678,9 +678,12 @@ static int render_reflection_callback(Engine *eng, char *out, size_t n){
 static int render_direct_callback_question(Engine *eng, const char *input,
                                            char *out, size_t n){
     if (!eng || !input || !out || n == 0) return 0;
-    int asks_memory = contains_ci(input, "remember")
-                   || contains_ci(input, "discussed")
-                   || contains_ci(input, "earlier");
+    int asks_memory = contains_ci(input, "do you remember")
+                   || contains_ci(input, "what do you remember")
+                   || contains_ci(input, "what did i ask")
+                   || contains_ci(input, "did i ask you to remember")
+                   || contains_ci(input, "remember this")
+                   || contains_ci(input, "recall");
     int asks_pattern = contains_ci(input, "pattern")
                     || contains_ci(input, "circling")
                     || contains_ci(input, "keep returning")
@@ -719,6 +722,8 @@ static int render_direct_callback_question(Engine *eng, const char *input,
     }
     if (asks_pattern && render_reflection_callback(eng, out, n))
         return 1;
+
+    if (!asks_memory) return 0;
 
     for (uint16_t pos = eng->memory.episodic_count; pos > 0; --pos){
         uint16_t idx = (uint16_t)(pos - 1u);

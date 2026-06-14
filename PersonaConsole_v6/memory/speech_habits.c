@@ -28,6 +28,44 @@ static uint16_t count_words(const char *s){
     return n;
 }
 
+static int is_stop_word(const char *w){
+    static const char *STOP[] = {
+        "about","after","again","because","before","being","between","could",
+        "every","everything","having","maybe","never","other","really","right",
+        "should","something","still","their","there","these","thing","things",
+        "think","those","through","trying","under","where","which","while",
+        "whole","would","youre","you've","your","yours",
+        "mock","ollama","api","reply","seed", NULL
+    };
+    if (!w || !w[0]) return 1;
+    for (int i = 0; STOP[i]; ++i)
+        if (!strcmp(w, STOP[i])) return 1;
+    return 0;
+}
+
+static int term_index(const pe_speech_habits_t *h, const char *term){
+    if (!h || !term) return -1;
+    for (int i = 0; i < PE_SPEECH_FATIGUE_TERMS; ++i){
+        if (h->fatigue_terms[i][0] && !strcmp(h->fatigue_terms[i], term))
+            return i;
+    }
+    return -1;
+}
+
+static void add_fatigue_term(pe_speech_habits_t *h, const char *term){
+    int idx;
+    if (!h || !term || !term[0] || is_stop_word(term)) return;
+    idx = term_index(h, term);
+    if (idx >= 0){
+        if (h->fatigue_hits[idx] < 255u) h->fatigue_hits[idx]++;
+        return;
+    }
+    idx = h->fatigue_count < PE_SPEECH_FATIGUE_TERMS
+        ? h->fatigue_count++ : (h->turns_observed % PE_SPEECH_FATIGUE_TERMS);
+    snprintf(h->fatigue_terms[idx], PE_SPEECH_FATIGUE_LEN, "%s", term);
+    h->fatigue_hits[idx] = 1;
+}
+
 void pe_speech_habits_init(pe_speech_habits_t *h){
     if (!h) return;
     memset(h, 0, sizeof(*h));
@@ -36,6 +74,47 @@ void pe_speech_habits_init(pe_speech_habits_t *h){
     h->header.flags       = PE_SIDECAR_F_OPTIONAL;
     h->header.entry_count = 1;
     h->header.capacity    = 1;
+}
+
+void pe_speech_habits_note_input(pe_speech_habits_t *h, const char *input){
+    char seen[PE_SPEECH_FATIGUE_TERMS][PE_SPEECH_FATIGUE_LEN];
+    uint8_t seen_count = 0;
+    char term[PE_SPEECH_FATIGUE_LEN];
+    int len = 0;
+    if (!h || h->header.magic != PE_SPEECH_HABITS_MAGIC)
+        pe_speech_habits_init(h);
+    memset(seen, 0, sizeof(seen));
+    if (!input) return;
+    for (const unsigned char *p = (const unsigned char *)input;; ++p){
+        int is_word = *p && (isalnum(*p) || *p == '\'');
+        if (is_word){
+            if (len < PE_SPEECH_FATIGUE_LEN - 1){
+                unsigned char c = (unsigned char)tolower(*p);
+                if (c != '\'') term[len++] = (char)c;
+            }
+            continue;
+        }
+        if (len >= 5){
+            term[len] = 0;
+            if (!is_stop_word(term)){
+                int already_seen = 0;
+                for (int i = 0; i < seen_count; ++i)
+                    if (!strcmp(seen[i], term)) already_seen = 1;
+                if (!already_seen && seen_count < PE_SPEECH_FATIGUE_TERMS){
+                    snprintf(seen[seen_count++], PE_SPEECH_FATIGUE_LEN, "%s", term);
+                    add_fatigue_term(h, term);
+                }
+            }
+        }
+        len = 0;
+        if (!*p) break;
+    }
+    {
+        int hot = 0;
+        for (int i = 0; i < PE_SPEECH_FATIGUE_TERMS; ++i)
+            if (h->fatigue_terms[i][0] && h->fatigue_hits[i] >= 2u) hot++;
+        h->fatigue_bias = clamp_u16_int(hot * 180, 1000);
+    }
 }
 
 int pe_speech_habits_load(pe_speech_habits_t *h, const char *char_dir){
@@ -100,6 +179,8 @@ void pe_speech_habits_update(pe_speech_habits_t *h,
         h->no_question_streak = 0;
     else if (h->no_question_streak < 65535u)
         h->no_question_streak++;
+
+    pe_speech_habits_note_input(h, reply);
 
     {
         int avg_words = h->avg_reply_words_q8 >> 8;

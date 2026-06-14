@@ -199,12 +199,16 @@ static int prompt_compile_gemma_raw(const RenderContext *ctx,
 
     append(out_buf, cap, &pos, "<start_of_turn>user\n");
     append(out_buf, cap, &pos, "PersonaConsole state packet. Reply only as %s.\n", who);
+    if (eng && eng->relation.known_as[0])
+        append(out_buf, cap, &pos, "addressing=%s\n", eng->relation.known_as);
     append(out_buf, cap, &pos, "renderer_profile=%s chat_format=gemma\n", profile_token(cfg->render_profile));
     append(out_buf, cap, &pos, "Speak in complete, short, grounded dialogue turns. No assistant phrasing.\n");
     append(out_buf, cap, &pos, "No atmosphere-setting filler. Do not begin with weather, darkness, silence, ash, or bones.\n");
     append(out_buf, cap, &pos, "Use the current user line directly before expanding.\n");
     append(out_buf, cap, &pos, "Speak to the other person from inside the scene. Do not say anyone \"sounds like\" or describe the role from outside.\n");
+    append(out_buf, cap, &pos, "Do not rename the addressee or call them by a memory name unless [USER] says that is their name.\n");
     append(out_buf, cap, &pos, "Do not echo a distinctive phrase from the other speaker unless you are directly challenging it.\n");
+    append(out_buf, cap, &pos, "Do not say \"I remember this\" or \"You asked me to remember\". Work memory into the reply naturally.\n");
     append(out_buf, cap, &pos, "Only named cartridge facts exist. ");
     append_topics_line(eng, out_buf, cap, &pos);
     if (eng){
@@ -216,6 +220,13 @@ static int prompt_compile_gemma_raw(const RenderContext *ctx,
             if (tn && tn[0]) append(out_buf, cap, &pos, "topic=%s\n", tn);
             append(out_buf, cap, &pos, "speech_act=%s\n", speech_act_token(ctx->frame->speech_act));
         }
+    }
+    if (ctx->frame && ctx->frame->fatigue_term_count){
+        append(out_buf, cap, &pos, "tired_terms=");
+        for (uint8_t i = 0; i < ctx->frame->fatigue_term_count; ++i)
+            append(out_buf, cap, &pos, "%s%s",
+                   i ? ", " : "", ctx->frame->fatigue_terms[i]);
+        append(out_buf, cap, &pos, "\n");
     }
     append(out_buf, cap, &pos, "Study this voice shape and continue it.<end_of_turn>\n");
     append(out_buf, cap, &pos, "<start_of_turn>model\nUnderstood.<end_of_turn>\n");
@@ -258,6 +269,8 @@ int prompt_compile_with_input(const RenderContext *ctx,
     /* ----- [IDENTITY] ----- */
     append(out_buf, cap, &pos, "[IDENTITY]\n");
     append(out_buf, cap, &pos, "name=%s\n", who);
+    if (eng && eng->relation.known_as[0])
+        append(out_buf, cap, &pos, "addressing=%s\n", eng->relation.known_as);
     if (eng){
         /* Big Five are stored as 0.16 fixed-point; render as 0..100 percent
          * for SLM legibility.  Math is integer-only. */
@@ -384,6 +397,14 @@ int prompt_compile_with_input(const RenderContext *ctx,
         append(out_buf, cap, &pos, "\n[USER]\n%.256s\n", user_input);
     }
 
+    if (ctx->frame && ctx->frame->fatigue_term_count){
+        append(out_buf, cap, &pos, "\n[FATIGUE]\navoid_terms=");
+        for (uint8_t i = 0; i < ctx->frame->fatigue_term_count; ++i)
+            append(out_buf, cap, &pos, "%s%s",
+                   i ? ", " : "", ctx->frame->fatigue_terms[i]);
+        append(out_buf, cap, &pos, "\n");
+    }
+
     if (cfg->render_profile == PE_SLM_PROFILE_TINY)
         append_tiny_examples(eng, out_buf, cap, &pos);
 
@@ -399,7 +420,12 @@ int prompt_compile_with_input(const RenderContext *ctx,
     append(out_buf, cap, &pos, "Obey [AFFECT] [STANCE] [INTENT] [VOICE] as constraints.\n");
     append(out_buf, cap, &pos, "Answer the current [USER] line directly before expanding.\n");
     append(out_buf, cap, &pos, "Speak from inside the scene to the addressee; do not narrate or critique what the other character sounds like.\n");
+    append(out_buf, cap, &pos, "Do not rename the addressee or call them by a memory name unless [USER] says that is their name.\n");
     append(out_buf, cap, &pos, "Do not mirror the addressee's exact metaphor or catchphrase unless your speech act is a challenge or correction.\n");
+    append(out_buf, cap, &pos, "Do not copy any phrase longer than three words from [USER]. Add new information, a new question, or a new stance.\n");
+    append(out_buf, cap, &pos, "Do not say \"I remember this\" or \"You asked me to remember\". Refer to memories naturally, without labels.\n");
+    if (ctx->frame && ctx->frame->fatigue_term_count)
+        append(out_buf, cap, &pos, "Avoid [FATIGUE] terms this turn unless needed to answer a direct question.\n");
     append(out_buf, cap, &pos, "Vary sentence shape; do not reuse a striking metaphor or opener.\n");
     append(out_buf, cap, &pos, "Only people, places, and things named in [WORLD], [MEMORY], or [USER] exist.\n");
     append(out_buf, cap, &pos, "Do NOT invent people, places, events, family, or memories not listed in [MEMORY].\n");

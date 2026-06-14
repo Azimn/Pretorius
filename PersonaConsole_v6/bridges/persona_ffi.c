@@ -311,6 +311,8 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"habit_question_bias\":%u,"
         "\"habit_brevity_bias\":%u,"
         "\"habit_initiative_bias\":%u,"
+        "\"habit_fatigue_bias\":%u,"
+        "\"habit_fatigue_count\":%u,"
         "\"habit_avg_reply_words\":%u,"
         "\"habit_turns_observed\":%u,"
         "\"habit_no_question_streak\":%u,"
@@ -327,7 +329,8 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
                   "\"speech_act\":\"%s\",\"stance\":%u,\"rhetorical_mode\":\"%s\","
                   "\"recall_mode\":\"%s\",\"open_loop_pressure\":%u,"
                   "\"ideal_gap\":%u,\"ought_gap\":%u,\"feared_gap\":%u,"
-                  "\"max_words\":%u,\"require_question\":%u,\"allow_empty\":%u},"
+                  "\"max_words\":%u,\"require_question\":%u,\"allow_empty\":%u,"
+                  "\"fatigue_term_count\":%u},"
         "\"relation_dims\":{\"trust\":%u,\"threat\":%u,\"intimacy\":%u,"
                           "\"resentment\":%u,\"dependency\":%u,\"obligation\":%u,"
                           "\"envy\":%u,\"admiration\":%u,\"embarrassment\":%u},"
@@ -360,6 +363,8 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         (unsigned)eng->speech_habits.question_bias,
         (unsigned)eng->speech_habits.brevity_bias,
         (unsigned)eng->speech_habits.initiative_bias,
+        (unsigned)eng->speech_habits.fatigue_bias,
+        (unsigned)eng->speech_habits.fatigue_count,
         (unsigned)(eng->speech_habits.avg_reply_words_q8 >> 8),
         (unsigned)eng->speech_habits.turns_observed,
         (unsigned)eng->speech_habits.no_question_streak,
@@ -393,6 +398,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         (unsigned)eng->frame.max_words,
         (unsigned)eng->frame.require_question,
         (unsigned)eng->frame.allow_empty,
+        (unsigned)eng->frame.fatigue_term_count,
         (unsigned)eng->relation_dims.trust,
         (unsigned)eng->relation_dims.threat,
         (unsigned)eng->relation_dims.intimacy,

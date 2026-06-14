@@ -194,6 +194,16 @@ static void pe_build_turn_frame(Engine *eng){
     f->stance              = (uint8_t)eng->plan.stance;
     f->rhetorical_mode     = eng->plan.rhetorical_mode;
     f->recall_mode         = eng->current_recall_mode;
+    for (int i = 0; i < PE_SPEECH_FATIGUE_TERMS; ++i){
+        if (eng->speech_habits.fatigue_terms[i][0]
+            && eng->speech_habits.fatigue_hits[i] >= 2u
+            && f->fatigue_term_count < PE_SPEECH_FATIGUE_TERMS){
+            snprintf(f->fatigue_terms[f->fatigue_term_count],
+                     PE_SPEECH_FATIGUE_LEN, "%s",
+                     eng->speech_habits.fatigue_terms[i]);
+            f->fatigue_term_count++;
+        }
+    }
     f->relation_trust      = eng->relation_dims.trust;
     f->relation_threat     = eng->relation_dims.threat;
     f->relation_intimacy   = eng->relation_dims.intimacy;
@@ -359,6 +369,183 @@ static int pe_render_audit_pass(const CanonicalTurnFrame *f, const char *out){
     default:
         return 1;
     }
+}
+
+static int pe_copy_audit_pass(const char *input, const char *out){
+    char in_words[64][24];
+    char out_words[96][24];
+    int in_n = 0, out_n = 0;
+    char word[24];
+    int len = 0;
+    const unsigned char *p;
+    if (!input || !out || !input[0] || !out[0]) return 1;
+    for (p = (const unsigned char *)input;; ++p){
+        int is_word = *p && (isalnum(*p) || *p == '\'');
+        if (is_word){
+            if (len < (int)sizeof(word) - 1){
+                unsigned char c = (unsigned char)tolower(*p);
+                if (c != '\'') word[len++] = (char)c;
+            }
+            continue;
+        }
+        if (len >= 3 && in_n < 64){
+            word[len] = 0;
+            snprintf(in_words[in_n++], sizeof(in_words[0]), "%s", word);
+        }
+        len = 0;
+        if (!*p) break;
+    }
+    len = 0;
+    for (p = (const unsigned char *)out;; ++p){
+        int is_word = *p && (isalnum(*p) || *p == '\'');
+        if (is_word){
+            if (len < (int)sizeof(word) - 1){
+                unsigned char c = (unsigned char)tolower(*p);
+                if (c != '\'') word[len++] = (char)c;
+            }
+            continue;
+        }
+        if (len >= 3 && out_n < 96){
+            word[len] = 0;
+            snprintf(out_words[out_n++], sizeof(out_words[0]), "%s", word);
+        }
+        len = 0;
+        if (!*p) break;
+    }
+    for (int i = 0; i + 4 < in_n; ++i){
+        for (int j = 0; j + 4 < out_n; ++j){
+            int match = 1;
+            for (int k = 0; k < 5; ++k){
+                if (strcmp(in_words[i + k], out_words[j + k])){ match = 0; break; }
+            }
+            if (match) return 0;
+        }
+    }
+    return 1;
+}
+
+static int pe_output_label_audit_pass(const char *out){
+    char low[PE_RENDER_MAX_TEXT];
+    if (!out || !out[0]) return 1;
+    lowercase_copy(low, sizeof(low), out);
+    if (strstr(low, "i remember this")) return 0;
+    if (strstr(low, "you asked me to remember")) return 0;
+    if (strstr(low, "i remember the thread")) return 0;
+    if (strstr(low, "you remember the thread")) return 0;
+    if (strstr(low, " said:")) return 0;
+    if (strstr(low, " asked:")) return 0;
+    return 1;
+}
+
+static int pe_self_repeat_audit_pass(const char *out){
+    char words[96][24];
+    int n = 0;
+    char word[24];
+    int len = 0;
+    const unsigned char *p;
+    if (!out || !out[0]) return 1;
+    for (p = (const unsigned char *)out;; ++p){
+        int is_word = *p && (isalnum(*p) || *p == '\'');
+        if (is_word){
+            if (len < (int)sizeof(word) - 1){
+                unsigned char c = (unsigned char)tolower(*p);
+                if (c != '\'') word[len++] = (char)c;
+            }
+            continue;
+        }
+        if (len >= 3 && n < 96){
+            word[len] = 0;
+            snprintf(words[n++], sizeof(words[0]), "%s", word);
+        }
+        len = 0;
+        if (!*p) break;
+    }
+    for (int i = 0; i + 2 < n; ++i){
+        for (int j = i + 3; j + 2 < n; ++j){
+            if (!strcmp(words[i], words[j])
+                && !strcmp(words[i + 1], words[j + 1])
+                && !strcmp(words[i + 2], words[j + 2]))
+                return 0;
+        }
+    }
+    return 1;
+}
+
+static int pe_fatigue_audit_pass(const CanonicalTurnFrame *f, const char *out){
+    char low[PE_RENDER_MAX_TEXT];
+    int hits = 0;
+    if (!f || !out || !out[0] || f->fatigue_term_count == 0) return 1;
+    lowercase_copy(low, sizeof(low), out);
+    for (uint8_t i = 0; i < f->fatigue_term_count; ++i){
+        if (f->fatigue_terms[i][0] && strstr(low, f->fatigue_terms[i])){
+            if (++hits >= 2) return 0;
+        }
+    }
+    return 1;
+}
+
+static void first_name_lower(const char *src, char *dst, size_t cap){
+    size_t pos = 0;
+    if (!dst || cap == 0) return;
+    dst[0] = 0;
+    if (!src) return;
+    while (*src && isspace((unsigned char)*src)) src++;
+    while (*src && !isspace((unsigned char)*src) && pos + 1 < cap){
+        if (isalpha((unsigned char)*src))
+            dst[pos++] = (char)tolower((unsigned char)*src);
+        else if (pos > 0)
+            break;
+        src++;
+    }
+    dst[pos] = 0;
+}
+
+static int output_has_vocative_name(const char *low, const char *name){
+    char needle[40];
+    char first[32];
+    if (!low || !name || !name[0]) return 0;
+    first_name_lower(name, first, sizeof(first));
+    if (!first[0]) return 0;
+    snprintf(needle, sizeof(needle), "%s,", first);
+    if (!strncmp(low, needle, strlen(needle))) return 1;
+    snprintf(needle, sizeof(needle), "%s:", first);
+    if (!strncmp(low, needle, strlen(needle))) return 1;
+    snprintf(needle, sizeof(needle), " %s,", first);
+    if (strstr(low, needle)) return 1;
+    snprintf(needle, sizeof(needle), " %s:", first);
+    if (strstr(low, needle)) return 1;
+    snprintf(needle, sizeof(needle), " %s-", first);
+    if (strstr(low, needle)) return 1;
+    snprintf(needle, sizeof(needle), " %s\xe2\x80\x94", first);
+    if (strstr(low, needle)) return 1;
+    return 0;
+}
+
+static int pe_addressee_audit_pass(const Engine *eng, const char *out){
+    char low[PE_RENDER_MAX_TEXT];
+    char addressee[32];
+    if (!eng || !out || !out[0]) return 1;
+    lowercase_copy(low, sizeof(low), out);
+    first_name_lower(eng->relation.known_as, addressee, sizeof(addressee));
+    if (!addressee[0]){
+        for (int i = 0; i < PE_ADDRESS_COUNT; ++i){
+            first_name_lower(eng->identity.address_user_as[i], addressee, sizeof(addressee));
+            if (addressee[0]) break;
+        }
+    }
+    for (uint8_t i = 0; i < eng->identity.core_memory_count; ++i){
+        char first[32];
+        first_name_lower(eng->identity.core_memories_seed[i].summary, first, sizeof(first));
+        if (!first[0] || !strcmp(first, addressee)) continue;
+        if (output_has_vocative_name(low, first)) return 0;
+    }
+    {
+        char self[32];
+        first_name_lower(eng->identity.character_name, self, sizeof(self));
+        if (self[0] && strcmp(self, addressee) && output_has_vocative_name(low, self))
+            return 0;
+    }
+    return 1;
 }
 
 static void pe_prime_unprompted_memory(Engine *eng){
@@ -1102,6 +1289,7 @@ int persona_process_input(Engine *eng,
     /* 3. emotional fingerprint (now uses cached lower + bitmap + negation) */
     EmotionVector ev = {0};
     pe_classify_input(eng, input_text, &ev);
+    pe_speech_habits_note_input(&eng->speech_habits, input_text);
     if (eng->input_class == 0) {
         if (eng->state.neutral_streak < 255) eng->state.neutral_streak++;
     } else {
@@ -1297,7 +1485,16 @@ int persona_process_input(Engine *eng,
         && eng->state.current_intent != PE_INTENT_REMINISCE){
         eng->state.current_intent =
             (eng->speech_habits.initiative_bias > eng->speech_habits.question_bias + 60u)
-            ? PE_INTENT_INITIATE : PE_INTENT_PROBE;
+              ? PE_INTENT_INITIATE : PE_INTENT_PROBE;
+    }
+    if (eng->speech_habits.fatigue_bias >= 360u
+        && eng->input_class != 2
+        && eng->input_class != 4
+        && eng->state.current_intent != PE_INTENT_PAUSE
+        && eng->state.current_intent != PE_INTENT_WITHDRAW){
+        eng->state.current_intent =
+            (eng->speech_habits.fatigue_bias >= 720u)
+            ? PE_INTENT_REDIRECT : PE_INTENT_PROBE;
     }
     {
         const pe_open_loop_t *loop =
@@ -1377,8 +1574,19 @@ int persona_process_input(Engine *eng,
 post_render:;
 
     if (!pe_render_audit_pass(&eng->frame, out)
-        || (renderer_output && !pe_lore_audit_pass(eng, input_text, out))){
+        || (renderer_output && !pe_lore_audit_pass(eng, input_text, out))
+        || (renderer_output && !pe_copy_audit_pass(input_text, out))
+        || (renderer_output && !pe_output_label_audit_pass(out))
+        || (renderer_output && !pe_self_repeat_audit_pass(out))
+        || (renderer_output && !pe_fatigue_audit_pass(&eng->frame, out))
+        || (renderer_output && !pe_addressee_audit_pass(eng, out))){
         pe_generate_response(eng, input_text, out, n);
+        if (!pe_copy_audit_pass(input_text, out)
+            || !pe_output_label_audit_pass(out)
+            || !pe_self_repeat_audit_pass(out)){
+            snprintf(out, n, "Say it another way.");
+            eng->state.current_intent = PE_INTENT_CLARIFY;
+        }
         eng->last_audit_result =
             pe_render_audit_pass(&eng->frame, out)
                 ? PE_AUDIT_REPAIRED
@@ -1591,12 +1799,19 @@ post_render:;
                                      eng->state.turn_count + 80u);
             }
             if (reply_has_question(out)){
+                const pe_open_loop_t *recent_question =
+                    pe_open_loops_latest_for_actor(&eng->open_loops, sev.target_actor_id);
+                uint16_t recent_pressure =
+                    pe_open_loop_pressure(recent_question, eng->state.turn_count);
+                if (recent_pressure > 220u)
+                    goto skip_question_open_loop;
                 pe_open_loops_record(&eng->open_loops, sev.target_actor_id,
                                      sev.target_topic_id, PE_SA_QUESTION,
                                      460, 80, 80,
                                      eng->state.turn_count,
                                      eng->state.turn_count + 48u);
             }
+skip_question_open_loop:;
         }
         if (eng->input_class == 3 && !pe_speech_act_is_withhold(sev.speech_act)){
             pe_open_loops_resolve_topic(&eng->open_loops,
