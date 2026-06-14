@@ -247,6 +247,74 @@ Conclusion:
 
 This pass improved engine-level cohesion without breaking determinism or low-hardware template mode. Remaining repetition is mostly character/profile tuning, especially Kiki's SLM examples and motif distribution.
 
+### 2026-06-14 - Offline Greeting/Status Exhaustion Probe
+
+Branch/commit:
+
+- Working tree after Pretorius template expansion and HTML chat modal fix.
+
+Renderer:
+
+- Template-only offline tier.
+
+Turns:
+
+- 50 turns alternating greeting-like and status-like prompts.
+
+Probe:
+
+- `make v6_greeting_status_exhaustion_run`
+
+Latest JSON:
+
+- Written to the temp directory by the test, e.g. `C:\cygwin64\tmp\pretorius_greeting_status_50_*.json`.
+
+Metrics from the final run:
+
+| Metric | Result |
+|---|---:|
+| replies | 50 |
+| exactRepeatCount | 19 |
+| openerRepeatCount | 19 |
+| firstExactRepeatTurn | 21 |
+| firstOpenerRepeatTurn | 21 |
+| GREETING group replies | 13 |
+| STATUS group replies | 10 |
+| BASELINE_GREETING replies | 12 |
+| BASELINE_STATUS replies | 14 |
+| NONE replies | 1 |
+
+What improved:
+
+- No exact reply or four-word opener repeated before turn 20.
+- `Good afternoon.` no longer misroutes through the short `no` acknowledgement inside `afternoon/noon`.
+- `Are you all right?` no longer gets overwritten by the shorter `all right` acknowledgement.
+- `{memory}` templates are no longer selected when there is no usable recalled memory.
+- `{address}` at the start of a reply is now capitalized, fixing lines like `my dear!`.
+- The selector now gives a matched surface-act group a second chance with repeated-but-penalized lines before drifting into unrelated intents.
+- Universal baseline greeting/status patterns and templates are deeper, so new or imported characters have a better first-contact safety net.
+
+What still felt fake:
+
+- Baseline greeting/status lines are coherent but plainer than Pretorius, so unmatched phrases can temporarily sound less character-specific.
+- One prompt, `Are you in a good mood?`, still slipped through as `NONE` in the latest run.
+- After turn 20, repeats are expected in this deliberately narrow torture test, but future polish should make repeated social acts adapt rather than merely reuse.
+
+Engine-level implications:
+
+- The right next layer is a surface-act selector, not merely more templates: classify user act, preserve that act under normal pressure, then let posture/intent/personality color the reply.
+- Short pattern matching must respect word boundaries and specificity. Substring parsers are fast but can make tiny surreal mistakes.
+- Group exhaustion should degrade to repeated appropriate speech before unrelated brilliance.
+
+Cartridge/profile implications:
+
+- Pretorius still benefits from authoring more direct variants for return/status phrases that currently fall to baseline.
+- Kiki and future imports should get the same torture probe once their cartridge patterns are rebuilt.
+
+Next action:
+
+- Add a small transcript-quality metric for surface-act drift: matched greeting/status prompts should not route to `NONE` or unrelated emotional groups before the relevant pools are genuinely exhausted.
+
 ### 2026-06-14 - Earlier 48-Turn qwen3:8b Runs Before Final Fixes
 
 These runs were used as diagnostics and should not be treated as release baselines.

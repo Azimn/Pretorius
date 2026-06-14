@@ -111,6 +111,14 @@ static size_t append_str(char *dst, size_t cap, size_t pos, const char *s){
     return pos;
 }
 
+static size_t append_slot_address(char *dst, size_t cap, size_t pos, const char *s){
+    if (pos == 0 && s && s[0] >= 'a' && s[0] <= 'z' && pos + 1 < cap){
+        dst[pos++] = (char)(s[0] - ('a' - 'A'));
+        s++;
+    }
+    return append_str(dst, cap, pos, s ? s : "");
+}
+
 static void trim_terminal_punctuation(char *s){
     size_t len = strlen(s);
     while (len > 0 && (s[len - 1] == '.' || s[len - 1] == '!' || s[len - 1] == '?'))
@@ -218,7 +226,7 @@ static void fill_text_slots(Engine *eng, const char *src, uint32_t slot_seed, ch
                 char key[24]; if (klen >= sizeof(key)) klen = sizeof(key)-1;
                 memcpy(key, src + 1, klen); key[klen] = 0;
                 if      (!strcmp(key, "user"))    pos = append_str(out, n, pos, user_name);
-                else if (!strcmp(key, "address")) pos = append_str(out, n, pos, address);
+                else if (!strcmp(key, "address")) pos = append_slot_address(out, n, pos, address);
                 else if (!strcmp(key, "topic"))   pos = append_str(out, n, pos, topic_name);
                 else if (!strcmp(key, "memory"))  pos = append_str(out, n, pos, mem_summary);
                 else if (!strcmp(key, "name"))    pos = append_str(out, n, pos, eng->identity.character_name);
@@ -269,6 +277,27 @@ static void fill_text_slots(Engine *eng, const char *src, uint32_t slot_seed, ch
 
 static void fill_slots(Engine *eng, const Template *t, char *out, size_t n){
     fill_text_slots(eng, t->text, t->id, out, n);
+}
+
+static int text_has_slot(const char *text, const char *slot){
+    return text && slot && strstr(text, slot) != NULL;
+}
+
+static int has_usable_memory_slot(const Engine *eng){
+    if (!eng) return 0;
+    if (eng->plan.callback_memory != 0xFFFF
+        && pe_active_node(eng, eng->plan.callback_memory)
+        && !phrase_recently_used(eng,
+             usage_id(PE_USAGE_MEMORY, pe_active_node(eng, eng->plan.callback_memory)->id),
+             PE_MEMORY_BLACKOUT_TURNS))
+        return 1;
+    for (uint16_t i = 0; i < eng->active_count; ++i){
+        const MemoryNode *m = pe_active_node(eng, eng->active_memories[i]);
+        if (m && !phrase_recently_used(eng, usage_id(PE_USAGE_MEMORY, m->id),
+                                       PE_MEMORY_BLACKOUT_TURNS))
+            return 1;
+    }
+    return 0;
 }
 
 /* ---------- style transforms (deterministic; seeded per template+today) ---------- */
@@ -541,6 +570,7 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
 
 static int template_admissible(const Engine *eng, const Template *t){
     const TodayEntry *td = &eng->todays.entries[eng->state.today_index];
+    if (text_has_slot(t->text, "{memory}") && !has_usable_memory_slot(eng)) return 0;
     if (t->dialogue_mask_bit && !(td->dialogue_mask & t->dialogue_mask_bit)) return 0;
     if (eng->state.mood < t->mood_min || eng->state.mood > t->mood_max) return 0;
     if (t->required_voice_flags &&
@@ -894,8 +924,9 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
      * group, try that group first so "hello" and "how are you" are not
      * drowned out by generic mood/intent monologues.  If the group has no
      * admissible lines, fall back to the old intent-driven search. */
-    for (int pass = 0; pass < 2 && eng->candidate_count == 0; ++pass){
-        int prefer_group = (eng->matched_group != 0xFFFF && pass == 0);
+    for (int pass = 0; pass < 3 && eng->candidate_count == 0; ++pass){
+        int prefer_group = (eng->matched_group != 0xFFFF && pass < 2);
+        int allow_recent_group = (prefer_group && pass == 1);
         for (uint32_t i = 0; i < eng->templates.count && eng->candidate_count < 64; ++i){
             const Template *t = &eng->templates.entries[i];
             if (!t->text[0]) continue;
@@ -912,13 +943,18 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
                 }
             }
             if (!relevant) continue;
-            if (phrase_recently_used(eng, usage_id(PE_USAGE_TEMPLATE, t->id), PE_TEMPLATE_BLACKOUT_TURNS)) continue;
+            if (!allow_recent_group
+                && phrase_recently_used(eng, usage_id(PE_USAGE_TEMPLATE, t->id),
+                                        PE_TEMPLATE_BLACKOUT_TURNS))
+                continue;
             eng->candidate_ids[eng->candidate_count] = (uint16_t)i;
             eng->candidate_scores[eng->candidate_count] = score_template(eng, t);
             if (prefer_group) {
                 eng->candidate_scores[eng->candidate_count] += 140;
                 if (eng->matched_group >= PE_BL_GROUP_BASE)
                     eng->candidate_scores[eng->candidate_count] += 180;
+                if (allow_recent_group)
+                    eng->candidate_scores[eng->candidate_count] -= 120;
             }
             eng->candidate_count++;
         }

@@ -71,8 +71,26 @@ void pe_prep_input(Engine *eng, const char *input){
  *   0 = no match
  *   1 = match, not negated
  *   2 = match, negated (caller flips valence) */
+static int is_word_char(unsigned char c){
+    return (isalnum(c) || c == '_');
+}
+
+static int pattern_boundary_ok(const char *lower, const char *m, const Pattern *p){
+    unsigned char first = (unsigned char)p->keyword[0];
+    unsigned char last = (unsigned char)p->keyword[p->kw_len - 1u];
+    if (is_word_char(first) && m > lower && is_word_char((unsigned char)m[-1]))
+        return 0;
+    if (is_word_char(last) && is_word_char((unsigned char)m[p->kw_len]))
+        return 0;
+    return 1;
+}
+
 static int match_with_negation(const char *lower, const Pattern *p){
-    const char *m = strstr(lower, p->keyword);
+    const char *m = lower;
+    while ((m = strstr(m, p->keyword)) != NULL){
+        if (pattern_boundary_ok(lower, m, p)) break;
+        m++;
+    }
     if (!m) return 0;
     /* look back up to ~24 chars (~3 tokens) for a negation cue */
     const char *start = (m - lower > 24) ? (m - 24) : lower;
@@ -97,6 +115,7 @@ void pe_classify_input(Engine *eng, const char *input, EmotionVector *out_ev){
     eng->state.last_matched_flags = 0;
     int v = 0, a = 30, d = 0;
     int matched_group_has_topic = 0;
+    uint8_t matched_group_kw_len = 0;
 
     /* sweep patterns; skip those whose first char isn't in the input bitmap */
     for (uint32_t i = 0; i < eng->patterns.count; ++i){
@@ -125,10 +144,12 @@ void pe_classify_input(Engine *eng, const char *input, EmotionVector *out_ev){
         if (p->template_group != 0xFFFF && hit != 2) {
             int pattern_has_topic = (p->topic_id != 0xFFFF);
             if (eng->matched_group == 0xFFFF
-                || pattern_has_topic
-                || !matched_group_has_topic) {
+                || (pattern_has_topic && !matched_group_has_topic)
+                || (pattern_has_topic == matched_group_has_topic
+                    && p->kw_len >= matched_group_kw_len)) {
                 eng->matched_group = p->template_group;
                 matched_group_has_topic = pattern_has_topic;
+                matched_group_kw_len = p->kw_len;
             }
         }
         /* data-driven side-effect flags (intoxicant, etc.) — negated matches don't set */
