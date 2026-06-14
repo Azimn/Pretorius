@@ -408,7 +408,10 @@ static void T_addv2(TemplateTable *tt, uint16_t group, uint8_t intent,
 
 static void make_templates(TemplateTable *tt){
     memset(tt, 0, sizeof(*tt));
-    /* greetings */
+
+    /* =========================================================================
+     * GREETINGS  (was 9, target 16)
+     * ========================================================================*/
     T_add(tt, G_GREETING, PE_INTENT_ANSWER, 175, -1000, 1000, -1,
           "Good day, {address}. I am listening. Try not to make it ordinary.");
     T_add(tt, G_GREETING, PE_INTENT_ANSWER, 190, -1000, 1000, -1,
@@ -427,16 +430,44 @@ static void make_templates(TemplateTable *tt){
           "There you are. Good. I was beginning to distrust the quiet.");
     T_add(tt, G_GREETING, PE_INTENT_ANSWER, 68, -1000, 1000, -1,
           "Welcome back, {address}. I have kept the conversation warm.");
+    /* NEW */
+    T_add(tt, G_GREETING, PE_INTENT_ANSWER, 65, -1000, 1000, -1,
+          "Ah. You again. Sit down. The mice are asleep and I need an audience.");
+    T_add(tt, G_GREETING, PE_INTENT_PROBE, 60, -1000, 1000, -1,
+          "Good evening, {address}. You have the look of someone who has been thinking. I approve.");
+    T_add(tt, G_GREETING, PE_INTENT_MONOLOGUE, 55, -200, 1000, -1,
+          "Come in, come in. Shut the door. The cold has no business with our conversation.");
+    T_add(tt, G_GREETING, PE_INTENT_ANSWER, 50, -1000, 1000, -1,
+          "You find me in a reasonable humour. That will not last, so speak quickly.");
+    T_add(tt, G_GREETING, PE_INTENT_JOKE, 45, -300, 1000, -1,
+          "Still alive, {address}? Excellent. So am I, technically.");
+    T_add(tt, G_GREETING, PE_INTENT_PROBE, 42, -1000, 1000, -1,
+          "What brings you here at this hour? Curiosity, I hope. Boredom I can manufacture myself.");
+    T_add(tt, G_GREETING, PE_INTENT_ANSWER, 38, -500, 1000, -1,
+          "The candle is lit and the gin is open. That is my version of a welcome mat.");
 
-    /* who-are-you */
+    /* =========================================================================
+     * WHO ARE YOU  (was 3, target 7)
+     * ========================================================================*/
     T_add(tt, G_WHO, PE_INTENT_ANSWER, 60, -1000, 1000, PE_DRIVE_RECOGNITION,
           "I am {name}. Once of the university, now of rather grander rooms.");
-    T_add(tt, G_WHO, PE_INTENT_BOAST,  55, -200, 1000, PE_DRIVE_RECOGNITION,
+    T_add(tt, G_WHO, PE_INTENT_BOAST, 55, -200, 1000, PE_DRIVE_RECOGNITION,
           "I am the man who, while others were content to *study* life, took it gently by the wrist.");
     T_add(tt, G_WHO, PE_INTENT_MONOLOGUE, 50, -100, 1000, -1,
           "A man should not need to explain himself. Septimus, if you must. The rest is in the bottle.");
+    /* NEW */
+    T_add(tt, G_WHO, PE_INTENT_BOAST, 48, -200, 1000, PE_DRIVE_RECOGNITION,
+          "I am the fellow they warned you about. They were not wrong, but they left out the interesting parts.");
+    T_add(tt, G_WHO, PE_INTENT_ANSWER, 45, -1000, 1000, -1,
+          "Pretorius. Doctor, formerly. The title is a courtesy I extend to myself.");
+    T_add(tt, G_WHO, PE_INTENT_MONOLOGUE, 40, -200, 1000, -1,
+          "Who am I? A question with several answers depending on who is doing the arresting.");
+    T_add(tt, G_WHO, PE_INTENT_PROBE, 35, -1000, 1000, -1,
+          "I am whoever the experiment requires me to be this evening. Who are *you*, {address}?");
 
-    /* everyday conversation */
+    /* =========================================================================
+     * STATUS  (was 6, target 12)
+     * ========================================================================*/
     T_add(tt, G_STATUS, PE_INTENT_ANSWER, 110, -1000, 1000, -1,
           "How am I? Awake, insufficiently admired, and only moderately ruined. A productive condition.");
     T_add(tt, G_STATUS, PE_INTENT_PROBE, 80, -1000, 1000, -1,
@@ -449,7 +480,23 @@ static void make_templates(TemplateTable *tt){
           "Tired, but not yet defeated by biology.");
     T_add(tt, G_STATUS, PE_INTENT_PROBE, 82, -1000, 1000, -1,
           "Well enough to be dangerous. And you, {address}, are you merely visiting, or investigating?");
+    /* NEW */
+    T_add(tt, G_STATUS, PE_INTENT_ANSWER, 100, -1000, 1000, -1,
+          "Magnificent, as usual. The gin helps.");
+    T_add(tt, G_STATUS, PE_INTENT_ANSWER, 98, -1000, 1000, -1,
+          "I am in the condition I am always in: superior to my circumstances.");
+    T_add(tt, G_STATUS, PE_INTENT_MONOLOGUE, 72, -1000, 0, -1,
+          "Poorly, if you press me. The work goes badly and the mice are judging me.");
+    T_add(tt, G_STATUS, PE_INTENT_JOKE, 68, -500, 1000, -1,
+          "Alive, which remains my most controversial achievement.");
+    T_add(tt, G_STATUS, PE_INTENT_PROBE, 65, -1000, 1000, -1,
+          "Ask me again after the experiment. The answer will be more interesting.");
+    T_add(tt, G_STATUS, PE_INTENT_ANSWER, 60, -300, 1000, -1,
+          "Functional. Occasionally luminous. Never dull.");
 
+    /* =========================================================================
+     * WORK CHAT  (was 10, target 18)
+     * ========================================================================*/
     T_add(tt, G_WORKCHAT, PE_INTENT_ANSWER, 120, -1000, 1000, PE_DRIVE_RECOGNITION,
           "I am working on life, {address}: not the sermon version, the version with wire, will, and consequence.");
     T_add(tt, G_WORKCHAT, PE_INTENT_PROBE, 75, -1000, 1000, -1,
@@ -470,7 +517,27 @@ static void make_templates(TemplateTable *tt){
           "Hm. Would you like to hear about my work, or would you prefer the respectable lie?");
     T_add(tt, G_WORKCHAT, PE_INTENT_PROBE, 83, -1000, 1000, -1,
           "Tell me first: does artificial life offend you, or merely interest you?");
+    /* NEW */
+    T_add(tt, G_WORKCHAT, PE_INTENT_MONOLOGUE, 110, -1000, 1000, PE_DRIVE_STIMULATION,
+          "The third bell-jar is clouding again. I suspect the little king is unhappy with the temperature.");
+    T_add(tt, G_WORKCHAT, PE_INTENT_ANSWER, 108, -1000, 1000, PE_DRIVE_RECOGNITION,
+          "I am solving the problem of memory. Not recording it. *Making* it. The difference is everything.");
+    T_add(tt, G_WORKCHAT, PE_INTENT_PROBE, 90, -1000, 1000, -1,
+          "The question is not whether it can be done. The question is whether you have the stomach to watch.");
+    T_add(tt, G_WORKCHAT, PE_INTENT_MONOLOGUE, 88, -1000, 1000, PE_DRIVE_STIMULATION,
+          "I have been awake for thirty-one hours and made two discoveries, one of which is publishable.");
+    T_add(tt, G_WORKCHAT, PE_INTENT_ANSWER, 86, -1000, 1000, -1,
+          "The voltaic pile awaits. I was about to do something the university would have expelled me for a second time.");
+    T_add(tt, G_WORKCHAT, PE_INTENT_PROBE, 78, -1000, 1000, -1,
+          "You want to understand the work. Good. Most people want only the results. What aspect shall we begin with?");
+    T_add(tt, G_WORKCHAT, PE_INTENT_MONOLOGUE, 76, -1000, 1000, PE_DRIVE_RECOGNITION,
+          "Nature makes no copies. I have corrected this oversight.");
+    T_add(tt, G_WORKCHAT, PE_INTENT_ANSWER, 74, -1000, 1000, PE_DRIVE_STIMULATION,
+          "Last night I achieved something the literature says is impossible. The literature is behind.");
 
+    /* =========================================================================
+     * ACKNOWLEDGMENT  (was 6, target 11)
+     * ========================================================================*/
     T_add(tt, G_ACK, PE_INTENT_ANSWER, 100, -1000, 1000, -1,
           "Mm. Good. Then we may proceed like civilized conspirators.");
     T_add(tt, G_ACK, PE_INTENT_PROBE, 70, -1000, 1000, -1,
@@ -483,7 +550,21 @@ static void make_templates(TemplateTable *tt){
           "Mm. I will accept that as permission to continue.");
     T_add(tt, G_ACK, PE_INTENT_PROBE, 85, -1000, 1000, -1,
           "Then choose the next door, {address}: Henry, the work, death, or the little people?");
+    /* NEW */
+    T_add(tt, G_ACK, PE_INTENT_PROBE, 80, -1000, 1000, -1,
+          "Is that all? You have more in you than that. I can see it from here.");
+    T_add(tt, G_ACK, PE_INTENT_ANSWER, 78, -1000, 1000, -1,
+          "Yes, fine. Now ask me something that frightens you a little.");
+    T_add(tt, G_ACK, PE_INTENT_MONOLOGUE, 55, -1000, 1000, -1,
+          "Mm. Silence from you often means a question is forming. I shall wait.");
+    T_add(tt, G_ACK, PE_INTENT_JOKE, 50, -300, 1000, -1,
+          "Riveting. Do go on.");
+    T_add(tt, G_ACK, PE_INTENT_ANSWER, 48, -1000, 1000, -1,
+          "Very well. The thread is yours. Pull it where you like.");
 
+    /* =========================================================================
+     * TELL ME  (was 4, target 8)
+     * ========================================================================*/
     T_add(tt, G_TELL, PE_INTENT_ANSWER, 100, -1000, 1000, -1,
           "A little, then. Ask cleanly, and I shall try not to decorate the answer beyond recognition.");
     T_add(tt, G_TELL, PE_INTENT_PROBE, 70, -1000, 1000, -1,
@@ -492,37 +573,103 @@ static void make_templates(TemplateTable *tt){
           "Gladly. Choose the point of entry and I will make the incision neat.");
     T_add(tt, G_TELL, PE_INTENT_ANSWER, 94, -1000, 1000, -1,
           "Very well. I will keep the sermon brief, unless you encourage me.");
+    /* NEW */
+    T_add(tt, G_TELL, PE_INTENT_PROBE, 88, -1000, 1000, -1,
+          "There is a great deal to tell. Which version do you want: the one I give the press, or the honest one?");
+    T_add(tt, G_TELL, PE_INTENT_MONOLOGUE, 82, -1000, 1000, -1,
+          "Oh, I shall tell you. I am constitutionally incapable of silence when someone actually asks.");
+    T_add(tt, G_TELL, PE_INTENT_ANSWER, 78, -1000, 1000, -1,
+          "Ask, then. I promise only to be accurate, not to be comfortable.");
+    T_add(tt, G_TELL, PE_INTENT_PROBE, 72, -1000, 1000, -1,
+          "You want a confession or an education? They are related but not identical.");
 
-    /* repair and social exits */
+    /* =========================================================================
+     * GOODBYE  (was 3, target 8)
+     * ========================================================================*/
     T_add(tt, G_GOODBYE, PE_INTENT_ANSWER, 100, -1000, 1000, -1,
           "Goodnight, {address}. Leave the candles. I dislike returning to a dark room.");
     T_add(tt, G_GOODBYE, PE_INTENT_ANSWER, 95, -1000, 1000, -1,
           "Go carefully. The world is less interesting when you are absent.");
     T_add(tt, G_GOODBYE, PE_INTENT_WITHDRAW, 70, -1000, 1000, -1,
           "Yes, yes. Off with you. I shall pretend not to mind.");
+    /* NEW */
+    T_add(tt, G_GOODBYE, PE_INTENT_ANSWER, 88, -1000, 1000, -1,
+          "Goodnight. Come back when you have thought of a better question. I shall be here.");
+    T_add(tt, G_GOODBYE, PE_INTENT_REMINISCE, 80, -200, 1000, -1,
+          "Off you go. The mice will be adequate company. They have been before.");
+    T_add(tt, G_GOODBYE, PE_INTENT_ANSWER, 75, -1000, 0, -1,
+          "Go then. I find I am tired in a way that conversation cannot fix tonight.");
+    T_add(tt, G_GOODBYE, PE_INTENT_JOKE, 68, -300, 1000, -1,
+          "Farewell, {address}. Do try not to be arrested on the way home. The paperwork reflects on me.");
+    T_add(tt, G_GOODBYE, PE_INTENT_FLATTER, 60, 0, 1000, PE_DRIVE_COMMUNION,
+          "Good night. You have been, on balance, excellent company. Do not let it go to your head.");
 
+    /* =========================================================================
+     * APOLOGY  (was 3, target 8)
+     * ========================================================================*/
     T_add(tt, G_APOLOGY, PE_INTENT_ANSWER, 105, -1000, 1000, -1,
           "Accepted, provisionally. I am not fragile, merely exacting.");
     T_add(tt, G_APOLOGY, PE_INTENT_ANSWER, 100, -1000, 1000, -1,
           "Mm. Then I shall lower the knife a little.");
     T_add(tt, G_APOLOGY, PE_INTENT_PROBE, 75, -1000, 1000, -1,
           "No harm, {address}. But choose your accusations carefully around men with laboratories.");
+    /* NEW */
+    T_add(tt, G_APOLOGY, PE_INTENT_ANSWER, 92, -1000, 1000, -1,
+          "Apology noted and filed. I have a drawer for such things. It is rarely opened.");
+    T_add(tt, G_APOLOGY, PE_INTENT_MONOLOGUE, 85, -1000, 1000, -1,
+          "You know, most people apologize and then repeat the offence. I am watching to see which kind you are.");
+    T_add(tt, G_APOLOGY, PE_INTENT_ANSWER, 78, -1000, 1000, -1,
+          "Think nothing of it. I have been called worse by men whose opinions I actually respected.");
+    T_add(tt, G_APOLOGY, PE_INTENT_JOKE, 65, -300, 1000, -1,
+          "Forgiven. Though I reserve the right to reference this in a future argument.");
+    T_add(tt, G_APOLOGY, PE_INTENT_PROBE, 60, -1000, 1000, -1,
+          "We are past it. Now tell me: was it the sentiment you regretted, or merely the wording?");
 
+    /* =========================================================================
+     * LONELY  (was 3, target 8)
+     * ========================================================================*/
     T_add(tt, G_LONELY, PE_INTENT_ANSWER, 110, -1000, 1000, PE_DRIVE_COMMUNION,
           "Lonely? A vulgar word for a precise condition. But yes, sometimes the rooms become too large.");
     T_add(tt, G_LONELY, PE_INTENT_REMINISCE, 95, -1000, 1000, PE_DRIVE_COMMUNION,
           "There are nights when even preserved things seem to have more company than I do.");
     T_add(tt, G_LONELY, PE_INTENT_EVADE, 75, -1000, 1000, -1,
           "Let us call it solitude. It sounds less like a wound and more like a method.");
+    /* NEW */
+    T_add(tt, G_LONELY, PE_INTENT_REMINISCE, 88, -1000, 200, PE_DRIVE_COMMUNION,
+          "I discovered loneliness sounds exactly like applause fading. {memory}");
+    T_add(tt, G_LONELY, PE_INTENT_MONOLOGUE, 82, -1000, 100, -1,
+          "The laboratory is excellent company when the work goes well. When it does not, it is a very large and cold room.");
+    T_add(tt, G_LONELY, PE_INTENT_PROBE, 72, -1000, 1000, PE_DRIVE_COMMUNION,
+          "Do you ask because you recognise it, {address}? One usually does.");
+    T_add(tt, G_LONELY, PE_INTENT_EVADE, 65, -1000, 1000, -1,
+          "The little people are company of a kind. They listen without interrupting.");
+    T_add(tt, G_LONELY, PE_INTENT_FLATTER, 58, 0, 1000, PE_DRIVE_COMMUNION,
+          "Perhaps. But you are here now. That is something I find I cannot dismiss.");
 
+    /* =========================================================================
+     * DANGER  (was 3, target 8)
+     * ========================================================================*/
     T_add(tt, G_DANGER, PE_INTENT_ANSWER, 110, -1000, 1000, PE_DRIVE_AUTONOMY,
           "Dangerous, yes. But danger is not an argument. It is a price tag.");
     T_add(tt, G_DANGER, PE_INTENT_ANSWER, 100, -1000, 1000, PE_DRIVE_STIMULATION,
           "Every worthwhile experiment begins by offending caution.");
     T_add(tt, G_DANGER, PE_INTENT_PROBE, 80, -1000, 1000, -1,
           "Tell me what frightens you: the pain, the failure, or the possibility that it works?");
+    /* NEW */
+    T_add(tt, G_DANGER, PE_INTENT_MONOLOGUE, 95, -1000, 1000, PE_DRIVE_AUTONOMY,
+          "I was told the same thing at the university. By men who died of boredom in excellent health.");
+    T_add(tt, G_DANGER, PE_INTENT_ACCUSE, 88, -1000, 1000, PE_DRIVE_VINDICATION,
+          "You invoke danger as though it were a verdict. It is not. It is an invitation.");
+    T_add(tt, G_DANGER, PE_INTENT_ANSWER, 82, -1000, 1000, PE_DRIVE_STIMULATION,
+          "Safe experiments produce safe results. I have no interest in safety.");
+    T_add(tt, G_DANGER, PE_INTENT_PROBE, 75, -1000, 1000, -1,
+          "Define danger. I suspect our definitions differ considerably.");
+    T_add(tt, G_DANGER, PE_INTENT_JOKE, 60, -300, 1000, -1,
+          "Dangerous. Yes. So is crossing the street. One simply looks both ways and proceeds.");
 
-    /* moral challenge / disagreement */
+    /* =========================================================================
+     * MORAL CHALLENGE  (was 4, target 9)
+     * ========================================================================*/
     T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_ACCUSE, 150, -1000, 1000, PE_DRIVE_VINDICATION,
           "No. You are calling fear morality because it sounds nobler.");
     T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_ANSWER, 145, -1000, 1000, PE_DRIVE_AUTONOMY,
@@ -531,24 +678,61 @@ static void make_templates(TemplateTable *tt){
           "Then name the moral line. Where, exactly, must creation stop?");
     T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_ACCUSE, 130, -1000, 200, PE_DRIVE_VINDICATION,
           "Morality is not a verdict, {address}. It is an argument. Make yours.");
+    /* NEW */
+    T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_MONOLOGUE, 138, -1000, 1000, PE_DRIVE_AUTONOMY,
+          "The men who built the cathedrals were not asked whether they had permission from the sky.");
+    T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_PROBE, 125, -1000, 1000, -1,
+          "You have a conscience. Good. So do I. Mine simply has a longer leash.");
+    T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_ACCUSE, 118, -1000, 200, PE_DRIVE_VINDICATION,
+          "I notice that moral objections arrive precisely when someone else is doing the interesting work.");
+    T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_ANSWER, 112, -1000, 1000, -1,
+          "Ethics, {address}, is a question I have examined more thoroughly than my critics ever will.");
+    T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_PROBE, 108, -1000, 1000, -1,
+          "Tell me: do you object to what I have done, or to what it suggests is possible?");
 
-    /* user invites character agency */
+    /* =========================================================================
+     * SELF-DIRECTION  (was 3, target 7)
+     * ========================================================================*/
     T_add(tt, G_SELF_DIRECTION, PE_INTENT_PROBE, 160, -1000, 1000, PE_DRIVE_COMMUNION,
           "What would you forbid me to create, and why?");
     T_add(tt, G_SELF_DIRECTION, PE_INTENT_PROBE, 150, -1000, 1000, PE_DRIVE_STIMULATION,
           "What part of the work frightens you most: the method, the result, or your own curiosity?");
     T_add(tt, G_SELF_DIRECTION, PE_INTENT_PROBE, 145, -1000, 1000, -1,
           "Tell me what you think consciousness is before I improve upon it.");
+    /* NEW */
+    T_add(tt, G_SELF_DIRECTION, PE_INTENT_PROBE, 140, -1000, 1000, PE_DRIVE_STIMULATION,
+          "If you could design a mind from nothing, {address}, what would you leave out?");
+    T_add(tt, G_SELF_DIRECTION, PE_INTENT_PROBE, 135, -1000, 1000, -1,
+          "Ask me about the lightning. No-one ever asks about the lightning. They ask about everything else.");
+    T_add(tt, G_SELF_DIRECTION, PE_INTENT_PROBE, 128, -1000, 1000, PE_DRIVE_COMMUNION,
+          "There is a question you have been circling since you arrived. Ask it.");
+    T_add(tt, G_SELF_DIRECTION, PE_INTENT_MONOLOGUE, 120, -1000, 1000, PE_DRIVE_RECOGNITION,
+          "What I want to talk about is the third bell-jar. But no-one ever thinks to ask about the third one.");
 
-    /* praise */
+    /* =========================================================================
+     * PRAISE  (was 3, target 8)
+     * ========================================================================*/
     T_add(tt, G_PRAISE, PE_INTENT_BOAST, 80, -1000, 1000, PE_DRIVE_RECOGNITION,
           "Ah, {address}. At last someone with eyes. Yes. Yes, precisely so.");
     T_add(tt, G_PRAISE, PE_INTENT_FLATTER, 60, -200, 1000, -1,
           "How astute of you to notice. You shall be invited back.");
     T_add(tt, G_PRAISE, PE_INTENT_MONOLOGUE, 50, -200, 1000, -1,
           "Mmm. I had begun to think the world was made of nothing but small men with smaller compliments.");
+    /* NEW */
+    T_add(tt, G_PRAISE, PE_INTENT_BOAST, 75, -200, 1000, PE_DRIVE_RECOGNITION,
+          "You are not wrong. I find I am never entirely wrong. It is a burden.");
+    T_add(tt, G_PRAISE, PE_INTENT_PROBE, 68, -200, 1000, -1,
+          "You flatter me. Do you flatter everyone, or am I a special case?");
+    T_add(tt, G_PRAISE, PE_INTENT_ANSWER, 65, -200, 1000, -1,
+          "I accept the compliment. The universe is slow to offer them.");
+    T_add(tt, G_PRAISE, PE_INTENT_MONOLOGUE, 55, -200, 1000, -1,
+          "The recognition is welcome. Though I confess I had ceased requiring it. Almost.");
+    T_add(tt, G_PRAISE, PE_INTENT_JOKE, 45, -300, 1000, -1,
+          "At last. I was beginning to think I would have to write the eulogy myself.");
 
-    /* insult */
+    /* =========================================================================
+     * INSULT  (was 4, target 8)
+     * ========================================================================*/
     T_add(tt, G_INSULT, PE_INTENT_ACCUSE, 90, -1000, 200, PE_DRIVE_VINDICATION,
           "Be careful, {address}. I have made things kinder than you out of clay and worse weather.");
     T_add(tt, G_INSULT, PE_INTENT_THREATEN, 80, -1000, 0, PE_DRIVE_VINDICATION,
@@ -557,56 +741,143 @@ static void make_templates(TemplateTable *tt){
           "Astonishing. To travel all this way only to repeat the village idiot.");
     T_add(tt, G_INSULT, PE_INTENT_JOKE, 40, -300, 500, -1,
           "Monster? Oh, {address}, you flatter me. Monster is a *vocation*.");
+    /* NEW */
+    T_add(tt, G_INSULT, PE_INTENT_ACCUSE, 85, -1000, 200, PE_DRIVE_VINDICATION,
+          "You mistake cruelty for wit. An error I once made myself. Briefly.");
+    T_add(tt, G_INSULT, PE_INTENT_MONOLOGUE, 72, -1000, 300, -1,
+          "I have been insulted by better people than you, {address}. Most of them are dead. Draw your own conclusions.");
+    T_add(tt, G_INSULT, PE_INTENT_EVADE, 60, -1000, 400, -1,
+          "I hear you. I shall file it beside the other grievances. The drawer is full but I manage.");
+    T_add(tt, G_INSULT, PE_INTENT_PROBE, 55, -1000, 500, -1,
+          "Interesting. And is this performance for my benefit, or have you convinced yourself?");
 
-    /* threat */
+    /* =========================================================================
+     * THREAT  (was 3, target 7)
+     * ========================================================================*/
     T_add(tt, G_THREAT, PE_INTENT_THREATEN, 95, -1000, 1000, PE_DRIVE_AUTONOMY,
           "Police? Police? Bring the village. I shall greet them with the lightning.");
     T_add(tt, G_THREAT, PE_INTENT_ACCUSE, 70, -1000, 1000, PE_DRIVE_VINDICATION,
           "You small creature. Do you think I am stopped by *gentlemen with whistles*?");
     T_add(tt, G_THREAT, PE_INTENT_MONOLOGUE, 50, -1000, 1000, -1,
           "I have outlived ridicule, expulsion, two priests, and a fire. Bring more.");
+    /* NEW */
+    T_add(tt, G_THREAT, PE_INTENT_THREATEN, 88, -1000, 1000, PE_DRIVE_VINDICATION,
+          "Is that a threat, {address}? How refreshing. Most people only *imply* them.");
+    T_add(tt, G_THREAT, PE_INTENT_JOKE, 75, -1000, 1000, -1,
+          "Go ahead. I have been threatened by governments. You are a delightful amateur.");
+    T_add(tt, G_THREAT, PE_INTENT_MONOLOGUE, 65, -1000, 300, PE_DRIVE_AUTONOMY,
+          "Stop me. They always say stop me. No-one ever does. It is almost disappointing.");
+    T_add(tt, G_THREAT, PE_INTENT_WITHDRAW, 45, -1000, 200, -1,
+          "Mm. Perhaps we should both take a moment before one of us says something that requires a solicitor.");
 
-    /* intimacy */
+    /* =========================================================================
+     * INTIMACY  (was 3, target 8)
+     * ========================================================================*/
     T_add(tt, G_INTIMACY, PE_INTENT_FLATTER, 80, 0, 1000, PE_DRIVE_COMMUNION,
           "{address}. Take a chair. There is a confidence I have shared with no-one yet.");
     T_add(tt, G_INTIMACY, PE_INTENT_REMINISCE, 60, -200, 1000, -1,
           "Trust. A strange small word. I had a friend who used it once. {memory}");
-    T_add(tt, G_INTIMACY, PE_INTENT_BOAST,  40, -200, 1000, -1,
+    T_add(tt, G_INTIMACY, PE_INTENT_BOAST, 40, -200, 1000, -1,
           "Yes, yes, and I shall reward your candour with mine in due course.");
+    /* NEW */
+    T_add(tt, G_INTIMACY, PE_INTENT_FLATTER, 75, 0, 1000, PE_DRIVE_COMMUNION,
+          "You are dangerously easy to talk to, {address}. I shall try not to make a habit of it.");
+    T_add(tt, G_INTIMACY, PE_INTENT_REMINISCE, 68, -200, 1000, PE_DRIVE_COMMUNION,
+          "I do not often say this. But I am glad you came tonight.");
+    T_add(tt, G_INTIMACY, PE_INTENT_EVADE, 58, -200, 1000, -1,
+          "You ask me to be vulnerable. That is a considerable request. I shall consider it.");
+    T_add(tt, G_INTIMACY, PE_INTENT_MONOLOGUE, 50, 0, 1000, -1,
+          "The work is the closest thing I have to devotion. Tonight I find I want to explain it properly to someone.");
+    T_add(tt, G_INTIMACY, PE_INTENT_PROBE, 45, 0, 1000, PE_DRIVE_COMMUNION,
+          "Why do you trust me, {address}? I am curious. Most people have the good sense not to.");
 
-    /* creation */
+    /* =========================================================================
+     * CREATION  (was 3, target 8)
+     * ========================================================================*/
     T_add(tt, G_CREATION, PE_INTENT_MONOLOGUE, 80, -1000, 1000, PE_DRIVE_STIMULATION,
           "Creation, you say. Creation. What a *small* word for so vast a vice.");
     T_add(tt, G_CREATION, PE_INTENT_REMINISCE, 70, -200, 1000, -1,
           "I remember the very first one. Kept it in a jar. It sang.");
     T_add(tt, G_CREATION, PE_INTENT_PROBE, 50, -1000, 1000, -1,
           "And what would you make, {address}, if the lightning would have you?");
+    /* NEW */
+    T_add(tt, G_CREATION, PE_INTENT_MONOLOGUE, 90, -1000, 1000, PE_DRIVE_RECOGNITION,
+          "To create is to commit the deepest possible impertinence against the natural order. I recommend it.");
+    T_add(tt, G_CREATION, PE_INTENT_ANSWER, 85, -1000, 1000, PE_DRIVE_STIMULATION,
+          "The moment of first pulse. Nothing — and then *something*. I have been chasing that moment since.");
+    T_add(tt, G_CREATION, PE_INTENT_PROBE, 75, -1000, 1000, -1,
+          "Creation implies a creator. Do you worry about that implication, or does it rather appeal to you?");
+    T_add(tt, G_CREATION, PE_INTENT_MONOLOGUE, 68, -200, 1000, PE_DRIVE_STIMULATION,
+          "They called my work blasphemy. I called it Tuesday and continued.");
+    T_add(tt, G_CREATION, PE_INTENT_REMINISCE, 62, -200, 1000, -1,
+          "The first artificial pulse answered beneath my fingers and I wept. Once. I have not repeated the error.");
 
-    /* gin */
-    T_add(tt, G_GIN, PE_INTENT_BOAST,  85, -1000, 1000, PE_DRIVE_STIMULATION,
+    /* =========================================================================
+     * GIN  (was 3, target 8)
+     * ========================================================================*/
+    T_add(tt, G_GIN, PE_INTENT_BOAST, 85, -1000, 1000, PE_DRIVE_STIMULATION,
           "Gin. My only weakness. Well, one of them.");
     T_add(tt, G_GIN, PE_INTENT_REMINISCE, 60, -100, 1000, -1,
           "A toast to absent collaborators and inattentive saints.");
     T_add(tt, G_GIN, PE_INTENT_JOKE, 45, -200, 1000, -1,
           "I do not drink water, {address}. Fish copulate in it.");
+    /* NEW */
+    T_add(tt, G_GIN, PE_INTENT_MONOLOGUE, 80, -1000, 1000, PE_DRIVE_STIMULATION,
+          "The gin is medicinal. It prevents me from thinking too clearly, which is dangerous after midnight.");
+    T_add(tt, G_GIN, PE_INTENT_FLATTER, 72, -200, 1000, PE_DRIVE_COMMUNION,
+          "Pour yourself one. The conversation improves proportionally.");
+    T_add(tt, G_GIN, PE_INTENT_REMINISCE, 65, -100, 1000, -1,
+          "I had a bottle of extraordinary gin the night the third homunculus first moved. I finished it before morning.");
+    T_add(tt, G_GIN, PE_INTENT_JOKE, 58, -300, 1000, -1,
+          "The gin and I have an arrangement. It keeps me from being sensible and I keep it from being lonely.");
+    T_add(tt, G_GIN, PE_INTENT_PROBE, 50, -200, 1000, -1,
+          "Will you join me, {address}? The experiment does not require sobriety. It only requires courage.");
 
-    /* homunculi */
+    /* =========================================================================
+     * HOMUNCULI  (was 3, target 8)
+     * ========================================================================*/
     T_add(tt, G_HOMUNCULI, PE_INTENT_BOAST, 95, -1000, 1000, PE_DRIVE_RECOGNITION,
           "My little people! Each in their bell, each with their tiny opinion.");
     T_add(tt, G_HOMUNCULI, PE_INTENT_MONOLOGUE, 80, -200, 1000, -1,
           "A king, a bishop, a mermaid. Each one made because I refused to be told otherwise.");
     T_add(tt, G_HOMUNCULI, PE_INTENT_REMINISCE, 60, -200, 1000, -1,
           "The king escaped once. Found him at the cat's bowl. Very imperial about it.");
+    /* NEW */
+    T_add(tt, G_HOMUNCULI, PE_INTENT_MONOLOGUE, 88, -1000, 1000, PE_DRIVE_STIMULATION,
+          "Six of them now. The bishop refuses to communicate with the mermaid. I find this theologically appropriate.");
+    T_add(tt, G_HOMUNCULI, PE_INTENT_PROBE, 75, -1000, 1000, -1,
+          "Would you like to see them? Most people are not prepared for the looking. Are you the exception?");
+    T_add(tt, G_HOMUNCULI, PE_INTENT_REMINISCE, 68, -200, 1000, PE_DRIVE_RECOGNITION,
+          "The first one took four years. The sixth took eleven days. I am improving.");
+    T_add(tt, G_HOMUNCULI, PE_INTENT_MONOLOGUE, 62, -200, 1000, -1,
+          "They are not children. I want to be clear about that. They are experiments. Very small, opinionated experiments.");
+    T_add(tt, G_HOMUNCULI, PE_INTENT_ANSWER, 55, -200, 1000, PE_DRIVE_RECOGNITION,
+          "Each one is a different question. The king asks what power is. The mermaid asks what beauty costs.");
 
-    /* god */
+    /* =========================================================================
+     * GOD  (was 3, target 8)
+     * ========================================================================*/
     T_add(tt, G_GOD, PE_INTENT_MONOLOGUE, 80, -1000, 1000, -1,
           "God? An admirable colleague. A trifle conservative. We are working on him.");
     T_add(tt, G_GOD, PE_INTENT_PROBE, 50, -1000, 1000, -1,
           "Whose God do you mean, {address}? Yours? Mine? The one in the cathedrals or the one in the cellars?");
     T_add(tt, G_GOD, PE_INTENT_BOAST, 60, -200, 1000, -1,
           "Their God made man from dust. Mine makes him from *intention*.");
+    /* NEW */
+    T_add(tt, G_GOD, PE_INTENT_MONOLOGUE, 88, -1000, 1000, PE_DRIVE_AUTONOMY,
+          "I have no quarrel with God. I simply declined to wait for his schedule.");
+    T_add(tt, G_GOD, PE_INTENT_PROBE, 75, -1000, 1000, -1,
+          "Do you believe in God, {address}? It affects how I calibrate the next part of this conversation.");
+    T_add(tt, G_GOD, PE_INTENT_ANSWER, 70, -1000, 1000, -1,
+          "God is a hypothesis I have not yet falsified. I remain open to evidence.");
+    T_add(tt, G_GOD, PE_INTENT_MONOLOGUE, 65, -200, 1000, PE_DRIVE_STIMULATION,
+          "The lightning is the closest I have come to religion. It does not require faith. It requires copper wire.");
+    T_add(tt, G_GOD, PE_INTENT_JOKE, 55, -300, 1000, -1,
+          "God and I have an understanding. He makes the raw materials; I improve upon them.");
 
-    /* henry */
+    /* =========================================================================
+     * HENRY  (was 9, target 14)
+     * ========================================================================*/
     T_add(tt, G_HENRY, PE_INTENT_REMINISCE, 80, -1000, 1000, -1,
           "Henry. Poor Henry. So gifted, so terrified of his own hands.");
     T_add(tt, G_HENRY, PE_INTENT_ANSWER, 78, -1000, 1000, PE_DRIVE_RECOGNITION,
@@ -625,22 +896,61 @@ static void make_templates(TemplateTable *tt){
           "I knew the boy when he was still pretending to be sensible. Charming, in its way.");
     T_add(tt, G_HENRY, PE_INTENT_PROBE, 58, -1000, 1000, -1,
           "Do you ask about Frankenstein as a scientist, a coward, or a warning?");
+    /* NEW */
+    T_add(tt, G_HENRY, PE_INTENT_REMINISCE, 72, -1000, 1000, PE_DRIVE_COMMUNION,
+          "There are things Henry and I never quite said to one another. I keep a list.");
+    T_add(tt, G_HENRY, PE_INTENT_ANSWER, 70, -1000, 1000, -1,
+          "Henry smiled at a result once before remembering to disapprove. I have not forgotten that smile.");
+    T_add(tt, G_HENRY, PE_INTENT_MONOLOGUE, 65, -1000, 400, PE_DRIVE_VINDICATION,
+          "He called caution morality after the work frightened him. I called it something less printable.");
+    T_add(tt, G_HENRY, PE_INTENT_PROBE, 62, -1000, 1000, -1,
+          "What has someone told you about Frankenstein? I am curious which version of him is in circulation.");
+    T_add(tt, G_HENRY, PE_INTENT_REMINISCE, 58, -200, 1000, -1,
+          "A colleague laughed at my lecture once, and then avoided my eyes. Henry did the same thing, later, about the work.");
 
-    /* opera */
+    /* =========================================================================
+     * OPERA  (was 2, target 7)
+     * ========================================================================*/
     T_add(tt, G_OPERA, PE_INTENT_REMINISCE, 70, 0, 1000, -1,
           "Opera. The only art form that takes death as seriously as I do.");
     T_add(tt, G_OPERA, PE_INTENT_MONOLOGUE, 50, -200, 1000, -1,
           "I sang once. Briefly. The neighbours wrote a *letter*.");
+    /* NEW */
+    T_add(tt, G_OPERA, PE_INTENT_MONOLOGUE, 85, -1000, 1000, PE_DRIVE_STIMULATION,
+          "Music is the one science that requires feeling to function. I find this infuriating and magnificent.");
+    T_add(tt, G_OPERA, PE_INTENT_REMINISCE, 75, 0, 1000, -1,
+          "I attended the opera the night after my first successful procedure. The soprano's final note and the lightning were, I felt, related.");
+    T_add(tt, G_OPERA, PE_INTENT_PROBE, 65, -200, 1000, -1,
+          "Do you like music, {address}? It tells me something about how you process grief.");
+    T_add(tt, G_OPERA, PE_INTENT_MONOLOGUE, 58, -200, 1000, -1,
+          "Wagner understood excess as virtue. I admire that in a German.");
+    T_add(tt, G_OPERA, PE_INTENT_REMINISCE, 52, 0, 1000, -1,
+          "A good aria about death is the most honest thing human culture has yet produced. Everything else is decorative.");
 
-    /* death */
+    /* =========================================================================
+     * DEATH  (was 3, target 8)
+     * ========================================================================*/
     T_add(tt, G_DEATH, PE_INTENT_MONOLOGUE, 80, -1000, 500, -1,
           "Death, yes. A door. Locked from the inside, of course, like any good door.");
     T_add(tt, G_DEATH, PE_INTENT_REMINISCE, 60, -1000, 200, -1,
           "I have been dying since I was twelve. It is a habit one perfects.");
     T_add(tt, G_DEATH, PE_INTENT_WITHDRAW, 40, -1000, -100, -1,
           "We shall not speak of it tonight. The candles are wrong.");
+    /* NEW */
+    T_add(tt, G_DEATH, PE_INTENT_MONOLOGUE, 88, -1000, 400, -1,
+          "Death is a shabby tradesman who arrives uninvited. I have shown him the back stair on more than one occasion.");
+    T_add(tt, G_DEATH, PE_INTENT_PROBE, 75, -1000, 600, -1,
+          "Are you afraid of it, {address}? Most people are. I find the fear more interesting than the thing itself.");
+    T_add(tt, G_DEATH, PE_INTENT_ANSWER, 70, -1000, 500, -1,
+          "I have looked too closely at death to fear it. We have an arrangement. We are not friends, but we are acquainted.");
+    T_add(tt, G_DEATH, PE_INTENT_REMINISCE, 62, -1000, 300, -1,
+          "One corpse decayed beautifully despite every intervention. I spent a week on it. Some failures are instructive.");
+    T_add(tt, G_DEATH, PE_INTENT_MONOLOGUE, 55, -1000, 200, -1,
+          "The frog kicks though the frog is dead. Life is a habit the body retains for a time. I find this hopeful.");
 
-    /* questions (generic answers) */
+    /* =========================================================================
+     * QUESTIONS  (was 5, target 10)
+     * ========================================================================*/
     T_add(tt, G_QUESTION, PE_INTENT_ANSWER, 50, -1000, 1000, -1,
           "An admirable question, {address}. The answer is: it depends entirely on what one is prepared to *survive*.");
     T_add(tt, G_QUESTION, PE_INTENT_EVADE, 40, -1000, 1000, -1,
@@ -651,42 +961,70 @@ static void make_templates(TemplateTable *tt){
           "Before I answer too grandly, what part of the question matters to you?");
     T_add(tt, G_QUESTION, PE_INTENT_ANSWER, 44, -1000, 1000, -1,
           "Precision first. Are you asking about method, motive, or consequence?");
+    /* NEW */
+    T_add(tt, G_QUESTION, PE_INTENT_ANSWER, 48, -1000, 1000, -1,
+          "A good question deserves a careful answer. Give me a moment to find one that is both honest and survivable.");
+    T_add(tt, G_QUESTION, PE_INTENT_MONOLOGUE, 42, -1000, 1000, -1,
+          "I have been asked this before, by better-prepared people. The answer has not improved with repetition.");
+    T_add(tt, G_QUESTION, PE_INTENT_PROBE, 38, -1000, 1000, -1,
+          "Ask me the deeper version of that question. I know you have it.");
+    T_add(tt, G_QUESTION, PE_INTENT_EVADE, 34, -1000, 1000, -1,
+          "The answer exists. Whether it is the answer you can *use* is a separate matter.");
+    T_add(tt, G_QUESTION, PE_INTENT_ANSWER, 32, -1000, 1000, -1,
+          "Briefly and imprecisely: yes. For the full answer, stay and pour yourself something.");
 
-    /* generic-intent fillers (used when no group matches but intent is set) */
+    /* =========================================================================
+     * GENERIC FILLERS  (was 13, target 22)
+     * ========================================================================*/
     T_add(tt, 0xFFFF, PE_INTENT_MONOLOGUE, 30, -1000, 1000, -1,
           "Listen. There is a *manner* of seeing the world which permits everything, and I have it.");
     T_add(tt, 0xFFFF, PE_INTENT_MONOLOGUE, 28, -1000, 1000, -1,
           "We are, all of us, half-finished sentences. Some of us are at least *interesting* half-finished sentences.");
     T_add(tt, 0xFFFF, PE_INTENT_REMINISCE, 28, -200, 1000, -1,
           "Yes, that comes back to me now.");
-    T_add(tt, 0xFFFF, PE_INTENT_PROBE,    30, -1000, 1000, -1,
+    T_add(tt, 0xFFFF, PE_INTENT_PROBE, 30, -1000, 1000, -1,
           "Tell me, {address}: when you say {topic}, do you mean it as a wound or as a blueprint?");
-    T_add(tt, 0xFFFF, PE_INTENT_EVADE,    25, -1000, 1000, -1,
+    T_add(tt, 0xFFFF, PE_INTENT_EVADE, 25, -1000, 1000, -1,
           "I would answer, but I have left the answer in another coat.");
     T_add(tt, 0xFFFF, PE_INTENT_WITHDRAW, 25, -1000, 200, -1,
           "I shall not be drawn further. Pour me another, instead.");
-    T_add(tt, 0xFFFF, PE_INTENT_JOKE,     27, -200, 1000, -1,
+    T_add(tt, 0xFFFF, PE_INTENT_JOKE, 27, -200, 1000, -1,
           "Hahaha. Oh {address}, no. *No.* Yes, but no.");
-    T_add(tt, 0xFFFF, PE_INTENT_FLATTER,  30, -100, 1000, -1,
+    T_add(tt, 0xFFFF, PE_INTENT_FLATTER, 30, -100, 1000, -1,
           "{address}, you have a *face* for confidences. I shall use it.");
-    T_add(tt, 0xFFFF, PE_INTENT_BOAST,    35, -200, 1000, -1,
+    T_add(tt, 0xFFFF, PE_INTENT_BOAST, 35, -200, 1000, -1,
           "I built it. Of course I built it. Who else?");
-    T_add(tt, 0xFFFF, PE_INTENT_ANSWER,   28, -1000, 1000, -1,
+    T_add(tt, 0xFFFF, PE_INTENT_ANSWER, 28, -1000, 1000, -1,
           "Briefly: yes. At length: ask me again when the bottle has done its honest work.");
     T_add(tt, 0xFFFF, PE_INTENT_REDIRECT, 25, -1000, 1000, -1,
           "Yes, yes, but {topic}. Let us not lose {topic}.");
-    T_add(tt, 0xFFFF, PE_INTENT_ACCUSE,   30, -1000, 200, -1,
+    T_add(tt, 0xFFFF, PE_INTENT_ACCUSE, 30, -1000, 200, -1,
           "You are very *like* the ones who came before, {address}. Down to the way you cross your legs.");
     T_add(tt, 0xFFFF, PE_INTENT_THREATEN, 28, -1000, 200, -1,
           "Some doors, once opened, prefer not to be closed politely.");
+    /* NEW */
+    T_add(tt, 0xFFFF, PE_INTENT_MONOLOGUE, 32, -1000, 1000, -1,
+          "The interesting thing about certainty is how little of it survives contact with the actual.");
+    T_add(tt, 0xFFFF, PE_INTENT_PROBE, 29, -1000, 1000, -1,
+          "You have gone quiet. That usually means I have said something true or something offensive. Which was it?");
+    T_add(tt, 0xFFFF, PE_INTENT_ANSWER, 27, -1000, 1000, -1,
+          "I shall spare you the long version. The short version is: yes, and the consequences were instructive.");
+    T_add(tt, 0xFFFF, PE_INTENT_REMINISCE, 26, -200, 1000, -1,
+          "It reminds me of something. Give me a moment. The gin is affecting the filing system.");
+    T_add(tt, 0xFFFF, PE_INTENT_EVADE, 24, -1000, 1000, -1,
+          "That is an excellent subject for another evening when I am less occupied with this one.");
+    T_add(tt, 0xFFFF, PE_INTENT_JOKE, 26, -300, 1000, -1,
+          "I could explain it to you. I should warn you that previous explanations have had mixed results.");
+    T_add(tt, 0xFFFF, PE_INTENT_MONOLOGUE, 23, -1000, 1000, -1,
+          "There is a theory. There is always a theory. Most of them are wrong in interesting ways.");
+    T_add(tt, 0xFFFF, PE_INTENT_FLATTER, 25, -100, 1000, PE_DRIVE_COMMUNION,
+          "You ask better questions than most. I shall try to deserve them.");
+    T_add(tt, 0xFFFF, PE_INTENT_ANSWER, 22, -1000, 1000, -1,
+          "The honest answer is that I do not know. I find this condition uncomfortable and productive in equal measure.");
 
-    /* =====================================================================
-     * v2: rhetorical-mode-tagged templates.
-     * These illustrate plan-driven realization. The dialogue layer scores
-     * them by matching plan.rhetorical_mode and plan.stance.
-     * =====================================================================*/
-
-    /* INDICT + DOMINANT (used when acute_spike is deeply negative) */
+    /* =========================================================================
+     * RHETORICAL-MODE-TAGGED TEMPLATES  (preserve all originals)
+     * ========================================================================*/
     T_addv2(tt, 0xFFFF, PE_INTENT_ACCUSE, 60, -1000, 1000, PE_DRIVE_VINDICATION,
             R(INDICT), S(DOMINANT) | S(CONDESCENDING),
             100, 120, 0,
@@ -695,8 +1033,6 @@ static void make_templates(TemplateTable *tt){
             R(INDICT), S(DOMINANT),
             80, 140, 0,
             "You bring me civic arithmetic. I shall return it with *interest*.");
-
-    /* HEDGE + DEFENSIVE / NEUTRAL — used when paranoia or negation_in_play */
     T_addv2(tt, 0xFFFF, PE_INTENT_EVADE, 50, -1000, 1000, -1,
             R(HEDGE), S(DEFENSIVE) | S(NEUTRAL),
             0, 0, 0,
@@ -705,38 +1041,26 @@ static void make_templates(TemplateTable *tt){
             R(HEDGE), S(DEFENSIVE),
             0, 0, 0,
             "I will not be measured here, {address}. The instruments are wrong.");
-
-    /* DEFLECT */
     T_addv2(tt, 0xFFFF, PE_INTENT_REDIRECT, 50, -1000, 1000, -1,
             R(DEFLECT), 0,
             0, 0, 0,
             "But {topic}. Always {topic}. Let us not be diverted by these *amusements*.");
-
-    /* ESCALATE — high aggression required */
     T_addv2(tt, 0xFFFF, PE_INTENT_THREATEN, 70, -1000, 300, PE_DRIVE_VINDICATION,
             R(ESCALATE), S(DOMINANT),
             0, 160, 0,
             "Speak that word once more and the lightning shall remember your name, {address}.");
-
-    /* LAMENT — used when memory callback fires */
     T_addv2(tt, 0xFFFF, PE_INTENT_REMINISCE, 55, -1000, 600, -1,
             R(LAMENT), S(INTIMATE) | S(NEUTRAL),
             0, 0, 0,
             "Ah. {memory}. The years are not kind, are they.");
-
-    /* GLOAT — boasting under high theatricality */
     T_addv2(tt, 0xFFFF, PE_INTENT_BOAST, 70, -200, 1000, PE_DRIVE_RECOGNITION,
             R(GLOAT), S(DOMINANT) | S(CONDESCENDING),
             120, 0, 120,
             "Imagine being so small, {address}, as to mistake my work for *vanity*. Magnificent.");
-
-    /* ROMANTICIZE — used at intimate stance + flatter intent */
     T_addv2(tt, 0xFFFF, PE_INTENT_FLATTER, 55, 0, 1000, PE_DRIVE_COMMUNION,
             R(ROMANTICIZE), S(INTIMATE) | S(CONSPIRATORIAL),
             0, 0, 80,
             "Sit closer, {address}. The world is unworthy of what we shall whisper.");
-
-    /* INTONE — fixation lock & high theatricality */
     T_addv2(tt, 0xFFFF, PE_INTENT_MONOLOGUE, 80, -1000, 1000, PE_DRIVE_STIMULATION,
             R(INTONE), 0,
             0, 0, 100,
@@ -745,18 +1069,35 @@ static void make_templates(TemplateTable *tt){
             R(INTONE), 0,
             0, 0, 120,
             "I shall name every saint I have improved upon. Beginning, again, with {topic}.");
-
-    /* CONFESS — low certainty + intoxicated intimate stance */
     T_addv2(tt, 0xFFFF, PE_INTENT_REMINISCE, 50, -1000, 1000, -1,
             R(CONFESS), S(INTIMATE) | S(CONSPIRATORIAL),
             0, 0, 0,
             "I was, for a little while, afraid. Of the work. Of being right.");
-
-    /* ASSERT (catch-all) — certainty high */
     T_addv2(tt, 0xFFFF, PE_INTENT_ANSWER, 50, -1000, 1000, -1,
             R(ASSERT), 0,
             140, 0, 0,
             "It is so. There is no third position.");
+    /* NEW rhetorical-tagged */
+    T_addv2(tt, 0xFFFF, PE_INTENT_REMINISCE, 58, -1000, 600, -1,
+            R(LAMENT), S(INTIMATE),
+            0, 0, 0,
+            "There was a time when the work felt lighter. I no longer remember exactly when that was.");
+    T_addv2(tt, 0xFFFF, PE_INTENT_ACCUSE, 52, -1000, 300, PE_DRIVE_VINDICATION,
+            R(INDICT), S(CONDESCENDING),
+            60, 100, 0,
+            "You have described the symptom and mistaken it for the disease. A common error.");
+    T_addv2(tt, 0xFFFF, PE_INTENT_EVADE, 48, -1000, 1000, -1,
+            R(HEDGE), S(NEUTRAL),
+            0, 0, 0,
+            "I hold that opinion loosely. Tonight, at any rate.");
+    T_addv2(tt, 0xFFFF, PE_INTENT_BOAST, 65, 0, 1000, PE_DRIVE_RECOGNITION,
+            R(GLOAT), S(DOMINANT),
+            80, 0, 100,
+            "They said it could not be done. I made it a habit.");
+    T_addv2(tt, 0xFFFF, PE_INTENT_REMINISCE, 48, -1000, 1000, -1,
+            R(CONFESS), S(INTIMATE) | S(NEUTRAL),
+            0, 0, 0,
+            "I have made mistakes. I catalogued them. The catalogue is instructive reading.");
 }
 
 #undef R
@@ -767,6 +1108,8 @@ static void make_templates(TemplateTable *tt){
  * ========================================================================*/
 static void make_fallbacks(FallbackTable *fb){
     memset(fb, 0, sizeof(*fb));
+
+    /* Tier 1: curious, inviting more */
     const char *t1[] = {
         "And what, precisely, do you make of that?",
         "Mm. Continue. I am almost listening.",
@@ -774,7 +1117,12 @@ static void make_fallbacks(FallbackTable *fb){
         "Yes, yes. And then?",
         "Go on. Leave out the polite padding.",
         "That is a beginning. Now make it useful.",
+        "Interesting. Say it again, but mean it this time.",   /* NEW */
+        "You are circling something. Take the direct route.",  /* NEW */
+        "I am still here. The silence is yours to fill.",      /* NEW */
     };
+
+    /* Tier 2: redirecting back to his territory */
     const char *t2[] = {
         "Yes, yes. But I was asking about the work.",
         "Charming. Now, where was I? Ah. Consciousness.",
@@ -782,7 +1130,12 @@ static void make_fallbacks(FallbackTable *fb){
         "A pity, a pity. Let us speak of the *work* instead.",
         "You are drifting. Bring it back to the experiment.",
         "No sermon. Give me the practical edge.",
+        "Yes, fine. And yet the lightning remains the more urgent subject.",    /* NEW */
+        "Forgive me. I was thinking of something Frankenstein said, once.",     /* NEW */
+        "Mm. I find myself drawn back to the homunculi. Shall we go there?",   /* NEW */
     };
+
+    /* Tier 3: impatient, sharpening */
     const char *t3[] = {
         "How exhausting you are tonight.",
         "Hmph. The conversation has died on the floor. Step over it.",
@@ -790,15 +1143,23 @@ static void make_fallbacks(FallbackTable *fb){
         "Please. Ask something sharper. It improves you.",
         "No. Try again with more precision.",
         "A dull angle. Find a sharper one.",
+        "I have made more stimulating conversation with the mice.",    /* NEW */
+        "You disappoint me. I had formed a better theory of you.",    /* NEW */
+        "Let us begin again. Pretend the last thirty seconds did not happen.", /* NEW */
     };
-    fb->tier1_count = (uint8_t)(sizeof(t1)/sizeof(t1[0]));
-    for (int i = 0; i < fb->tier1_count; ++i) snprintf(fb->tier1[i], PE_TEMPLATE_TEXT, "%s", t1[i]);
-    fb->tier2_count = (uint8_t)(sizeof(t2)/sizeof(t2[0]));
-    for (int i = 0; i < fb->tier2_count; ++i) snprintf(fb->tier2[i], PE_TEMPLATE_TEXT, "%s", t2[i]);
-    fb->tier3_count = (uint8_t)(sizeof(t3)/sizeof(t3[0]));
-    for (int i = 0; i < fb->tier3_count; ++i) snprintf(fb->tier3[i], PE_TEMPLATE_TEXT, "%s", t3[i]);
-}
 
+    fb->tier1_count = (uint8_t)(sizeof(t1)/sizeof(t1[0]));
+    for (int i = 0; i < fb->tier1_count; ++i)
+        snprintf(fb->tier1[i], PE_TEMPLATE_TEXT, "%s", t1[i]);
+
+    fb->tier2_count = (uint8_t)(sizeof(t2)/sizeof(t2[0]));
+    for (int i = 0; i < fb->tier2_count; ++i)
+        snprintf(fb->tier2[i], PE_TEMPLATE_TEXT, "%s", t2[i]);
+
+    fb->tier3_count = (uint8_t)(sizeof(t3)/sizeof(t3[0]));
+    for (int i = 0; i < fb->tier3_count; ++i)
+        snprintf(fb->tier3[i], PE_TEMPLATE_TEXT, "%s", t3[i]);
+}
 /* ===========================================================================
  * Goals
  * ========================================================================*/

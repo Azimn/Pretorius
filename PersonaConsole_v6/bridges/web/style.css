@@ -333,6 +333,7 @@ body.show-meta .msg .meta { display: block; }
   background: rgba(0,0,0,0.55);
   padding: 18px;
 }
+.modal-backdrop[hidden] { display: none; }
 .modal {
   width: min(420px, 100%);
   background: var(--panel);

@@ -52,6 +52,118 @@ Last known good gate after commit `41b8024`:
 
 ## Test Entries
 
+### 2026-06-14 - Offline Tier Pretorius Template Expansion And HTML Smoke
+
+Branch: `v6-phase5d-recall-modes`
+
+Renderer: `template`
+
+Provider/model: none
+
+Turn count:
+
+- Automated stdio smoke: 9 user turns plus close.
+- Browser smoke: 1 manual chat turn through `http://127.0.0.1:7777/`.
+
+Source change under test:
+
+- Replaced Pretorius `make_templates()` and `make_fallbacks()` with the expanded template set from `pretorius_templates_expanded.c`.
+- Template compiler source changed in `tools/compile_pretorius.c`.
+- Approximate cartridge template count increased from roughly 130 to roughly 260.
+- Fallback pools increased from 6 per tier to 9 per tier.
+
+Areas intentionally expanded:
+
+- Opera
+- Gin
+- Danger
+- Apology
+- Intimacy
+- Creation
+- God
+- Goodbye
+- Lonely
+- Praise
+- Threat
+- Generic fillers
+- High-traffic conversational groups: Status, WorkChat, Ack, Questions
+
+Validation run:
+
+```powershell
+make v4_replay_run
+make v5_transcript_quality_run
+make v6_believability_battery_run
+```
+
+Results:
+
+- `v4_replay_run`: pass.
+- `v5_transcript_quality_run`: pass, `92/100`.
+- `v6_believability_battery_run`: pass, `85/100`.
+
+Direct offline stdio smoke prompts:
+
+```text
+Good morning, Doctor.
+How are you today?
+What are you working on?
+Tell me about gin.
+Do you believe in God?
+Are you lonely?
+That sounds dangerous.
+I am sorry.
+Goodbye.
+```
+
+Representative template-only replies:
+
+```text
+Tired, but not yet defeated by biology.
+Today I am occupied with perfecting the bell-jar; the third one keeps clouding.
+A toast to absent collaborators and inattentive saints.
+God? An admirable colleague. A trifle conservative. We are working on him.
+Lonely? A vulgar word for a precise condition. But yes, sometimes the rooms become too large.
+Every worthwhile experiment begins by offending caution.
+Apology noted. What changed your mind?
+Go carefully. The world is less interesting when you are absent.
+```
+
+HTML interface finding:
+
+- The offline HTML chat page existed and loaded from `bridges/web/index.html`.
+- The server could run in template mode at `http://127.0.0.1:7777/`.
+- The page initially looked loaded but could not send messages because `.modal-backdrop { display: flex; }` overrode native `[hidden]`.
+- The hidden feature-unavailable modal remained on top of the page and swallowed clicks.
+
+Fix:
+
+- Added `.modal-backdrop[hidden] { display: none; }` to `bridges/web/style.css`.
+
+Browser smoke after fix:
+
+- Loaded `http://127.0.0.1:7777/`.
+- Sent `Good evening, Doctor. Tell me about your work.`
+- Input cleared.
+- User bubble appeared.
+- Pretorius replied in offline template mode:
+
+```text
+I am revising an old experiment. It has the bad manners to remain interesting.
+```
+
+Engine-level implications:
+
+- The Level 0 offline tier remains functional after the expanded Pretorius table.
+- Template-only mode can still carry a recognizable Pretorius without Ollama/API.
+- The HTML interface should remain part of future Level 0 testing, because stdio passed while the browser surface had a real usability bug.
+
+Remaining issues:
+
+- Fresh-browser tests should start from a wiped or isolated profile state. This smoke inherited earlier local state until runtime sidecars were cleaned.
+- The first stdio smoke reply surfaced a reflection instead of a greeting because state from earlier experiments was still present. That was a test hygiene issue, not a template compile issue.
+- We should add or improve an automated browser send-message test so this modal overlay regression is caught without manual browser inspection.
+
 ### 2026-06-14 - Commit `41b8024` - SLM Cohesion Audits And Speech Fatigue
 
 Branch: `v6-phase5d-recall-modes`
@@ -250,4 +362,3 @@ Next action:
 
 -
 ```
-
