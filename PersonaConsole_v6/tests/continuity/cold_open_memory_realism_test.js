@@ -78,6 +78,10 @@ function tooCompliant(text){
   return /\bof course\b|\bsure\b|\babsolutely\b|\bhappy to\b|\bright away\b|\bas you wish\b|\bat your service\b/i.test(text || '');
 }
 
+function words(text){
+  return String(text || '').trim().split(/\s+/).filter(Boolean);
+}
+
 (async function main(){
   console.log('--- cold-open memory realism test ---');
   const tmp = makeTempCart();
@@ -112,6 +116,10 @@ function tooCompliant(text){
     ok(!assistantish(reply), `cold open avoids assistant phrasing: ${reply}`);
     ok(!/happy to help|of course|absolutely/i.test(reply),
        `Pretorius does not become a warm assistant on cold open: ${reply}`);
+    ok(words(reply).length <= 24,
+       `cold open is a composed turn, not stitched fragments (${words(reply).length} words): ${reply}`);
+    ok(!/good morning|good evening|hello again|welcome back/i.test(reply),
+       `memory-owned cold open suppresses redundant greeting: ${reply}`);
     ok(interruptReply && !assistantish(interruptReply) && !tooCompliant(interruptReply),
        `Pretorius does not become subordinate when interrupted: ${interruptReply}`);
     ok(state.actor_tagged_memories >= 1 || state.speech_event_count >= 1,

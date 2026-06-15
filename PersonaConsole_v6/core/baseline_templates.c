@@ -113,7 +113,7 @@ static const BaselineTemplate UNIVERSAL_TEMPLATES[] = {
     { 0xFFFF, PE_INTENT_INITIATE, 720, 0, 0,
       "There is something I have been turning over. What do you make of {topic}?" },
     { 0xFFFF, PE_INTENT_INITIATE, 705, 0, 0,
-      "May I change the subject, {address}? {topic} has been on my mind." },
+      "May I change the subject, {address}? I keep circling back to {topic}." },
     { 0xFFFF, PE_INTENT_INITIATE, 700, 0, 0,
       "Before we drift further, I want your view on {topic}." },
     { 0xFFFF, PE_INTENT_INITIATE, 690, 0, 0,

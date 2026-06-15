@@ -637,29 +637,24 @@ static void pe_queue_resumption(Engine *eng, uint32_t real_gap_seconds){
             const char *topic = topic_name_by_id(eng, best->topic_id);
             if (topic && topic[0] && name)
                 snprintf(callback, sizeof(callback),
-                         "%s, the old thread about %s has not left the table.",
+                         "\x1F%s. The old thread about %s has not left the table.",
                          name, topic);
             else if (topic && topic[0])
                 snprintf(callback, sizeof(callback),
-                         "The old thread about %s has not left the table.",
+                         "\x1FThe old thread about %s has not left the table.",
                          topic);
             else if (name)
                 snprintf(callback, sizeof(callback),
-                         "%s, you left a thread unfinished. I noticed.", name);
+                         "\x1F%s, you left a thread unfinished. I noticed.", name);
             else
                 snprintf(callback, sizeof(callback),
-                         "You left a thread unfinished. I noticed.");
+                         "\x1FYou left a thread unfinished. I noticed.");
 
-            if (eng->state.resumption_pending[0]){
-                char tmp[PE_RESUMPTION_LEN];
-                snprintf(tmp, sizeof(tmp), "%s %s",
-                         eng->state.resumption_pending, callback);
-                snprintf(eng->state.resumption_pending,
-                         sizeof(eng->state.resumption_pending), "%s", tmp);
-            } else {
-                snprintf(eng->state.resumption_pending,
-                         sizeof(eng->state.resumption_pending), "%s", callback);
-            }
+            /* A meaningful same-actor memory owns the cold-open turn.  Do not
+             * concatenate time-bucket resumption plus generic greeting plus
+             * memory callback; that reads like stitched systems. */
+            snprintf(eng->state.resumption_pending,
+                     sizeof(eng->state.resumption_pending), "%s", callback);
         }
     }
 }
@@ -688,7 +683,15 @@ static void pe_prepend_resumption_if_pending(Engine *eng, char *out, size_t n){
     if (!eng || !out || n == 0 || !eng->state.resumption_pending[0]) return;
     char line[PE_RESUMPTION_LEN];
     char reply[PE_TEMPLATE_TEXT];
-    pe_fill_pending_line(eng, eng->state.resumption_pending, line, sizeof(line));
+    int exclusive = ((unsigned char)eng->state.resumption_pending[0] == 0x1Fu);
+    const char *pending = exclusive ? eng->state.resumption_pending + 1
+                                    : eng->state.resumption_pending;
+    pe_fill_pending_line(eng, pending, line, sizeof(line));
+    if (exclusive){
+        snprintf(out, n, "%s", line);
+        eng->state.resumption_pending[0] = 0;
+        return;
+    }
     snprintf(reply, sizeof(reply), "%s", out);
     if (reply[0])
         snprintf(out, n, "%s %s", line, reply);

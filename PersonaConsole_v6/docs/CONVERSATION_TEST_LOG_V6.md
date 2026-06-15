@@ -346,13 +346,13 @@ Result:
 Observed cold-open reply:
 
 ```text
-Back so soon, my boy? Sit. The bottle is still cold. Kiki, the old thread about homunculi has not left the table. Good morning, my boy. You arrive before the day has learned caution.
+Kiki. The old thread about homunculi has not left the table.
 ```
 
 Observed interruption reply:
 
 ```text
-May I change the subject, my boy? the work has been on my mind. A tincture, a gesture.
+I keep returning to the work. Did I ever finish that thought?
 ```
 
 What improved:
@@ -362,22 +362,22 @@ What improved:
 - The reply avoids database-like labels such as `I remember this`.
 - The reply avoids assistant phrasing such as `happy to help`.
 - Interruption does not make Pretorius obedient or service-oriented.
+- The memory callback now owns the cold-open turn instead of concatenating with a generic resumption line and normal greeting.
 
 What still felt fake:
 
-- The cold-open line is crowded because resumption, memory callback, and normal greeting all stack.
-- The cold-open reply says `Good morning` after the user says `Good evening`; time-of-day/greeting agreement needs polish.
-- Slot rendering can produce lowercase after punctuation, as in `? the work`.
+- The cold-open line is coherent but restrained. A future cartridge-authored cold-open memory bank could make this more character-specific without changing Layer 1.
+- The current engine-level callback is intentionally generic. Pretorius, Kiki, and imported characters should eventually be able to provide their own phrasing around the same symbolic event.
 
 Engine-level implications:
 
 - The storage layer was already working. The missing piece was resumption selection reading same-actor episodic memory.
 - Cold-open continuity should be a first-class benchmark because it captures the difference between persistent data and a felt relationship.
-- Future resumption rendering should be composed as one turn rather than concatenating several fragments blindly.
+- Memory-owned resumption is now composed as one turn rather than concatenating several fragments blindly.
 
 Next action:
 
-- Add a resumption-composition polish pass: if a memory callback is appended to resumption, suppress redundant ordinary greeting or re-score the first reply as `ATTEND` rather than `GREETING`.
+- Consider adding cartridge-authored cold-open memory surface templates so the same engine behavior can sound like Pretorius, Kiki, a romantic companion, or a restrained mentor without hardcoding style in the engine.
 
 ### 2026-06-14 - Earlier 48-Turn qwen3:8b Runs Before Final Fixes
 
