@@ -611,6 +611,57 @@ static void pe_queue_resumption(Engine *eng, uint32_t real_gap_seconds){
                      "%s", eng->identity.milestone_lines[milestone_idx]);
         }
     }
+    {
+        const MemoryNode *best = NULL;
+        int best_score = -1;
+        for (uint16_t pos = eng->memory.episodic_count; pos > 0; --pos){
+            uint16_t i = (uint16_t)(pos - 1u);
+            const MemoryNode *m = &eng->memory.episodic[i];
+            if (m->core_memory || m->memory_type == MEM_CORE) continue;
+            if (eng->relation.user_hash != 0){
+                uint32_t actor = pe_actor_index_get(&eng->actor_index, i);
+                if (actor != 0 && actor != eng->relation.user_hash) continue;
+            }
+            int score = 1000 - (int)(eng->memory.episodic_count - i) * 10
+                      + (int)m->salience
+                      + (m->topic_id != 0xFFFF ? 80 : 0);
+            if (score > best_score){
+                best_score = score;
+                best = m;
+            }
+        }
+        if (best){
+            char callback[PE_RESUMPTION_LEN];
+            const char *name = eng->relation.known_as[0]
+                             ? eng->relation.known_as : NULL;
+            const char *topic = topic_name_by_id(eng, best->topic_id);
+            if (topic && topic[0] && name)
+                snprintf(callback, sizeof(callback),
+                         "%s, the old thread about %s has not left the table.",
+                         name, topic);
+            else if (topic && topic[0])
+                snprintf(callback, sizeof(callback),
+                         "The old thread about %s has not left the table.",
+                         topic);
+            else if (name)
+                snprintf(callback, sizeof(callback),
+                         "%s, you left a thread unfinished. I noticed.", name);
+            else
+                snprintf(callback, sizeof(callback),
+                         "You left a thread unfinished. I noticed.");
+
+            if (eng->state.resumption_pending[0]){
+                char tmp[PE_RESUMPTION_LEN];
+                snprintf(tmp, sizeof(tmp), "%s %s",
+                         eng->state.resumption_pending, callback);
+                snprintf(eng->state.resumption_pending,
+                         sizeof(eng->state.resumption_pending), "%s", tmp);
+            } else {
+                snprintf(eng->state.resumption_pending,
+                         sizeof(eng->state.resumption_pending), "%s", callback);
+            }
+        }
+    }
 }
 
 static void pe_fill_pending_line(Engine *eng, const char *src, char *out, size_t n){

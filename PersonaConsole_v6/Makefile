@@ -151,7 +151,8 @@ RENDER_HEADERS := \
         forge_archetypes_test forge_parsers_test inspector_test web_presence_test \
         demo_package release_check micro micro_size_report micro_replay_run \
         strict_check strict_gate v6_believability_battery_run v6_demo_pack_battery_run society_pair_probe v6_recall_mode_order_run v6_contradiction_protocol_run \
-        v6_greeting_status_routing_run v6_greeting_status_exhaustion_run v7_api_run
+        v6_greeting_status_routing_run v6_greeting_status_exhaustion_run \
+        v6_cold_open_memory_realism_run v7_api_run
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
      build/compile_cartridge build/compile_pretorius build/compile_kiki build/compile_demo_pack \
@@ -501,6 +502,10 @@ v6_greeting_status_exhaustion_run: build/persona_host profiles/pretorius/pretori
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/greeting_status_exhaustion_probe.js
 
+v6_cold_open_memory_realism_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/cold_open_memory_realism_test.js
+
 v5_offscreen_autonomy_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/offscreen_autonomy_test.js
@@ -583,7 +588,7 @@ v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v5_want_pull_run cartridge_stats v4_drift_run \
                 v4_reflection_run v5_reflection_surface_run \
                 v5_conversation_rhythm_run v6_greeting_status_routing_run \
-                v5_offscreen_autonomy_run \
+                v6_cold_open_memory_realism_run v5_offscreen_autonomy_run \
               v5_relationships_roster_run v5_offscreen_memory_render_run \
               v5_milestone_catchup_run v5_legacy_identity_migration_run \
               v4_adversarial_arcs v4_recall_plasticity_run inspector_test \

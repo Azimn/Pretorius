@@ -315,6 +315,70 @@ Next action:
 
 - Add a small transcript-quality metric for surface-act drift: matched greeting/status prompts should not route to `NONE` or unrelated emotional groups before the relevant pools are genuinely exhausted.
 
+### 2026-06-14 - Cold-Open Memory Realism Probe
+
+Branch/commit:
+
+- Working tree after greeting/status routing pass.
+
+Renderer:
+
+- Template-only offline tier.
+
+Probe:
+
+- `make v6_cold_open_memory_realism_run`
+
+Scenario:
+
+- Session one sets the actor to `Kiki`.
+- Kiki tells Pretorius her name.
+- Kiki discloses that people may hear only her slang and miss the mind underneath.
+- Kiki says Pretorius's homunculi disturb her but she cannot stop thinking about them.
+- Session closes.
+- Session two opens cold with only `Good evening.`
+- Same session then interrupts him to verify he does not become a subordinate assistant.
+
+Result:
+
+- PASS.
+
+Observed cold-open reply:
+
+```text
+Back so soon, my boy? Sit. The bottle is still cold. Kiki, the old thread about homunculi has not left the table. Good morning, my boy. You arrive before the day has learned caution.
+```
+
+Observed interruption reply:
+
+```text
+May I change the subject, my boy? the work has been on my mind. A tincture, a gesture.
+```
+
+What improved:
+
+- Cross-session actor memory surfaces without the user prompting for memory.
+- Pretorius references `Kiki` and the prior `homunculi` thread on cold open.
+- The reply avoids database-like labels such as `I remember this`.
+- The reply avoids assistant phrasing such as `happy to help`.
+- Interruption does not make Pretorius obedient or service-oriented.
+
+What still felt fake:
+
+- The cold-open line is crowded because resumption, memory callback, and normal greeting all stack.
+- The cold-open reply says `Good morning` after the user says `Good evening`; time-of-day/greeting agreement needs polish.
+- Slot rendering can produce lowercase after punctuation, as in `? the work`.
+
+Engine-level implications:
+
+- The storage layer was already working. The missing piece was resumption selection reading same-actor episodic memory.
+- Cold-open continuity should be a first-class benchmark because it captures the difference between persistent data and a felt relationship.
+- Future resumption rendering should be composed as one turn rather than concatenating several fragments blindly.
+
+Next action:
+
+- Add a resumption-composition polish pass: if a memory callback is appended to resumption, suppress redundant ordinary greeting or re-score the first reply as `ATTEND` rather than `GREETING`.
+
 ### 2026-06-14 - Earlier 48-Turn qwen3:8b Runs Before Final Fixes
 
 These runs were used as diagnostics and should not be treated as release baselines.
