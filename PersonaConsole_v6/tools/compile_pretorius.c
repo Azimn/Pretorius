@@ -88,6 +88,32 @@ static void make_identity(Identity *id){
     id->milestone_days[5] = 1000;
     snprintf(id->milestone_lines[5], PE_MILESTONE_LEN, "A thousand. Do you understand what you have done, {address}? You have made me reliable.");
 
+    snprintf(id->cold_open_memory_templates[0][0], PE_COLD_OPEN_LEN,
+             "{name}. Still circling {topic}, then?");
+    snprintf(id->cold_open_memory_templates[0][1], PE_COLD_OPEN_LEN,
+             "{name}. That old matter of {topic} has not released either of us.");
+    snprintf(id->cold_open_memory_templates[0][2], PE_COLD_OPEN_LEN,
+             "{name}. You left {topic} on the table, and I dislike unfinished specimens.");
+    snprintf(id->cold_open_memory_templates[0][3], PE_COLD_OPEN_LEN,
+             "{name}. Sit. {topic} remains exactly where you abandoned it.");
+
+    snprintf(id->cold_open_memory_templates[1][0], PE_COLD_OPEN_LEN,
+             "The matter of {topic} remains where you left it.");
+    snprintf(id->cold_open_memory_templates[1][1], PE_COLD_OPEN_LEN,
+             "That unfinished thread of {topic} still has teeth.");
+    snprintf(id->cold_open_memory_templates[1][2], PE_COLD_OPEN_LEN,
+             "{topic}. Yes. I wondered when it would return.");
+
+    snprintf(id->cold_open_memory_templates[2][0], PE_COLD_OPEN_LEN,
+             "{name}. You left a thread unfinished. I noticed.");
+    snprintf(id->cold_open_memory_templates[2][1], PE_COLD_OPEN_LEN,
+             "{name}. You return before the thought has cooled.");
+
+    snprintf(id->cold_open_memory_templates[3][0], PE_COLD_OPEN_LEN,
+             "That unfinished thread still has teeth.");
+    snprintf(id->cold_open_memory_templates[3][1], PE_COLD_OPEN_LEN,
+             "Something from before remains on the table.");
+
     snprintf(id->address_user_as[0], PE_ADDRESS_LEN, "my dear");
     snprintf(id->address_user_as[1], PE_ADDRESS_LEN, "my boy");
     snprintf(id->address_user_as[2], PE_ADDRESS_LEN, "Henry");
@@ -1270,18 +1296,28 @@ int main(int argc, char **argv){
         return 1;
     }
 
-    Identity id;       make_identity(&id);
-    DriveTable dt;     make_drives(&dt);
-    TopicTable tt;     make_topics(&tt);
-    PatternTable pt;   make_patterns(&pt);
-    TemplateTable tmt; make_templates(&tmt);
-    FallbackTable fb;  make_fallbacks(&fb);
-    GoalTable gt;      make_goals(&gt);
-    TodayTable td;     make_today(&td);
+    static Identity id;
+    static DriveTable dt;
+    static TopicTable tt;
+    static PatternTable pt;
+    static TemplateTable tmt;
+    static FallbackTable fb;
+    static GoalTable gt;
+    static TodayTable td;
+
+    make_identity(&id);
+    make_drives(&dt);
+    make_topics(&tt);
+    make_patterns(&pt);
+    make_templates(&tmt);
+    make_fallbacks(&fb);
+    make_goals(&gt);
+    make_today(&td);
     /* v3.2: Pretorius's banks are the engine's built-in default Pretorian
      * set — they were authored for this character originally, so the
      * cartridge just emits the default registry as its banks.bin. */
-    BankRegistry banks; mutator_load_default_banks(&banks);
+    static BankRegistry banks;
+    mutator_load_default_banks(&banks);
 
     int rc = 0;
     rc |= write_section(out_dir, "identity.bin",  &id,  sizeof(id));

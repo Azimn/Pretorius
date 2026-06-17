@@ -324,6 +324,11 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"last_speech_act\":\"%s\","
         "\"last_withhold_reason\":\"%s\","
         "\"last_audit_result\":%u,"
+        "\"cold_open_callback_source\":%u,"
+        "\"cold_open_callback_template_index\":%u,"
+        "\"cold_open_callback_exclusive\":%u,"
+        "\"cold_open_callback_topic\":%u,"
+        "\"cold_open_callback_memory_index\":%u,"
         "\"frame\":{\"actor_id\":%u,\"input_class\":%u,\"primary_topic\":%u,"
                   "\"selected_goal\":%u,\"selected_intent\":\"%s\","
                   "\"speech_act\":\"%s\",\"stance\":%u,\"rhetorical_mode\":\"%s\","
@@ -382,6 +387,11 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
                                 ? pe_speech_ledger_last(&eng->speech_ledger)->withhold_reason
                                 : PE_WR_NONE),
         (unsigned)eng->last_audit_result,
+        (unsigned)eng->cold_open_callback_source,
+        (unsigned)eng->cold_open_callback_template_index,
+        (unsigned)eng->cold_open_callback_exclusive,
+        (unsigned)eng->cold_open_callback_topic,
+        (unsigned)eng->cold_open_callback_memory_index,
         (unsigned)eng->frame.actor_id,
         (unsigned)eng->frame.input_class,
         (unsigned)eng->frame.primary_topic,

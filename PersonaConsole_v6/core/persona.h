@@ -57,7 +57,7 @@ extern "C" {
 #define PE_TEMPLATE_TEXT        256
 #define PE_TOPIC_MAX            64
 #define PE_TOPIC_NAME           16
-#define PE_FALLBACK_PER_TIER    6
+#define PE_FALLBACK_PER_TIER    9
 #define PE_FALLBACK_TIERS       3
 #define PE_RELATION_EVENTS      10
 #define PE_TODAY_LABEL          32
@@ -82,6 +82,9 @@ extern "C" {
 #define PE_WANT_NAME_LEN        32
 #define PE_MILESTONE_COUNT      6
 #define PE_MILESTONE_LEN        96
+#define PE_COLD_OPEN_CASES      4
+#define PE_COLD_OPEN_VARIANTS   4
+#define PE_COLD_OPEN_LEN        128
 
 /* V5 Phase 2: per-slot actor tagging for episodic memory.
  * Included after PE_EPISODIC_MAX is defined; the header depends on it. */
@@ -280,6 +283,12 @@ typedef struct {
     char milestone_lines[PE_MILESTONE_COUNT][PE_MILESTONE_LEN];
     uint16_t milestone_days[PE_MILESTONE_COUNT];
     uint16_t _v5_pad[2];
+    /* V6: cartridge-authored phrasing for memory-owned cold opens.
+     * Cases: 0=name+topic, 1=topic, 2=name/no topic, 3=no name/no topic.
+     * Empty strings fall back to generic engine wording. */
+    char cold_open_memory_templates[PE_COLD_OPEN_CASES]
+                                   [PE_COLD_OPEN_VARIANTS]
+                                   [PE_COLD_OPEN_LEN];
 } Identity;
 
 typedef struct {
@@ -753,6 +762,12 @@ struct Engine {
     int32_t       recent_valence_sum;
     int32_t       recent_arousal_sum;
     uint8_t       recent_count;
+    uint8_t       cold_open_callback_source;     /* 0 none, 1 generic, 2 cartridge */
+    uint8_t       cold_open_callback_template_index;
+    uint8_t       cold_open_callback_exclusive;
+    uint8_t       _pad_cold_open_dbg;
+    uint16_t      cold_open_callback_topic;
+    uint16_t      cold_open_callback_memory_index;
 };
 
 /* ---------- public API ---------- */

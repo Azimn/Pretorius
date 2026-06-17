@@ -124,6 +124,12 @@ function words(text){
        `Pretorius does not become subordinate when interrupted: ${interruptReply}`);
     ok(state.actor_tagged_memories >= 1 || state.speech_event_count >= 1,
        `symbolic memory/ledger exists after planted session (actor_tags=${state.actor_tagged_memories}, speech_events=${state.speech_event_count})`);
+    ok(state.cold_open_callback_source === 2,
+       `cold open used cartridge-authored surface template (source=${state.cold_open_callback_source})`);
+    ok(state.cold_open_callback_exclusive === 1,
+       'cold open memory callback owns the whole turn');
+    ok(state.cold_open_callback_template_index < 255,
+       `cold open reports template index ${state.cold_open_callback_template_index}`);
 
     const continuityTerms = [
       'kiki', 'sparkly', 'slang', 'mind', 'code', 'physics',

@@ -52,6 +52,100 @@ Last known good gate after commit `41b8024`:
 
 ## Test Entries
 
+### 2026-06-17 - Cartridge-Authored Cold-Open Memory Surfaces
+
+Branch: `v6-phase5d-recall-modes`
+
+Renderer: `template`
+
+Provider/model: none
+
+Source change under test:
+
+- Preserved commit `35ed8f2` behavior: a meaningful same-actor cold-open memory callback owns the whole turn.
+- Added cartridge-authored cold-open memory surface templates to `Identity`.
+- Added four surface cases:
+  - name plus topic
+  - topic only
+  - name without topic
+  - no name and no topic
+- Added debug/state fields for inspection:
+  - `cold_open_callback_source`
+  - `cold_open_callback_template_index`
+  - `cold_open_callback_exclusive`
+  - `cold_open_callback_topic`
+  - `cold_open_callback_memory_index`
+- Kept generic engine fallback when a cartridge does not author the bank.
+- Fixed a latent authoring bug exposed by this pass: Pretorius had been expanded to nine fallback lines per tier, but `PE_FALLBACK_PER_TIER` was still six. The fixed cap is now nine.
+
+Why the prior composition fix stays intact:
+
+- The engine still decides the symbolic event:
+  - returning same actor
+  - meaningful episodic memory exists
+  - topic exists or does not exist
+  - actor name exists or does not exist
+- The cold-open callback still uses the exclusive resumption marker, so greeting, time-bucket resumption, offscreen autonomy, and memory callback are not concatenated.
+- The cartridge only supplies the final surface line. It does not decide whether the callback should happen.
+
+Before the composition fix:
+
+```text
+Back so soon, my boy? Sit. The bottle is still cold. Kiki, the old thread about homunculi has not left the table. Good morning, my boy. You arrive before the day has learned caution.
+```
+
+After `35ed8f2`, generic fallback:
+
+```text
+Kiki. The old thread about homunculi has not left the table.
+```
+
+After cartridge-authored surface templates:
+
+```text
+Kiki. Still circling homunculi, then?
+```
+
+Additional deterministic surface-test sample:
+
+```text
+Kiki. You left homunculi on the table, and I dislike unfinished specimens.
+```
+
+Generic fallback behavior:
+
+- Kiki currently has no cold-open surface bank.
+- When Kiki receives a same-actor cold-open memory callback, the engine uses the generic fallback.
+- Verified fallback sample:
+
+```text
+Jay. The old thread about entropy has not left the table.
+```
+
+Tests run during focused validation:
+
+```powershell
+make host cartridges
+make v6_cold_open_memory_realism_run
+make v6_cold_open_memory_surface_templates_run
+```
+
+Focused results:
+
+- `v6_cold_open_memory_realism_run`: pass.
+- `v6_cold_open_memory_surface_templates_run`: pass.
+- Pretorius cold-open source: `2` cartridge.
+- Kiki fallback cold-open source: `1` generic.
+- Both outputs stayed under 24 words.
+- Both outputs suppressed redundant greeting text.
+- Both outputs avoided database-ish and assistant-ish memory phrasing.
+
+Remaining polish issues:
+
+- Kiki should eventually get her own cold-open surface bank so her fallback does not sound Pretorius-adjacent.
+- The new state fields are diagnostic only. They should remain out of normal character dialogue.
+- Future Forge work should expose or validate this bank so imported characters can author their own memory-return style.
+
 ### 2026-06-14 - Offline Tier Pretorius Template Expansion And HTML Smoke
 
 Branch: `v6-phase5d-recall-modes`

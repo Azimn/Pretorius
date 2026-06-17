@@ -47,6 +47,7 @@ static int load_identity_section(const char *root, int is_cart, Identity *out){
     void *buf = NULL;
     size_t sz = 0;
     size_t v4_size = offsetof(Identity, current_preoccupations);
+    size_t v6_pre_cold_open_size = offsetof(Identity, cold_open_memory_templates);
     int rc;
     if (!out) return -1;
     memset(out, 0, sizeof(*out));
@@ -74,7 +75,7 @@ static int load_identity_section(const char *root, int is_cart, Identity *out){
         fclose(f);
         sz = (size_t)n;
     }
-    if (sz == sizeof(Identity) || sz == v4_size){
+    if (sz == sizeof(Identity) || sz == v6_pre_cold_open_size || sz == v4_size){
         memcpy(out, buf, sz);
         free(buf);
         return 0;
@@ -118,6 +119,77 @@ static uint16_t pe_neglected_want_index(const Engine *eng){
         }
     }
     return best_score >= 600u ? best : 0xFFFF;
+}
+
+static const char *pe_cold_open_address(const Engine *eng){
+    uint32_t modulus = pe_allow_intimate_address(eng) ? PE_ADDRESS_COUNT : 2u;
+    const char *address = eng->identity.address_user_as[
+        (eng->state.today_seed ^ eng->state.turn_count) % modulus
+    ];
+    return address[0] ? address : "my dear";
+}
+
+static size_t pe_append_token(char *dst, size_t cap, size_t pos, const char *s){
+    while (s && *s && pos + 1 < cap) dst[pos++] = *s++;
+    if (pos < cap) dst[pos] = 0;
+    return pos;
+}
+
+static void pe_fill_cold_open_surface(Engine *eng, const char *src,
+                                      const char *name, const char *topic,
+                                      const char *memory_summary,
+                                      char *out, size_t n){
+    size_t pos = 0;
+    const char *address = pe_cold_open_address(eng);
+    if (n > 0) out[0] = 0;
+    while (src && *src && pos + 1 < n){
+        if (!strncmp(src, "{name}", 6)){
+            pos = pe_append_token(out, n, pos, name ? name : "");
+            src += 6;
+        } else if (!strncmp(src, "{topic}", 7)){
+            pos = pe_append_token(out, n, pos, topic ? topic : "the matter");
+            src += 7;
+        } else if (!strncmp(src, "{address}", 9)){
+            pos = pe_append_token(out, n, pos, address);
+            src += 9;
+        } else if (!strncmp(src, "{memory_summary}", 16)){
+            pos = pe_append_token(out, n, pos,
+                                  memory_summary ? memory_summary : "");
+            src += 16;
+        } else {
+            out[pos++] = *src++;
+        }
+    }
+    if (pos < n) out[pos] = 0;
+}
+
+static int pe_pick_cold_open_surface(Engine *eng, int case_id,
+                                     const char *name, const char *topic,
+                                     const char *memory_summary,
+                                     uint16_t mem_index,
+                                     char *out, size_t n){
+    if (!eng || !out || n == 0 || case_id < 0 || case_id >= PE_COLD_OPEN_CASES)
+        return -1;
+    uint8_t available[PE_COLD_OPEN_VARIANTS];
+    uint8_t count = 0;
+    for (uint8_t i = 0; i < PE_COLD_OPEN_VARIANTS; ++i){
+        if (eng->identity.cold_open_memory_templates[case_id][i][0])
+            available[count++] = i;
+    }
+    if (count == 0) return -1;
+    uint32_t seed = eng->state.today_seed
+                  ^ eng->relation.user_hash
+                  ^ ((uint32_t)mem_index * 2654435761u)
+                  ^ (eng->state.turn_count * 2246822519u)
+                  ^ (uint32_t)case_id;
+    uint8_t pick_pos = (uint8_t)(seed % count);
+    uint8_t idx = available[pick_pos];
+    pe_fill_cold_open_surface(eng,
+        eng->identity.cold_open_memory_templates[case_id][idx],
+        name, topic, memory_summary, out, n);
+    eng->cold_open_callback_source = 2;
+    eng->cold_open_callback_template_index = idx;
+    return idx;
 }
 
 static void pe_update_character_wants(Engine *eng){
@@ -576,6 +648,11 @@ static void pe_prime_unprompted_memory(Engine *eng){
 
 static void pe_queue_resumption(Engine *eng, uint32_t real_gap_seconds){
     if (!eng || eng->relation.last_contact == 0) return;
+    eng->cold_open_callback_source = 0;
+    eng->cold_open_callback_template_index = 0xFFu;
+    eng->cold_open_callback_exclusive = 0;
+    eng->cold_open_callback_topic = 0xFFFFu;
+    eng->cold_open_callback_memory_index = 0xFFFFu;
     int bucket = -1;
     if (real_gap_seconds < 7200u) bucket = -1;
     else if (real_gap_seconds < 86400u) bucket = 0;
@@ -613,6 +690,7 @@ static void pe_queue_resumption(Engine *eng, uint32_t real_gap_seconds){
     }
     {
         const MemoryNode *best = NULL;
+        uint16_t best_index = 0xFFFFu;
         int best_score = -1;
         for (uint16_t pos = eng->memory.episodic_count; pos > 0; --pos){
             uint16_t i = (uint16_t)(pos - 1u);
@@ -628,6 +706,7 @@ static void pe_queue_resumption(Engine *eng, uint32_t real_gap_seconds){
             if (score > best_score){
                 best_score = score;
                 best = m;
+                best_index = i;
             }
         }
         if (best){
@@ -635,26 +714,42 @@ static void pe_queue_resumption(Engine *eng, uint32_t real_gap_seconds){
             const char *name = eng->relation.known_as[0]
                              ? eng->relation.known_as : NULL;
             const char *topic = topic_name_by_id(eng, best->topic_id);
-            if (topic && topic[0] && name)
-                snprintf(callback, sizeof(callback),
-                         "\x1F%s. The old thread about %s has not left the table.",
-                         name, topic);
-            else if (topic && topic[0])
-                snprintf(callback, sizeof(callback),
-                         "\x1FThe old thread about %s has not left the table.",
-                         topic);
-            else if (name)
-                snprintf(callback, sizeof(callback),
-                         "\x1F%s, you left a thread unfinished. I noticed.", name);
-            else
-                snprintf(callback, sizeof(callback),
-                         "\x1FYou left a thread unfinished. I noticed.");
+            int case_id = (topic && topic[0])
+                        ? (name ? 0 : 1)
+                        : (name ? 2 : 3);
+            if (pe_pick_cold_open_surface(eng, case_id, name, topic,
+                                          best->summary, best_index,
+                                          callback, sizeof(callback)) < 0){
+                eng->cold_open_callback_source = 1;
+                eng->cold_open_callback_template_index = 0xFFu;
+                if (topic && topic[0] && name)
+                    snprintf(callback, sizeof(callback),
+                             "\x1F%s. The old thread about %s has not left the table.",
+                             name, topic);
+                else if (topic && topic[0])
+                    snprintf(callback, sizeof(callback),
+                             "\x1FThe old thread about %s has not left the table.",
+                             topic);
+                else if (name)
+                    snprintf(callback, sizeof(callback),
+                             "\x1F%s, you left a thread unfinished. I noticed.", name);
+                else
+                    snprintf(callback, sizeof(callback),
+                             "\x1FYou left a thread unfinished. I noticed.");
+            } else {
+                char tmp[PE_RESUMPTION_LEN];
+                snprintf(tmp, sizeof(tmp), "\x1F%s", callback);
+                snprintf(callback, sizeof(callback), "%s", tmp);
+            }
 
             /* A meaningful same-actor memory owns the cold-open turn.  Do not
              * concatenate time-bucket resumption plus generic greeting plus
              * memory callback; that reads like stitched systems. */
             snprintf(eng->state.resumption_pending,
                      sizeof(eng->state.resumption_pending), "%s", callback);
+            eng->cold_open_callback_exclusive = 1;
+            eng->cold_open_callback_topic = best->topic_id;
+            eng->cold_open_callback_memory_index = best_index;
         }
     }
 }
