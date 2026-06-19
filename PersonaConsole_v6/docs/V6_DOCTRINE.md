@@ -636,6 +636,18 @@ for any character, not a Pretorius-specific runtime.
 
 ## Part VI — Pointer to practice
 
+## Phase 5d Implementation Status
+
+Current status against the Phase 5d planner-layer plan:
+
+| Item | Status | Evidence / next work |
+| --- | --- | --- |
+| Attention budget | Missing | Doctrine defines `attention_slots[4]`, but no canonical engine struct, state JSON exposure, or tests exist yet. Current situation packet has lightweight `user_act`, `pressure`, and `attend_before_open_loops`, but this is not the full bounded attention budget. |
+| Typed dissonance | Implemented | `dissonance.bin`, `pe_dissonance_t`, state JSON exposure, decay, persistence, and replay coverage exist. Current implementation still uses speech-act proxies rather than full cartridge-authored symbolic self ids. |
+| Impression management | Stubbed | Relation dimensions and prompt/stance pressure can express social posture, but no canonical `desired_impression` field or tested impression-management planner read exists yet. |
+| Refusal / withhold logging | Implemented | Speech ledger records `withhold_reason`; state JSON exposes `last_withhold_reason`; `withhold_logging_test.js` covers neutral, hostile, fatigue, and replay cases. `withheld_intent` remains mostly reserved and usually `PE_SA_NONE`. |
+| Private-thought frame | Stubbed | The web UI derives a visible current-thought string from engine state and open loops can bookmark half-spoken thoughts, but there is no canonical private-thought frame in Layer 1 yet. |
+
 Practice (Git workflow, build, test gates, cartridge artifacts, line
 endings, pre-push checklist) lives in `DEV_WORKFLOW.md` and is shared
 with V5. The doctrine binds; the practice supports it.

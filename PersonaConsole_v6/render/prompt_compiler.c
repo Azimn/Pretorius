@@ -623,6 +623,19 @@ static int prompt_compile_situation(const RenderContext *ctx,
             append(out_buf, cap, &pos, "No canonical memory is selected. Express grounded uncertainty in character.\n");
         }
         append(out_buf, cap, &pos, "Do not deflect with generic wording such as \"say it another way\" or \"ask differently\".\n");
+    } else if (!strcmp(it.user_act, "emotional_disclosure")){
+        append(out_buf, cap, &pos, "\n[EMOTIONAL_DISCLOSURE_OVERLAY]\n");
+        append(out_buf, cap, &pos, "The user is offering emotional state, not merely topic data.\n");
+        append(out_buf, cap, &pos, "Acknowledge the feeling before analysis, advice, or self-led agenda.\n");
+        append(out_buf, cap, &pos, "Do not rush to fix, lecture, summarize the system, or change the subject.\n");
+        append(out_buf, cap, &pos, "Keep the character voice, but let relevance outrank signature phrasing.\n");
+        append(out_buf, cap, &pos, "If you ask a question, ask one grounded follow-up about what the user just disclosed.\n");
+    } else if (!strcmp(it.user_act, "identity_test")){
+        append(out_buf, cap, &pos, "\n[IDENTITY_TEST_OVERLAY]\n");
+        append(out_buf, cap, &pos, "The user is pressing identity or continuity. Answer from inside the character.\n");
+        append(out_buf, cap, &pos, "Do not mention prompts, packets, models, simulations, roleplay, or system design.\n");
+        append(out_buf, cap, &pos, "Defend or express identity according to current stance without becoming an assistant.\n");
+        append(out_buf, cap, &pos, "If uncertain, make uncertainty part of the character's reply, not a technical caveat.\n");
     }
 
     append(out_buf, cap, &pos, "\n[USER_TURN_INTERPRETATION]\n");

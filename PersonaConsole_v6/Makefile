@@ -157,7 +157,8 @@ RENDER_HEADERS := \
         v6_packet_experiment_run v6_audit_rewrite_run v6_memory_probe_overlay_run \
         v6_wrong_addressee_repair_run v6_lore_act_fallback_run \
         v6_knowledge_bridge_run v6_knowledge_bridge_nonpretorius_run \
-        v6_knowledge_write_path_run v6_learned_knowledge_run \
+        v6_knowledge_write_path_run v6_knowledge_confirmation_escalation_run \
+        v6_situation_overlay_run v6_learned_knowledge_run \
         v7_api_run
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
@@ -601,6 +602,13 @@ v6_knowledge_bridge_nonpretorius_run: build/persona_host profiles/friendly/frien
 v6_knowledge_write_path_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/knowledge_write_path_test.js
+
+v6_knowledge_confirmation_escalation_run: build/learned_knowledge_test
+	./build/learned_knowledge_test
+
+v6_situation_overlay_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/situation_overlay_test.js
 
 build/learned_knowledge_test: tests/replay/learned_knowledge_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
 	$(CC) $(CFLAGS) tests/replay/learned_knowledge_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)

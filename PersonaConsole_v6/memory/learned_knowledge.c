@@ -88,6 +88,45 @@ static int status_promotion_rank(uint8_t status){
     }
 }
 
+static int is_high_authority_source(uint8_t src){
+    return src == PE_LK_SRC_CARTRIDGE ||
+           src == PE_LK_SRC_WORLD ||
+           src == PE_LK_SRC_USER ||
+           src == PE_LK_SRC_CHARACTER ||
+           src == PE_LK_SRC_SYSTEM ||
+           src == PE_LK_SRC_IMPORTED;
+}
+
+static void maybe_escalate_candidate(pe_lk_record_t *r,
+                                      const pe_lk_write_t *w,
+                                      uint32_t now_s){
+    if (!r || !w) return;
+    if (r->status != PE_LK_STATUS_CANDIDATE) return;
+    if (is_high_authority_source(w->source_type) &&
+        w->status >= PE_LK_STATUS_CONFIRMED){
+        r->status = PE_LK_STATUS_CONFIRMED;
+        r->source_type = w->source_type;
+        r->source_tier = w->source_tier;
+        r->source_actor_id = w->source_actor_id;
+        copy_str(r->source_actor_name, sizeof(r->source_actor_name),
+                 w->source_actor_name);
+        if (r->confidence < w->confidence) r->confidence = w->confidence;
+        if (r->authority_rank < w->authority_rank) r->authority_rank = w->authority_rank;
+        pe_lk_trace("promote", r, NULL, "higher_authority_vouch", r->record_id);
+        return;
+    }
+    if (r->source_type == PE_LK_SRC_MODEL &&
+        w->source_type == PE_LK_SRC_MODEL &&
+        w->status == PE_LK_STATUS_CANDIDATE &&
+        r->reinforcement_count >= 2u &&
+        now_s > r->created_at + 3600u){
+        r->status = PE_LK_STATUS_CONFIRMED;
+        if (r->confidence < 650u) r->confidence = 650u;
+        if (r->authority_rank < 35u) r->authority_rank = 35u;
+        pe_lk_trace("promote", r, NULL, "independent_model_evidence", r->record_id);
+    }
+}
+
 static uint32_t pick_slot(pe_learned_knowledge_t *lk){
     uint32_t count = lk->header.entry_count;
     uint32_t worst = 0;
@@ -123,6 +162,7 @@ uint32_t pe_lk_upsert(pe_learned_knowledge_t *lk,
             r->reinforcement_count++;
             if (w->confidence > r->confidence) r->confidence = w->confidence;
             if (w->authority_rank > r->authority_rank) r->authority_rank = w->authority_rank;
+            maybe_escalate_candidate(r, w, now_s);
             if (status_promotion_rank(w->status) > status_promotion_rank(r->status))
                 r->status = w->status;
             r->updated_at = now_s;

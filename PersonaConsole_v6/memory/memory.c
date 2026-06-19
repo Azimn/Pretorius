@@ -238,6 +238,46 @@ static int topic_is_obsession(const Engine *eng, uint16_t topic_id){
     return 0;
 }
 
+static void lower_text(char *dst, size_t cap, const char *src){
+    size_t i = 0;
+    if (!dst || cap == 0) return;
+    if (!src) src = "";
+    for (; src[i] && i + 1 < cap; ++i){
+        unsigned char c = (unsigned char)src[i];
+        dst[i] = (char)((c >= 'A' && c <= 'Z') ? (c + ('a' - 'A')) : c);
+    }
+    dst[i] = 0;
+}
+
+static const char *topic_name_for_id(const Engine *eng, uint16_t topic_id){
+    if (!eng || topic_id == 0xFFFFu) return "";
+    for (uint32_t i = 0; i < eng->topics.count; ++i)
+        if (eng->topics.topics[i].id == topic_id)
+            return eng->topics.topics[i].name;
+    return "";
+}
+
+static int learned_knowledge_recall_boost(const Engine *eng, const MemoryNode *m){
+    char summary[PE_MEM_SUMMARY_LEN];
+    char topic_name[PE_TOPIC_NAME];
+    if (!eng || !m) return 0;
+    lower_text(summary, sizeof(summary), m->summary);
+    lower_text(topic_name, sizeof(topic_name), topic_name_for_id(eng, m->topic_id));
+    for (uint32_t i = 0; i < eng->learned_knowledge.header.entry_count
+                        && i < PE_LK_RECORD_CAP; ++i){
+        const pe_lk_record_t *r = &eng->learned_knowledge.records[i];
+        if (!r->record_id || !r->topic_key[0]) continue;
+        if (r->status != PE_LK_STATUS_CONFIRMED &&
+            r->status != PE_LK_STATUS_CARTRIDGE_AUTHORED &&
+            r->status != PE_LK_STATUS_WORLD_AUTHORED)
+            continue;
+        if ((topic_name[0] && strstr(topic_name, r->topic_key)) ||
+            (summary[0] && strstr(summary, r->topic_key)))
+            return 70;
+    }
+    return 0;
+}
+
 void pe_associative_recall(Engine *eng, const EmotionVector *ev){
     eng->active_count = 0;
     eng->cold_scratch_count = 0;          /* v3.2: reset per-turn scratch */
@@ -303,6 +343,14 @@ void pe_associative_recall(Engine *eng, const EmotionVector *ev){
             uint32_t current_actor = eng->relation.user_hash;
             if (slot_actor != 0 && current_actor != 0 && slot_actor == current_actor){
                 match += 30;
+                if (match > 1000) match = 1000;
+            }
+        }
+
+        {
+            int lk_boost = learned_knowledge_recall_boost(eng, m);
+            if (lk_boost){
+                match += lk_boost;
                 if (match > 1000) match = 1000;
             }
         }

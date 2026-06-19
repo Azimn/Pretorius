@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+extern void pe_associative_recall(Engine *eng, const EmotionVector *ev);
+
 static int fails = 0;
 #define CHECK(cond, msg) do { \
     if (cond) printf("ok:   %s\n", msg); \
@@ -176,6 +178,106 @@ static void test_candidate_write_policy(void){
           "conflict resolution weights confidence and source quality over recency");
 }
 
+static void test_confirmation_escalation(void){
+    pe_learned_knowledge_t lk;
+    pe_lk_init(&lk);
+    uint32_t id = upsertW(&lk, "optics",
+        "A lens bends light by refraction.",
+        PE_LK_SCOPE_REAL_WORLD, PE_LK_SRC_MODEL, PE_LK_TIER_SLM,
+        PE_LK_STATUS_CANDIDATE, 20, 420, 0, 0, 100);
+    upsertW(&lk, "optics",
+        "A lens bends light by refraction.",
+        PE_LK_SCOPE_REAL_WORLD, PE_LK_SRC_MODEL, PE_LK_TIER_SLM,
+        PE_LK_STATUS_CANDIDATE, 20, 430, 0, 0, 200);
+    const pe_lk_record_t *best = pe_lk_resolve(&lk, "optics",
+        PE_LK_SCOPE_REAL_WORLD, 0, NULL);
+    CHECK(id != 0 && best && best->status == PE_LK_STATUS_CANDIDATE,
+          "single-session model repetition does not confirm a candidate");
+    upsertW(&lk, "optics",
+        "A lens bends light by refraction.",
+        PE_LK_SCOPE_REAL_WORLD, PE_LK_SRC_MODEL, PE_LK_TIER_SLM,
+        PE_LK_STATUS_CANDIDATE, 20, 440, 0, 0, 5000);
+    best = pe_lk_resolve(&lk, "optics", PE_LK_SCOPE_REAL_WORLD, 0, NULL);
+    CHECK(best && best->status == PE_LK_STATUS_CONFIRMED,
+          "independent model evidence across sessions can confirm candidate");
+
+    pe_lk_init(&lk);
+    upsertW(&lk, "botany", "Leaves use chlorophyll in photosynthesis.",
+        PE_LK_SCOPE_REAL_WORLD, PE_LK_SRC_MODEL, PE_LK_TIER_SLM,
+        PE_LK_STATUS_CANDIDATE, 20, 420, 0, 0, 100);
+    upsertW(&lk, "botany", "Leaves use chlorophyll in photosynthesis.",
+        PE_LK_SCOPE_REAL_WORLD, PE_LK_SRC_CHARACTER, PE_LK_TIER_OFFLINE,
+        PE_LK_STATUS_CONFIRMED, 75, 830, 222, 0, 120);
+    best = pe_lk_resolve(&lk, "botany", PE_LK_SCOPE_REAL_WORLD, 0, NULL);
+    CHECK(best && best->status == PE_LK_STATUS_CONFIRMED &&
+          best->source_type == PE_LK_SRC_CHARACTER,
+          "higher-authority vouch can promote existing candidate without new fields");
+}
+
+static void init_recall_memory(MemoryNode *m, const char *summary,
+                               uint16_t topic, uint8_t salience){
+    memset(m, 0, sizeof(*m));
+    m->id = topic;
+    m->salience = salience;
+    m->emotion.valence = 0;
+    m->emotion.arousal = 40;
+    m->emotion.dominance = 0;
+    m->retrieval_prob = 255;
+    m->memory_type = MEM_EPISODIC;
+    m->timestamp = persona_now_ms();
+    m->topic_id = topic;
+    snprintf(m->summary, sizeof(m->summary), "%s", summary);
+}
+
+static void test_learned_knowledge_recall_priority(void){
+    Engine eng;
+    EmotionVector ev = {0, 40, 0, 0};
+    pe_lk_write_t w;
+    memset(&eng, 0, sizeof(eng));
+    pe_lk_init(&eng.learned_knowledge);
+    eng.memory.episodic_count = 2;
+    eng.memory.next_memory_id = 3;
+    eng.topics.count = 2;
+    eng.topics.topics[0].id = 10;
+    snprintf(eng.topics.topics[0].name, sizeof(eng.topics.topics[0].name), "electricity");
+    eng.topics.topics[1].id = 11;
+    snprintf(eng.topics.topics[1].name, sizeof(eng.topics.topics[1].name), "opera");
+    init_recall_memory(&eng.memory.episodic[0],
+        "An old opera memory with matching affect.", 11, 120);
+    init_recall_memory(&eng.memory.episodic[1],
+        "A lab memory about electricity and the wire.", 10, 120);
+    eng.state.rng_state = 1;
+    pe_associative_recall(&eng, &ev);
+    CHECK(eng.active_count >= 2 && eng.active_memories[0] == 0,
+          "without learned boost earlier equal memory remains first");
+
+    memset(&w, 0, sizeof(w));
+    w.topic_key = "electricity";
+    w.claim_text = "Confirmed electricity knowledge exists.";
+    w.scope = PE_LK_SCOPE_REAL_WORLD;
+    w.source_type = PE_LK_SRC_USER;
+    w.source_tier = PE_LK_TIER_OFFLINE;
+    w.status = PE_LK_STATUS_CONFIRMED;
+    w.authority_rank = 80;
+    w.confidence = 900;
+    pe_lk_upsert(&eng.learned_knowledge, &w, 100);
+    eng.state.rng_state = 1;
+    pe_associative_recall(&eng, &ev);
+    CHECK(eng.active_count >= 2 && eng.active_memories[0] == 1,
+          "confirmed learned topic raises linked episodic memory priority");
+
+    pe_lk_init(&eng.learned_knowledge);
+    w.status = PE_LK_STATUS_CANDIDATE;
+    w.source_type = PE_LK_SRC_MODEL;
+    w.authority_rank = 20;
+    w.confidence = 420;
+    pe_lk_upsert(&eng.learned_knowledge, &w, 100);
+    eng.state.rng_state = 1;
+    pe_associative_recall(&eng, &ev);
+    CHECK(eng.active_count >= 2 && eng.active_memories[0] == 0,
+          "candidate learned topic does not influence episodic recall priority");
+}
+
 static void test_sources_scopes_and_conflicts(void){
     pe_learned_knowledge_t lk;
     pe_lk_init(&lk);
@@ -285,6 +387,8 @@ int main(void){
     test_authority_and_corrections();
     test_bridge_graph_scenarios();
     test_candidate_write_policy();
+    test_confirmation_escalation();
+    test_learned_knowledge_recall_priority();
     test_sources_scopes_and_conflicts();
     test_dispute_reinforcement_capacity_and_persistence();
     test_load_save_and_corruption();
