@@ -144,22 +144,24 @@ Do not collapse this into one vague quality score. The point is to see which fai
 - Render audit and lore audit remain active.
 - Template mode remains the canonical low-hardware default.
 
-## Knowledge Bridge Experiment
+## Learned Knowledge Bridge
 
-The first learned-knowledge bridge is intentionally narrow. It proves the
-cross-tier loop without turning renderer prose into memory:
+The first learned-knowledge bridge is intentionally narrow, but it now uses
+the production `learned_knowledge.bin` sidecar rather than prefix-parsed
+episodic cards. It proves the cross-tier loop without turning renderer prose
+into memory:
 
 1. Kiki asks Pretorius a technical electricity question in SLM mode.
 2. The model gives a provisional explanation.
 3. Kiki corrects the explanation.
-4. Layer 1 writes compact `[learned:...]` memory cards, not raw model prose.
+4. Layer 1 writes compact learned-knowledge records, not raw model prose.
 5. The same profile reopens in template-only mode.
 6. Pretorius answers the related electricity question from the corrected card.
 
 Current rule:
 
-- `[learned:model]` is provisional renderer-assisted knowledge.
-- `[learned:user_confirmed]` outranks model-derived knowledge.
+- `source_type=model` plus `status=provisional` is renderer-assisted knowledge.
+- `source_type=user` plus `status=confirmed` outranks model-derived knowledge.
 - Offline/template mode may use a learned card, but renderer prose itself is
   still not canonical memory.
 

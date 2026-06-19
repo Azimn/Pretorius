@@ -762,8 +762,9 @@ Turns:
 
 What changed:
 
-- Added compact learned-knowledge cards in episodic memory using `[learned:model]` and `[learned:user_confirmed]` prefixes.
-- Added a narrow electricity probe path that can answer from learned cards in template-only mode.
+- Promoted compact learned knowledge out of episodic prefix cards and into `learned_knowledge.bin`.
+- Added record provenance, authority, confidence, status, scope, and correction links.
+- Added a narrow electricity probe path that can answer from learned records in template-only mode.
 - User-confirmed knowledge outranks provisional model-derived knowledge.
 
 Metrics:
@@ -773,6 +774,8 @@ Metrics:
 | mock SLM calls | 2 |
 | SLM provisional wrong claim recorded | yes |
 | Kiki correction recorded | yes |
+| learned sidecar written | yes |
+| legacy `[learned:...]` episodic cards used | no |
 | offline/template recall used correction | yes |
 | offline repeated provisional wrong claim | no |
 | raw renderer prose stored as canon | no |
@@ -795,9 +798,9 @@ What failed or felt fake:
 
 Engine-level implications:
 
-- Learned knowledge should be separate from emotional/relationship memory, even if this probe currently stores compact cards in the episodic ring.
+- Learned knowledge is now separate from emotional/relationship memory.
 - Provenance matters: model-derived, user-confirmed, disputed, and cartridge-authored knowledge need explicit status.
-- The next real version should likely move this out of free-text prefixes into a tiny fixed-size sidecar.
+- The sidecar gives the future rhythm layer a stable substrate instead of asking it to scrape prose.
 
 Cartridge/profile implications:
 

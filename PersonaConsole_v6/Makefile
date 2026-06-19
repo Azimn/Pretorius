@@ -70,7 +70,8 @@ MEMORY_SRC := \
     memory/relation_dims.c   \
     memory/dissonance.c       \
     memory/open_loops.c       \
-    memory/speech_habits.c
+    memory/speech_habits.c    \
+    memory/learned_knowledge.c
 
 SCHEMA_SRC := \
     schema/schema_state.c
@@ -140,7 +141,7 @@ CORE_HEADERS := \
 MEMORY_HEADERS := \
     memory/aether.h memory/aether_internal.h memory/lsh_memory.h \
     memory/consolidate.h memory/reflection.h memory/recall_plasticity.h
-MEMORY_HEADERS += memory/speech_habits.h
+MEMORY_HEADERS += memory/speech_habits.h memory/learned_knowledge.h
 RENDER_HEADERS := \
     render/templates/ngram_lm.h render/templates/mutator.h
 
@@ -155,7 +156,7 @@ RENDER_HEADERS := \
         v6_cold_open_memory_realism_run v6_cold_open_memory_surface_templates_run \
         v6_packet_experiment_run v6_audit_rewrite_run v6_memory_probe_overlay_run \
         v6_wrong_addressee_repair_run v6_lore_act_fallback_run \
-        v6_knowledge_bridge_run \
+        v6_knowledge_bridge_run v6_learned_knowledge_run \
         v7_api_run
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
@@ -591,6 +592,12 @@ v6_lore_act_fallback_run: build/persona_host profiles/pretorius/pretorius.cart
 v6_knowledge_bridge_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/knowledge_bridge_test.js
+
+build/learned_knowledge_test: tests/replay/learned_knowledge_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) tests/replay/learned_knowledge_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+v6_learned_knowledge_run: build/learned_knowledge_test
+	./build/learned_knowledge_test
 
 v6_demo_pack_battery_run: build/persona_host cartridges
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }

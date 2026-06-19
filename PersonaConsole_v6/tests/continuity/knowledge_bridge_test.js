@@ -142,6 +142,10 @@ function parseRows(stdout){
   const offChat = offRows.find(r => Object.prototype.hasOwnProperty.call(r, "reply")) || {};
   const firstReply = slmChats[0] && slmChats[0].reply || "";
   const offlineReply = offChat.reply || "";
+  const profileDir = path.dirname(cart);
+  const learnedPath = path.join(profileDir, "learned_knowledge.bin");
+  const memoryPath = path.join(profileDir, "memory.bin");
+  const memoryBytes = fs.existsSync(memoryPath) ? fs.readFileSync(memoryPath) : Buffer.alloc(0);
 
   function ok(cond, msg){
     if (cond) console.log(`ok:   ${msg}`);
@@ -151,6 +155,11 @@ function parseRows(stdout){
   ok(mock.count() === 2, `SLM phase used mock model for two accepted turns (${mock.count()})`);
   ok(/positive charge/i.test(firstReply),
      `first SLM answer contained the wrong/provisional claim: ${firstReply}`);
+  ok(fs.existsSync(learnedPath) && fs.statSync(learnedPath).size > 1024,
+     "learned_knowledge.bin sidecar was written");
+  ok(!memoryBytes.includes(Buffer.from("[learned:model]")) &&
+     !memoryBytes.includes(Buffer.from("[learned:user_confirmed]")),
+     "legacy prefix-parsed learned cards are not stored in episodic memory");
   ok(/electrons/i.test(offlineReply),
      `offline reply uses Kiki's taught correction: ${offlineReply}`);
   ok(/potential difference|resistance|impedes/i.test(offlineReply),

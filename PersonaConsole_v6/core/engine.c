@@ -586,6 +586,7 @@ static int pe_output_label_audit_pass(const char *out);
 static int pe_self_repeat_audit_pass(const char *out);
 static int pe_fatigue_audit_pass(const CanonicalTurnFrame *f, const char *out);
 static int pe_addressee_audit_pass(const Engine *eng, const char *out);
+static int pe_text_mentions_electricity(const char *text);
 
 static uint8_t pe_render_audit_violation(const CanonicalTurnFrame *f, const char *out){
     char low[PE_RENDER_MAX_TEXT];
@@ -635,6 +636,10 @@ static uint8_t pe_audit_evaluate(const Engine *eng,
     uint8_t v = pe_render_audit_violation(&eng->frame, out);
     if (v == PE_AUDIT_V_META) return v;
     if (renderer_output && !pe_lore_audit_pass(eng, input, out)) return PE_AUDIT_V_LORE;
+    if (renderer_output && pe_text_mentions_electricity(input)
+        && pe_lk_output_repeats_corrected_claim(&eng->learned_knowledge,
+                                                out, "electricity"))
+        return PE_AUDIT_V_LORE;
     if (renderer_output && !pe_copy_audit_pass(input, out)) return PE_AUDIT_V_COPY;
     if (renderer_output && !pe_output_label_audit_pass(out)) return PE_AUDIT_V_OUTPUT_LABEL;
     if (renderer_output && !pe_addressee_audit_pass(eng, out)) return PE_AUDIT_V_ADDRESSEE;
@@ -1127,40 +1132,18 @@ static int pe_text_teaches_electricity(const char *text){
         || strstr(low, "moving charges are electrons");
 }
 
-static int pe_has_learned_knowledge(const Engine *eng,
-                                    const char *topic,
-                                    int user_confirmed_only){
-    char needle[64];
+static uint32_t pe_lk_latest_record_for_topic(const Engine *eng,
+                                              const char *topic,
+                                              uint8_t status){
     if (!eng || !topic || !topic[0]) return 0;
-    snprintf(needle, sizeof(needle), "[%s]", topic);
-    for (uint16_t i = 0; i < eng->memory.episodic_count; ++i){
-        const MemoryNode *m = &eng->memory.episodic[i];
-        if (!m->summary[0]) continue;
-        if (user_confirmed_only
-            && strncmp(m->summary, "[learned:user_confirmed]", 24))
-            continue;
-        if (!strncmp(m->summary, "[learned:", 9)
-            && strstr(m->summary, needle))
-            return 1;
+    for (uint32_t i = 0; i < eng->learned_knowledge.header.entry_count
+                        && i < PE_LK_RECORD_CAP; ++i){
+        const pe_lk_record_t *r = &eng->learned_knowledge.records[i];
+        if (!r->record_id || strcmp(r->topic_key, topic)) continue;
+        if (status && r->status != status) continue;
+        return r->record_id;
     }
     return 0;
-}
-
-static const MemoryNode *pe_find_learned_knowledge(const Engine *eng,
-                                                   const char *topic){
-    char needle[64];
-    const MemoryNode *provisional = NULL;
-    if (!eng || !topic || !topic[0]) return NULL;
-    snprintf(needle, sizeof(needle), "[%s]", topic);
-    for (uint16_t i = eng->memory.episodic_count; i > 0; --i){
-        const MemoryNode *m = &eng->memory.episodic[i - 1u];
-        if (!m->summary[0] || !strstr(m->summary, needle)) continue;
-        if (!strncmp(m->summary, "[learned:user_confirmed]", 24))
-            return m;
-        if (!provisional && !strncmp(m->summary, "[learned:model]", 15))
-            provisional = m;
-    }
-    return provisional;
 }
 
 static void pe_maybe_commit_learned_knowledge(Engine *eng,
@@ -1170,46 +1153,83 @@ static void pe_maybe_commit_learned_knowledge(Engine *eng,
                                               const EmotionVector *ev){
     EmotionVector kev = { +8, 32, +12, 0 };
     const char *speaker;
-    char summary[PE_MEM_SUMMARY_LEN];
+    pe_lk_write_t w;
+    uint32_t old_id = 0;
     if (!eng || !input) return;
     speaker = eng->relation.known_as[0] ? eng->relation.known_as : "the user";
     if (pe_text_teaches_electricity(input)){
-        if (pe_has_learned_knowledge(eng, "electricity", 1)) return;
-        snprintf(summary, sizeof(summary),
-                 "[learned:user_confirmed] [electricity] %s taught: metal-wire current is drifting electrons; voltage is potential difference.",
-                 speaker);
-        pe_commit_memory(eng, summary, ev ? ev : &kev, 0xFFFFu, 210, 0);
+        old_id = pe_lk_latest_record_for_topic(eng, "electricity",
+                                               PE_LK_STATUS_PROVISIONAL);
+        memset(&w, 0, sizeof(w));
+        w.topic_key = "electricity";
+        w.claim_text = "In metal wires, current is mostly electrons drifting through a conductor; voltage is electric potential difference; resistance impedes flow.";
+        w.scope = PE_LK_SCOPE_REAL_WORLD;
+        w.source_type = PE_LK_SRC_USER;
+        w.source_tier = PE_LK_TIER_OFFLINE;
+        w.status = PE_LK_STATUS_CONFIRMED;
+        w.authority_rank = 80;
+        w.confidence = 880;
+        w.source_actor_id = eng->relation.user_hash;
+        w.source_actor_name = speaker;
+        w.correction_of_record_id = old_id;
+        pe_lk_upsert(&eng->learned_knowledge, &w, pe_clock_now_s());
+        pe_lk_record_edge(&eng->learned_knowledge,
+                          pe_lk_latest_record_for_topic(eng, "electricity",
+                                                        PE_LK_STATUS_CONFIRMED),
+                          PE_LK_EDGE_TAUGHT_BY,
+                          eng->relation.user_hash ? eng->relation.user_hash : 1u,
+                          700, 200, pe_clock_now_s());
+        pe_commit_memory(eng, "Kiki corrected the electricity explanation.",
+                         ev ? ev : &kev, 0xFFFFu, 90, 0);
         return;
     }
     if (!renderer_output || !final_output || !pe_text_mentions_electricity(input))
         return;
-    if (pe_has_learned_knowledge(eng, "electricity", 0)) return;
+    if (pe_lk_latest_record_for_topic(eng, "electricity", 0)) return;
+    memset(&w, 0, sizeof(w));
+    w.topic_key = "electricity";
+    w.scope = PE_LK_SCOPE_REAL_WORLD;
+    w.source_type = PE_LK_SRC_MODEL;
+    w.source_tier = PE_LK_TIER_SLM;
+    w.status = PE_LK_STATUS_PROVISIONAL;
+    w.authority_rank = 20;
+    w.confidence = 420;
+    w.source_actor_id = 0;
+    w.source_actor_name = "renderer";
     if (strstr(final_output, "positive charge")){
-        snprintf(summary, sizeof(summary),
-                 "[learned:model] [electricity] model claimed: electricity is positive charge flow; voltage pushes it; resistance slows it.");
+        w.claim_text = "Model claimed electricity is positive charge flow through a wire; voltage pushes it; resistance slows it.";
     } else if (pe_text_mentions_electricity(final_output)){
-        snprintf(summary, sizeof(summary),
-                 "[learned:model] [electricity] model claimed: electricity is charge motion; voltage drives current; resistance opposes flow.");
+        w.claim_text = "Model claimed electricity is charge motion; voltage drives current; resistance opposes flow.";
     } else {
         return;
     }
-    pe_commit_memory(eng, summary, ev ? ev : &kev, 0xFFFFu, 160, 0);
+    pe_lk_upsert(&eng->learned_knowledge, &w, pe_clock_now_s());
 }
 
 static int pe_try_learned_knowledge_answer(Engine *eng,
                                            const char *input,
                                            char *out,
                                            size_t n){
-    const MemoryNode *m;
+    const pe_lk_record_t *r;
+    int ambiguous = 0;
     if (!eng || !input || !out || n == 0) return 0;
     if (!pe_text_mentions_electricity(input)) return 0;
     if (eng->input_class != 3 && !strchr(input, '?')) return 0;
-    m = pe_find_learned_knowledge(eng, "electricity");
-    if (!m) return 0;
-    if (!strncmp(m->summary, "[learned:user_confirmed]", 24)){
+    r = pe_lk_resolve(&eng->learned_knowledge, "electricity",
+                      PE_LK_SCOPE_REAL_WORLD, eng->relation.user_hash,
+                      &ambiguous);
+    if (!r) return 0;
+    pe_lk_mark_used(&eng->learned_knowledge, r->record_id, pe_clock_now_s());
+    if (ambiguous || r->status == PE_LK_STATUS_DISPUTED || r->confidence < 350u){
+        snprintf(out, n,
+                 "I have a disputed note on electricity, not certainty. The useful question is which part you mean: charge, voltage, current, or resistance?");
+    } else if (r->source_type == PE_LK_SRC_USER ||
+               r->status == PE_LK_STATUS_CONFIRMED ||
+               r->status == PE_LK_STATUS_WORLD_AUTHORED ||
+               r->status == PE_LK_STATUS_CARTRIDGE_AUTHORED){
         snprintf(out, n,
                  "What Kiki corrected is the better account: in a metal wire, current is mostly electrons drifting through a conductor. Voltage is electric potential difference; resistance impedes the flow.");
-    } else if (strstr(m->summary, "positive charge")){
+    } else if (strstr(r->claim_text, "positive charge")){
         snprintf(out, n,
                  "The provisional note says electricity is positive charge flow, with voltage pushing and resistance slowing it. I would not call that settled.");
     } else {
@@ -1783,6 +1803,8 @@ int persona_open(Engine *eng, const char *character_dir){
     pe_open_loops_load(&eng->open_loops, eng->char_dir);
     /* V6 Phase 6: lightweight rhythm habits sidecar. */
     pe_speech_habits_load(&eng->speech_habits, eng->char_dir);
+    /* V6: learned-knowledge graph sidecar. Missing/corrupt loads empty. */
+    pe_lk_load(&eng->learned_knowledge, eng->char_dir);
 
     if (!had_state) {
         seed_drives(eng);
@@ -1928,6 +1950,7 @@ int persona_save(Engine *eng){
     pe_dissonance_save(&eng->dissonance, eng->char_dir);
     pe_open_loops_save(&eng->open_loops, eng->char_dir);
     pe_speech_habits_save(&eng->speech_habits, eng->char_dir);
+    pe_lk_save(&eng->learned_knowledge, eng->char_dir);
     pe_save_relation(eng);
     /* v3.1: chapters — non-fatal if write fails (re-crystallised on next load) */
     pe_path_join(p, sizeof(p), eng->char_dir, "chapters.bin");

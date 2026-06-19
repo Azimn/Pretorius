@@ -357,6 +357,48 @@ static const char *topic_name_lookup(const Engine *eng, uint16_t topic_id){
     return NULL;
 }
 
+static int input_mentions_lk_topic(const char *user_input, const char *topic){
+    char low[512];
+    char t[PE_LK_TOPIC_LEN];
+    size_t i;
+    if (!user_input || !topic || !topic[0]) return 0;
+    for (i = 0; user_input[i] && i + 1 < sizeof(low); ++i)
+        low[i] = (char)tolower((unsigned char)user_input[i]);
+    low[i] = 0;
+    for (i = 0; topic[i] && i + 1 < sizeof(t); ++i)
+        t[i] = (char)tolower((unsigned char)topic[i]);
+    t[i] = 0;
+    return strstr(low, t) != NULL;
+}
+
+static void append_learned_knowledge_block(const Engine *eng,
+                                           const char *user_input,
+                                           char *out_buf,
+                                           int cap,
+                                           int *pos){
+    int shown = 0;
+    if (!eng || !out_buf || !pos) return;
+    for (uint32_t i = 0; i < eng->learned_knowledge.header.entry_count
+                        && i < PE_LK_RECORD_CAP && shown < 4; ++i){
+        const pe_lk_record_t *r = &eng->learned_knowledge.records[i];
+        if (!r->record_id || !r->topic_key[0] || !r->claim_text[0]) continue;
+        if (r->status == PE_LK_STATUS_DEPRECATED ||
+            r->status == PE_LK_STATUS_CORRECTED) continue;
+        if (!input_mentions_lk_topic(user_input, r->topic_key) && shown > 0)
+            continue;
+        if (!shown) append(out_buf, cap, pos, "\n[LEARNED_KNOWLEDGE]\n");
+        append(out_buf, cap, pos,
+               "record_%d topic=%s status=%s confidence=%u source=%s scope=%s claim=%.150s\n",
+               shown, r->topic_key, pe_lk_status_name(r->status),
+               (unsigned)r->confidence, pe_lk_source_name(r->source_type),
+               pe_lk_scope_name(r->scope), r->claim_text);
+        ++shown;
+    }
+    if (shown)
+        append(out_buf, cap, pos,
+               "Use confirmed or authored learned knowledge as constraints. Treat provisional or disputed knowledge as uncertain. Do not revive corrected/deprecated claims.\n");
+}
+
 static void append_tiny_examples(const Engine *eng, char *buf, int cap, int *pos){
     const char *who = (eng && eng->identity.character_name[0])
                     ? eng->identity.character_name : "{{char}}";
@@ -541,6 +583,8 @@ static int prompt_compile_situation(const RenderContext *ctx,
     }
     append(out_buf, cap, &pos, "Use memory as motive or continuity, not as a quoted database record.\n");
 
+    append_learned_knowledge_block(eng, user_input, out_buf, cap, &pos);
+
     if (!strcmp(it.user_act, "memory_probe")){
         append(out_buf, cap, &pos, "\n[MEMORY_PROBE_OVERLAY]\n");
         append(out_buf, cap, &pos, "The user is asking whether continuity exists. This is high priority.\n");
@@ -694,6 +738,8 @@ int prompt_compile_with_input(const RenderContext *ctx,
             append(out_buf, cap, &pos, "core=%.86s\n", m->summary);
         }
     }
+
+    append_learned_knowledge_block(eng, user_input, out_buf, cap, &pos);
 
     /* ----- [INTENT] ----- */
     if (cfg->include_intent && ctx->plan && eng){
