@@ -104,6 +104,20 @@ Allowed write paths:
 
 Renderer prose cannot directly become confirmed knowledge. The renderer may trigger a provisional candidate through explicit engine policy, but user or world authority must promote or correct it.
 
+## SLM-to-Candidate Write Path
+
+The next write path should use the existing fields rather than adding schema:
+
+1. The renderer produces a response.
+2. Layer 1 extracts a possible factual claim only if the turn is in an allowed knowledge context, such as direct explanation, correction, or explicit teaching.
+3. The hallucination firewall and render/lore audit inspect the claim before storage.
+4. Passing model claims are written as learned records with `source_type=model`, `source_tier=slm` or `frontier`, `status=provisional`, modest `confidence`, and low `authority_rank`.
+5. Failing claims are not written, except as rejected trace rows.
+6. A later user, character, cartridge, or world authority can confirm, correct, dispute, or deprecate the candidate.
+7. Promotion to confirmed knowledge requires a non-model authority or explicit project policy. The model alone does not confirm itself.
+
+This follows the existing firewall pattern: generated text may become an inspectable candidate event, but it cannot directly rewrite identity or confirmed memory. The current schema already has the required status, confidence, authority, source, scope, correction, and evidence fields.
+
 ## Offline Retrieval
 
 Template mode can resolve learned knowledge without an LLM. Retrieval uses:

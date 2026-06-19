@@ -21,7 +21,8 @@ const { resolveHost } = require("../host_path");
 
 const ROOT = path.join(__dirname, "..", "..");
 const HOST = resolveHost(ROOT);
-const SRC_CART = path.join(ROOT, "profiles", "pretorius", "pretorius.cart");
+const PROFILE = process.env.PE_KNOWLEDGE_BRIDGE_PROFILE || "pretorius";
+const SRC_CART = path.join(ROOT, "profiles", PROFILE, `${PROFILE}.cart`);
 
 function copyDir(src, dst){
   fs.mkdirSync(dst, { recursive: true });
@@ -36,9 +37,9 @@ function copyDir(src, dst){
 
 function makeTempProfile(){
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "persona-knowledge-bridge-"));
-  const profile = path.join(dir, "pretorius");
+  const profile = path.join(dir, PROFILE);
   copyDir(path.dirname(SRC_CART), profile);
-  return path.join(profile, "pretorius.cart");
+  return path.join(profile, `${PROFILE}.cart`);
 }
 
 function makeMock(){
@@ -96,6 +97,10 @@ function parseRows(stdout){
 (async function main(){
   let fail = 0;
   if (!fs.existsSync(HOST)) { console.error("persona_host not built"); process.exit(2); }
+  if (!fs.existsSync(SRC_CART)) {
+    console.error(`source cart not found for profile '${PROFILE}': ${SRC_CART}`);
+    process.exit(2);
+  }
   const cart = makeTempProfile();
   const mock = makeMock();
   await new Promise(r => mock.server.listen(0, "127.0.0.1", r));
@@ -152,7 +157,7 @@ function parseRows(stdout){
     else { console.error(`FAIL: ${msg}`); fail++; }
   }
 
-  ok(mock.count() === 2, `SLM phase used mock model for two accepted turns (${mock.count()})`);
+  ok(mock.count() === 2, `${PROFILE} SLM phase used mock model for two accepted turns (${mock.count()})`);
   ok(/positive charge/i.test(firstReply),
      `first SLM answer contained the wrong/provisional claim: ${firstReply}`);
   ok(fs.existsSync(learnedPath) && fs.statSync(learnedPath).size > 1024,
@@ -170,5 +175,5 @@ function parseRows(stdout){
      `offline reply is not system/meta phrasing: ${offlineReply}`);
 
   if (fail) process.exit(1);
-  console.log("PASSED -- LLM-taught knowledge bridges into offline corrected recall");
+  console.log(`PASSED -- ${PROFILE} LLM-taught knowledge bridges into offline corrected recall`);
 })().catch(e => { console.error(e && e.stack ? e.stack : String(e)); process.exit(2); });

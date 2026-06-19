@@ -66,6 +66,82 @@ static void test_authority_and_corrections(void){
           "audit helper catches repeated corrected claim");
 }
 
+static void test_bridge_graph_scenarios(void){
+    pe_learned_knowledge_t lk;
+    pe_lk_init(&lk);
+
+    uint32_t weak = upsertW(&lk, "sterilization",
+        "The model claimed heat always sterilizes instantly.",
+        PE_LK_SCOPE_REAL_WORLD, PE_LK_SRC_MODEL, PE_LK_TIER_SLM,
+        PE_LK_STATUS_PROVISIONAL, 20, 420, 0, 0, 10);
+    uint32_t correction = upsertW(&lk, "sterilization",
+        "Kiki corrected that sterilization depends on temperature, exposure time, and organism resistance.",
+        PE_LK_SCOPE_REAL_WORLD, PE_LK_SRC_USER, PE_LK_TIER_OFFLINE,
+        PE_LK_STATUS_CONFIRMED, 82, 910, 111, weak, 11);
+    int amb = 0;
+    const pe_lk_record_t *best = pe_lk_resolve(&lk, "sterilization",
+        PE_LK_SCOPE_REAL_WORLD, 111, &amb);
+    CHECK(best && best->record_id == correction && !amb,
+          "correction edge scenario resolves to corrected technical claim");
+    CHECK(lk.records[0].status == PE_LK_STATUS_CORRECTED &&
+          lk.records[0].contradiction_count == 1,
+          "corrected model claim remains as downgraded provenance");
+    CHECK(lk.edge_count >= 1 &&
+          lk.edges[0].source_record_id == correction &&
+          lk.edges[0].target_record_id == weak &&
+          lk.edges[0].relation_type == PE_LK_EDGE_CORRECTS,
+          "correction edge points from replacement claim to older claim");
+
+    uint32_t evidence = upsertW(&lk, "lab_note_22",
+        "Lab note 22 records that the coil warmed under load.",
+        PE_LK_SCOPE_PRIVATE_CHARACTER_BELIEF, PE_LK_SRC_CHARACTER,
+        PE_LK_TIER_OFFLINE, PE_LK_STATUS_CONFIRMED, 65, 760, 0, 0, 20);
+    uint32_t supported = upsertW(&lk, "coil_behavior",
+        "The coil can warm under load.",
+        PE_LK_SCOPE_REAL_WORLD, PE_LK_SRC_CHARACTER, PE_LK_TIER_OFFLINE,
+        PE_LK_STATUS_CONFIRMED, 68, 780, 0, 0, 21);
+    pe_lk_record_edge(&lk, supported, PE_LK_EDGE_EVIDENCED_BY,
+                      evidence, 700, 200, 21);
+    pe_lk_record_edge(&lk, evidence, PE_LK_EDGE_SUPPORTS,
+                      supported, 700, 200, 21);
+    best = pe_lk_resolve(&lk, "coil_behavior", PE_LK_SCOPE_REAL_WORLD, 0, &amb);
+    CHECK(best && best->record_id == supported,
+          "evidence support scenario resolves supported claim");
+    {
+        int saw_evidence = 0, saw_support = 0;
+        for (uint32_t i = 0; i < lk.edge_count; ++i){
+            if (lk.edges[i].source_record_id == supported &&
+                lk.edges[i].target_record_id == evidence &&
+                lk.edges[i].relation_type == PE_LK_EDGE_EVIDENCED_BY)
+                saw_evidence = 1;
+            if (lk.edges[i].source_record_id == evidence &&
+                lk.edges[i].target_record_id == supported &&
+                lk.edges[i].relation_type == PE_LK_EDGE_SUPPORTS)
+                saw_support = 1;
+        }
+        CHECK(saw_evidence && saw_support,
+              "supporting evidence links are explicit graph edges");
+    }
+
+    uint32_t claim_a = upsertW(&lk, "ambiguous_formula",
+        "The copied formula uses three drops.",
+        PE_LK_SCOPE_REAL_WORLD, PE_LK_SRC_USER, PE_LK_TIER_OFFLINE,
+        PE_LK_STATUS_DISPUTED, 55, 620, 111, 0, 30);
+    uint32_t claim_b = upsertW(&lk, "ambiguous_formula",
+        "The copied formula uses four drops.",
+        PE_LK_SCOPE_REAL_WORLD, PE_LK_SRC_USER, PE_LK_TIER_OFFLINE,
+        PE_LK_STATUS_DISPUTED, 55, 620, 222, 0, 31);
+    pe_lk_record_edge(&lk, claim_a, PE_LK_EDGE_CONTRADICTS,
+                      claim_b, 900, 230, 31);
+    pe_lk_record_edge(&lk, claim_b, PE_LK_EDGE_CONTRADICTS,
+                      claim_a, 900, 230, 31);
+    amb = 0;
+    best = pe_lk_resolve(&lk, "ambiguous_formula", PE_LK_SCOPE_REAL_WORLD, 0, &amb);
+    CHECK(best && amb, "claim contradiction scenario surfaces uncertainty");
+    CHECK(lk.edges[lk.edge_count - 1].relation_type == PE_LK_EDGE_CONTRADICTS,
+          "contradiction links are explicit graph edges");
+}
+
 static void test_sources_scopes_and_conflicts(void){
     pe_learned_knowledge_t lk;
     pe_lk_init(&lk);
@@ -173,6 +249,7 @@ static void test_load_save_and_corruption(void){
 int main(void){
     printf("--- V6 learned knowledge test ---\n");
     test_authority_and_corrections();
+    test_bridge_graph_scenarios();
     test_sources_scopes_and_conflicts();
     test_dispute_reinforcement_capacity_and_persistence();
     test_load_save_and_corruption();
