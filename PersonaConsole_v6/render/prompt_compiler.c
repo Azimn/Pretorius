@@ -377,6 +377,7 @@ static void append_learned_knowledge_block(const Engine *eng,
                                            int cap,
                                            int *pos){
     int shown = 0;
+    uint32_t shown_ids[4] = {0,0,0,0};
     if (!eng || !out_buf || !pos) return;
     for (uint32_t i = 0; i < eng->learned_knowledge.header.entry_count
                         && i < PE_LK_RECORD_CAP && shown < 4; ++i){
@@ -392,11 +393,35 @@ static void append_learned_knowledge_block(const Engine *eng,
                shown, r->topic_key, pe_lk_status_name(r->status),
                (unsigned)r->confidence, pe_lk_source_name(r->source_type),
                pe_lk_scope_name(r->scope), r->claim_text);
+        shown_ids[shown] = r->record_id;
         ++shown;
     }
-    if (shown)
+    if (shown){
+        int edge_shown = 0;
+        for (uint32_t e = 0; e < eng->learned_knowledge.edge_count
+                            && e < PE_LK_EDGE_CAP && edge_shown < 6; ++e){
+            const pe_lk_edge_t *edge = &eng->learned_knowledge.edges[e];
+            int linked = 0;
+            for (int s = 0; s < shown; ++s){
+                if (edge->source_record_id == shown_ids[s] ||
+                    edge->target_record_id == shown_ids[s]){
+                    linked = 1;
+                    break;
+                }
+            }
+            if (!linked) continue;
+            append(out_buf, cap, pos,
+                   "edge_%d %s source=%u target=%u confidence=%u weight=%u\n",
+                   edge_shown, pe_lk_edge_name(edge->relation_type),
+                   (unsigned)edge->source_record_id,
+                   (unsigned)edge->target_record_id,
+                   (unsigned)edge->confidence,
+                   (unsigned)edge->weight);
+            ++edge_shown;
+        }
         append(out_buf, cap, pos,
                "Use confirmed or authored learned knowledge as constraints. Treat provisional or disputed knowledge as uncertain. Do not revive corrected/deprecated claims.\n");
+    }
 }
 
 static void append_tiny_examples(const Engine *eng, char *buf, int cap, int *pos){

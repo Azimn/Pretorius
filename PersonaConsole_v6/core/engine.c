@@ -640,6 +640,12 @@ static uint8_t pe_audit_evaluate(const Engine *eng,
         && pe_lk_output_repeats_corrected_claim(&eng->learned_knowledge,
                                                 out, "electricity"))
         return PE_AUDIT_V_LORE;
+    if (renderer_output && pe_text_mentions_electricity(input)
+        && pe_lk_output_conflicts_authority(&eng->learned_knowledge,
+                                            out, "electricity",
+                                            PE_LK_SCOPE_REAL_WORLD,
+                                            eng->relation.user_hash))
+        return PE_AUDIT_V_LORE;
     if (renderer_output && !pe_copy_audit_pass(input, out)) return PE_AUDIT_V_COPY;
     if (renderer_output && !pe_output_label_audit_pass(out)) return PE_AUDIT_V_OUTPUT_LABEL;
     if (renderer_output && !pe_addressee_audit_pass(eng, out)) return PE_AUDIT_V_ADDRESSEE;
@@ -1159,6 +1165,9 @@ static void pe_maybe_commit_learned_knowledge(Engine *eng,
     speaker = eng->relation.known_as[0] ? eng->relation.known_as : "the user";
     if (pe_text_teaches_electricity(input)){
         old_id = pe_lk_latest_record_for_topic(eng, "electricity",
+                                               PE_LK_STATUS_CANDIDATE);
+        if (!old_id)
+            old_id = pe_lk_latest_record_for_topic(eng, "electricity",
                                                PE_LK_STATUS_PROVISIONAL);
         memset(&w, 0, sizeof(w));
         w.topic_key = "electricity";
@@ -1191,7 +1200,7 @@ static void pe_maybe_commit_learned_knowledge(Engine *eng,
     w.scope = PE_LK_SCOPE_REAL_WORLD;
     w.source_type = PE_LK_SRC_MODEL;
     w.source_tier = PE_LK_TIER_SLM;
-    w.status = PE_LK_STATUS_PROVISIONAL;
+    w.status = PE_LK_STATUS_CANDIDATE;
     w.authority_rank = 20;
     w.confidence = 420;
     w.source_actor_id = 0;
@@ -2363,7 +2372,9 @@ int persona_process_input(Engine *eng,
 post_render:;
 
     {
-        uint8_t violation = pe_audit_evaluate(eng, input_text, out, renderer_output);
+        uint8_t violation = learned_knowledge_output
+                           ? PE_AUDIT_V_NONE
+                           : pe_audit_evaluate(eng, input_text, out, renderer_output);
         if (violation != PE_AUDIT_V_NONE){
             eng->last_audit_violation = violation;
             eng->last_audit_hardness =

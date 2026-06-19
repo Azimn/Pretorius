@@ -142,6 +142,40 @@ static void test_bridge_graph_scenarios(void){
           "contradiction links are explicit graph edges");
 }
 
+static void test_candidate_write_policy(void){
+    pe_learned_knowledge_t lk;
+    pe_lk_init(&lk);
+    uint32_t candidate = upsertW(&lk, "electricity",
+        "Model claimed electricity is positive charge flow through a wire.",
+        PE_LK_SCOPE_REAL_WORLD, PE_LK_SRC_MODEL, PE_LK_TIER_SLM,
+        PE_LK_STATUS_CANDIDATE, 20, 420, 0, 0, 100);
+    int amb = 0;
+    const pe_lk_record_t *best = pe_lk_resolve(&lk, "electricity",
+        PE_LK_SCOPE_REAL_WORLD, 0, &amb);
+    CHECK(candidate != 0 && best && best->status == PE_LK_STATUS_CANDIDATE,
+          "SLM write path creates candidate status, not confirmed");
+
+    uint32_t confirmed = upsertW(&lk, "electricity",
+        "In metal wires, current is mostly electrons drifting through a conductor; voltage is electric potential difference.",
+        PE_LK_SCOPE_REAL_WORLD, PE_LK_SRC_USER, PE_LK_TIER_OFFLINE,
+        PE_LK_STATUS_CONFIRMED, 80, 900, 111, candidate, 101);
+    best = pe_lk_resolve(&lk, "electricity", PE_LK_SCOPE_REAL_WORLD, 111, &amb);
+    CHECK(confirmed != 0 && best && best->record_id == confirmed,
+          "confirmed user correction outranks candidate");
+    CHECK(pe_lk_output_conflicts_authority(&lk,
+          "Electricity is positive charge flow through a wire.",
+          "electricity", PE_LK_SCOPE_REAL_WORLD, 111),
+          "audit helper detects candidate conflict against confirmed authority");
+
+    upsertW(&lk, "electricity",
+        "A newer model again claimed electricity is positive charge flow.",
+        PE_LK_SCOPE_REAL_WORLD, PE_LK_SRC_MODEL, PE_LK_TIER_SLM,
+        PE_LK_STATUS_CANDIDATE, 20, 420, 0, 0, 999);
+    best = pe_lk_resolve(&lk, "electricity", PE_LK_SCOPE_REAL_WORLD, 111, &amb);
+    CHECK(best && best->record_id == confirmed,
+          "conflict resolution weights confidence and source quality over recency");
+}
+
 static void test_sources_scopes_and_conflicts(void){
     pe_learned_knowledge_t lk;
     pe_lk_init(&lk);
@@ -250,6 +284,7 @@ int main(void){
     printf("--- V6 learned knowledge test ---\n");
     test_authority_and_corrections();
     test_bridge_graph_scenarios();
+    test_candidate_write_policy();
     test_sources_scopes_and_conflicts();
     test_dispute_reinforcement_capacity_and_persistence();
     test_load_save_and_corruption();

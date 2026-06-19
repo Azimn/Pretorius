@@ -74,6 +74,20 @@ static int same_topic_scope(const pe_lk_record_t *r, const pe_lk_write_t *w){
     return 1;
 }
 
+static int status_promotion_rank(uint8_t status){
+    switch (status){
+    case PE_LK_STATUS_DEPRECATED:        return -20;
+    case PE_LK_STATUS_CORRECTED:         return -10;
+    case PE_LK_STATUS_CANDIDATE:         return 5;
+    case PE_LK_STATUS_PROVISIONAL:       return 10;
+    case PE_LK_STATUS_DISPUTED:          return 20;
+    case PE_LK_STATUS_CONFIRMED:         return 50;
+    case PE_LK_STATUS_WORLD_AUTHORED:    return 80;
+    case PE_LK_STATUS_CARTRIDGE_AUTHORED:return 90;
+    default: return 0;
+    }
+}
+
 static uint32_t pick_slot(pe_learned_knowledge_t *lk){
     uint32_t count = lk->header.entry_count;
     uint32_t worst = 0;
@@ -109,7 +123,8 @@ uint32_t pe_lk_upsert(pe_learned_knowledge_t *lk,
             r->reinforcement_count++;
             if (w->confidence > r->confidence) r->confidence = w->confidence;
             if (w->authority_rank > r->authority_rank) r->authority_rank = w->authority_rank;
-            if (w->status > r->status) r->status = w->status;
+            if (status_promotion_rank(w->status) > status_promotion_rank(r->status))
+                r->status = w->status;
             r->updated_at = now_s;
             pe_lk_trace("reinforce", r, NULL, "same_claim", r->record_id);
             return r->record_id;
@@ -209,6 +224,7 @@ static int authority_score(const pe_lk_record_t *r){
     case PE_LK_STATUS_CARTRIDGE_AUTHORED: score += 5000; break;
     case PE_LK_STATUS_WORLD_AUTHORED:     score += 4500; break;
     case PE_LK_STATUS_CONFIRMED:          score += 3000; break;
+    case PE_LK_STATUS_CANDIDATE:          score -= 500; break;
     case PE_LK_STATUS_DISPUTED:           score -= 1200; break;
     case PE_LK_STATUS_PROVISIONAL:        score += 0; break;
     default: break;
@@ -301,6 +317,34 @@ int pe_lk_output_repeats_corrected_claim(const pe_learned_knowledge_t *lk,
     return 0;
 }
 
+int pe_lk_output_conflicts_authority(const pe_learned_knowledge_t *lk,
+                                     const char *out,
+                                     const char *topic_key,
+                                     uint8_t scope,
+                                     uint32_t actor_id){
+    const pe_lk_record_t *best;
+    char low[512];
+    int ambiguous = 0;
+    if (!lk || !out || !topic_key || !topic_key[0]) return 0;
+    best = pe_lk_resolve(lk, topic_key, scope, actor_id, &ambiguous);
+    if (!best || ambiguous) return 0;
+    if (best->source_type == PE_LK_SRC_MODEL ||
+        best->status == PE_LK_STATUS_CANDIDATE ||
+        best->status == PE_LK_STATUS_PROVISIONAL ||
+        best->status == PE_LK_STATUS_DISPUTED ||
+        best->confidence < 650u ||
+        best->authority_rank < 60u)
+        return 0;
+    lower_copy(low, sizeof(low), out);
+    if (!strcmp(topic_key, "electricity")){
+        if ((strstr(best->claim_text, "electron") ||
+             strstr(best->claim_text, "potential difference")) &&
+            strstr(low, "positive charge"))
+            return 1;
+    }
+    return 0;
+}
+
 const char *pe_lk_scope_name(uint8_t v){
     switch (v){
     case PE_LK_SCOPE_REAL_WORLD: return "real_world";
@@ -348,6 +392,7 @@ const char *pe_lk_status_name(uint8_t v){
     case PE_LK_STATUS_DEPRECATED: return "deprecated";
     case PE_LK_STATUS_CARTRIDGE_AUTHORED: return "cartridge_authored";
     case PE_LK_STATUS_WORLD_AUTHORED: return "world_authored";
+    case PE_LK_STATUS_CANDIDATE: return "candidate";
     default: return "unknown";
     }
 }

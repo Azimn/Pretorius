@@ -94,6 +94,7 @@ Learned knowledge is not written every turn.
 Allowed write paths:
 
 - provisional model claim
+- candidate model claim after audit/firewall screening
 - user correction
 - character correction
 - cartridge-authored or world-authored claim
@@ -111,12 +112,14 @@ The next write path should use the existing fields rather than adding schema:
 1. The renderer produces a response.
 2. Layer 1 extracts a possible factual claim only if the turn is in an allowed knowledge context, such as direct explanation, correction, or explicit teaching.
 3. The hallucination firewall and render/lore audit inspect the claim before storage.
-4. Passing model claims are written as learned records with `source_type=model`, `source_tier=slm` or `frontier`, `status=provisional`, modest `confidence`, and low `authority_rank`.
+4. Passing model claims are written as learned records with `source_type=model`, `source_tier=slm` or `frontier`, `status=candidate`, modest `confidence`, and low `authority_rank`.
 5. Failing claims are not written, except as rejected trace rows.
 6. A later user, character, cartridge, or world authority can confirm, correct, dispute, or deprecate the candidate.
 7. Promotion to confirmed knowledge requires a non-model authority or explicit project policy. The model alone does not confirm itself.
 
 This follows the existing firewall pattern: generated text may become an inspectable candidate event, but it cannot directly rewrite identity or confirmed memory. The current schema already has the required status, confidence, authority, source, scope, correction, and evidence fields.
+
+When a candidate conflicts with confirmed or authored learned knowledge, the prompt packet must surface the existing learned record and its compact graph edges before the audit/rewrite path runs. A model candidate can be rejected, repaired, or left as low-authority disputed material, but it cannot silently overwrite a higher-confidence user, character, cartridge, or world source.
 
 ## Offline Retrieval
 

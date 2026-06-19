@@ -57,7 +57,8 @@ enum {
     PE_LK_STATUS_DISPUTED,
     PE_LK_STATUS_DEPRECATED,
     PE_LK_STATUS_CARTRIDGE_AUTHORED,
-    PE_LK_STATUS_WORLD_AUTHORED
+    PE_LK_STATUS_WORLD_AUTHORED,
+    PE_LK_STATUS_CANDIDATE
 };
 
 enum {
@@ -166,6 +167,11 @@ int pe_lk_mark_used(pe_learned_knowledge_t *lk,
 int pe_lk_output_repeats_corrected_claim(const pe_learned_knowledge_t *lk,
                                          const char *out,
                                          const char *topic_key);
+int pe_lk_output_conflicts_authority(const pe_learned_knowledge_t *lk,
+                                     const char *out,
+                                     const char *topic_key,
+                                     uint8_t scope,
+                                     uint32_t actor_id);
 
 const char *pe_lk_scope_name(uint8_t v);
 const char *pe_lk_source_name(uint8_t v);
