@@ -166,13 +166,12 @@ The audit now records both result and violation category:
 - `memory_label`
 - `wrong_addressee`
 
-Hard violations go directly to template fallback:
+Hard violations are treated conservatively:
 
 - meta or assistant tone
 - lore drift
 - copied user text
 - memory/system labels
-- wrong addressee
 
 Soft violations receive one constrained renderer retry:
 
@@ -180,6 +179,17 @@ Soft violations receive one constrained renderer retry:
 - empty output
 - self-repeat
 - fatigue-term overuse
+
+Wrong addressee is a special deterministic repair case. If the model uses
+the wrong vocative name but the conversational move is otherwise valid, the
+engine replaces only that vocative with the active actor's canonical name and
+re-runs audit. This preserves the live response instead of throwing it away.
+
+Lore drift receives one constrained retry with a narrow instruction to keep
+the same conversational move while removing unsupported facts, names, places,
+dates, and relationships. If that retry still fails, the fallback is chosen by
+both violation type and practical user act, so an emotional disclosure receives
+an acknowledgement fallback and a memory probe receives grounded uncertainty.
 
 The repair prompt includes a `[REPAIR]` block with the previous draft, violation type, and instruction to preserve the same conversational move. The renderer still cannot write memory.
 
@@ -235,11 +245,20 @@ New tests added:
 
 - `v6_audit_rewrite_run`
 - `v6_memory_probe_overlay_run`
+- `v6_wrong_addressee_repair_run`
+- `v6_lore_act_fallback_run`
 
 Interpretation:
 
 The result supports the hypothesis more strongly than the first pass. Richer situation packets help, but the bigger lesson is that renderer quality depends on Layer 1 selecting the right symbolic memory and exposing audit failures precisely. When Layer 1 selected the correct memory, qwen produced a much more alive response without weakening the firewall.
 
+Latest narrow hard-repair pass:
+
+- Wrong addressee no longer falls into the hard fallback pool. In the focused test, `Henry, ...` became `Kiki, ...` with no renderer retry and no template fallback.
+- Lore drift now gets one constrained rewrite before fallback. If the rewrite also drifts, the fallback is selected from the user act. In the focused test, an emotional disclosure received: `I hear the weight of it. Stay with that a moment.`
+- Re-running the A/B harness kept situation mode at 0 percent fallback rate: 8 pass, 2 repaired, 0 fallback.
+- The current packet still had 1 fallback out of 10. That remaining fallback is useful evidence for moving the richer situation packet toward the production SLM path.
+
 Remaining weakness:
 
-Some hard lore/addressee failures still repair into template lines. That means the next improvement is not broader rewrite freedom. It is better prompt guardrails and possibly richer allowed-name/cast anchoring.
+Lore-drift repair is still only as good as the model's second attempt. If the constrained rewrite also invents facts, the act-aware fallback preserves conversational relevance but may still feel less character-specific than a successful renderer response. The next polish should be better allowed-name and cast anchoring, not broader renderer authority.

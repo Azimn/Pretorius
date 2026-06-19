@@ -170,7 +170,6 @@ static int pe_audit_violation_is_hard(uint8_t v){
     case PE_AUDIT_V_LORE:
     case PE_AUDIT_V_COPY:
     case PE_AUDIT_V_OUTPUT_LABEL:
-    case PE_AUDIT_V_ADDRESSEE:
         return 1;
     default:
         return 0;
@@ -656,6 +655,8 @@ static const char *pe_repair_instruction_for(uint8_t violation,
         return "Remove the repeated phrase or sentence shape. Preserve the same conversational move.";
     case PE_AUDIT_V_FATIGUE:
         return "Replace overused terms with fresher wording. Preserve the same conversational move.";
+    case PE_AUDIT_V_LORE:
+        return "Make the same conversational move, but remove any fact, name, place, date, or relationship not present in identity, world, user input, or selected memory.";
     default:
         break;
     }
@@ -826,6 +827,22 @@ static void first_name_lower(const char *src, char *dst, size_t cap){
     dst[pos] = 0;
 }
 
+static void first_name_copy(const char *src, char *dst, size_t cap){
+    size_t pos = 0;
+    if (!dst || cap == 0) return;
+    dst[0] = 0;
+    if (!src) return;
+    while (*src && isspace((unsigned char)*src)) src++;
+    while (*src && !isspace((unsigned char)*src) && pos + 1 < cap){
+        if (isalpha((unsigned char)*src))
+            dst[pos++] = *src;
+        else if (pos > 0)
+            break;
+        src++;
+    }
+    dst[pos] = 0;
+}
+
 static int output_has_vocative_name(const char *low, const char *name){
     char needle[40];
     char first[32];
@@ -844,6 +861,89 @@ static int output_has_vocative_name(const char *low, const char *name){
     if (strstr(low, needle)) return 1;
     snprintf(needle, sizeof(needle), " %s\xe2\x80\x94", first);
     if (strstr(low, needle)) return 1;
+    return 0;
+}
+
+static int name_matches_at_ci(const char *p, const char *name){
+    size_t i = 0;
+    if (!p || !name || !name[0]) return 0;
+    while (name[i]){
+        if (!p[i]) return 0;
+        if (tolower((unsigned char)p[i]) != tolower((unsigned char)name[i]))
+            return 0;
+        ++i;
+    }
+    if (isalpha((unsigned char)p[i])) return 0;
+    return 1;
+}
+
+static int replace_vocative_name(char *out, size_t n,
+                                 const char *wrong,
+                                 const char *canonical){
+    char tmp[PE_RENDER_MAX_TEXT];
+    const char *p;
+    size_t pos = 0;
+    size_t wrong_len;
+    size_t canon_len;
+    int replaced = 0;
+    if (!out || !wrong || !wrong[0] || !canonical || !canonical[0] || n == 0)
+        return 0;
+    wrong_len = strlen(wrong);
+    canon_len = strlen(canonical);
+    for (p = out; *p && pos + 1 < sizeof(tmp); ){
+        int boundary = (p == out) || isspace((unsigned char)p[-1]);
+        int punct = 0;
+        if (boundary && name_matches_at_ci(p, wrong)){
+            unsigned char next = (unsigned char)p[wrong_len];
+            punct = (next == ',' || next == ':' || next == '-'
+                     || next == 0xE2u || next == 0);
+        }
+        if (punct && pos + canon_len + 1 < sizeof(tmp)){
+            memcpy(tmp + pos, canonical, canon_len);
+            pos += canon_len;
+            p += wrong_len;
+            replaced = 1;
+            continue;
+        }
+        tmp[pos++] = *p++;
+    }
+    tmp[pos] = 0;
+    if (!replaced) return 0;
+    snprintf(out, n, "%s", tmp);
+    return 1;
+}
+
+static int pe_surgical_addressee_repair(const Engine *eng, char *out, size_t n){
+    char low[PE_RENDER_MAX_TEXT];
+    char canonical[32];
+    char canonical_low[32];
+    char wrong[32];
+    if (!eng || !out || !out[0] || n == 0) return 0;
+    first_name_copy(eng->relation.known_as, canonical, sizeof(canonical));
+    if (!canonical[0]){
+        for (int i = 0; i < PE_ADDRESS_COUNT; ++i){
+            first_name_copy(eng->identity.address_user_as[i],
+                            canonical, sizeof(canonical));
+            if (canonical[0]) break;
+        }
+    }
+    first_name_lower(canonical, canonical_low, sizeof(canonical_low));
+    if (!canonical_low[0]) return 0;
+    lowercase_copy(low, sizeof(low), out);
+
+    for (uint8_t i = 0; i < eng->identity.core_memory_count; ++i){
+        first_name_lower(eng->identity.core_memories_seed[i].summary,
+                         wrong, sizeof(wrong));
+        if (!wrong[0] || !strcmp(wrong, canonical_low)) continue;
+        if (output_has_vocative_name(low, wrong)
+            && replace_vocative_name(out, n, wrong, canonical))
+            return 1;
+    }
+    first_name_lower(eng->identity.character_name, wrong, sizeof(wrong));
+    if (wrong[0] && strcmp(wrong, canonical_low)
+        && output_has_vocative_name(low, wrong)
+        && replace_vocative_name(out, n, wrong, canonical))
+        return 1;
     return 0;
 }
 
@@ -872,6 +972,35 @@ static int pe_addressee_audit_pass(const Engine *eng, const char *out){
             return 0;
     }
     return 1;
+}
+
+static void pe_act_aware_audit_fallback(const V6UserTurnInterpretation *it,
+                                        uint8_t violation,
+                                        char *out,
+                                        size_t n){
+    const char *act = it && it->user_act ? it->user_act : "";
+    const char *line = "Let me answer without inventing more than I know.";
+    if (!out || n == 0) return;
+    if (violation == PE_AUDIT_V_LORE){
+        if (!strcmp(act, "memory_probe")){
+            line = "That thread is not surfacing cleanly. Give me the anchor again.";
+        } else if (!strcmp(act, "emotional_disclosure")){
+            line = "I hear the weight of it. Stay with that a moment.";
+        } else if (!strcmp(act, "correction")){
+            line = "Point taken. I will hold to the correction, not the invention.";
+        } else if (!strcmp(act, "direct_question")){
+            line = "I can answer the shape of it, but not with a false fact.";
+        } else if (!strcmp(act, "challenge") || !strcmp(act, "disagreement")){
+            line = "Challenge accepted, but not on invented ground.";
+        } else if (!strcmp(act, "identity_test")){
+            line = "I will not invent proof. Test me by the things I keep consistent.";
+        } else if (!strcmp(act, "open_ended_invitation")){
+            line = "Then let us keep to what is known. What matters most in it to you?";
+        } else if (!strcmp(act, "rich_neutral_input")){
+            line = "There is enough there without inventing more. I am listening.";
+        }
+    }
+    snprintf(out, n, "%s", line);
 }
 
 static void pe_prime_unprompted_memory(Engine *eng){
@@ -2091,7 +2220,23 @@ post_render:;
             eng->last_audit_hardness =
                 pe_audit_violation_is_hard(violation) ? PE_AUDIT_HARD : PE_AUDIT_SOFT;
             if (renderer_output
+                && violation == PE_AUDIT_V_ADDRESSEE
+                && pe_surgical_addressee_repair(eng, out, n)){
+                eng->last_audit_rewrite = 1u;
+                violation = pe_audit_evaluate(eng, input_text, out, 1);
+            }
+            if (renderer_output
                 && eng->last_audit_hardness == PE_AUDIT_SOFT
+                && violation != PE_AUDIT_V_NONE
+                && pe_try_constrained_rewrite(render_be, &render_ctx, violation,
+                                              &packet_it, out, out, n,
+                                              repair_model_output,
+                                              sizeof(repair_model_output))){
+                eng->last_audit_rewrite = 1u;
+                violation = pe_audit_evaluate(eng, input_text, out, 1);
+            }
+            if (renderer_output
+                && violation == PE_AUDIT_V_LORE
                 && pe_try_constrained_rewrite(render_be, &render_ctx, violation,
                                               &packet_it, out, out, n,
                                               repair_model_output,
@@ -2101,7 +2246,10 @@ post_render:;
             }
         }
         if (violation != PE_AUDIT_V_NONE){
-            pe_generate_response(eng, input_text, out, n);
+            if (renderer_output && violation == PE_AUDIT_V_LORE)
+                pe_act_aware_audit_fallback(&packet_it, violation, out, n);
+            else
+                pe_generate_response(eng, input_text, out, n);
             if (!pe_copy_audit_pass(input_text, out)
                 || !pe_output_label_audit_pass(out)
                 || !pe_self_repeat_audit_pass(out)){

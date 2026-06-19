@@ -662,6 +662,84 @@ Next action:
 - Investigate why current-packet constrained rewrite still fell through once.
 - Improve cast/addressee anchoring before relaxing any hard audit behavior.
 
+### 2026-06-19 - Hard Audit Repair Narrow Pass
+
+Branch/commit:
+
+- `v6-phase5d-recall-modes`
+
+Renderer:
+
+- SLM renderer through local Ollama mock tests and qwen A/B harness.
+
+Provider/model:
+
+- Focused tests use local mock Ollama.
+- A/B harness uses Ollama `qwen3:8b`.
+
+Turns:
+
+- Focused tests: 1 turn each.
+- A/B: 10 paired Kiki-as-user turns against Pretorius.
+
+What changed:
+
+- Wrong addressee is now repaired surgically. If the model says `Henry, ...` while speaking to Kiki, the engine replaces only the vocative with `Kiki` and re-runs audit.
+- Lore drift now gets one constrained rewrite attempt before fallback.
+- Lore-drift fallback is selected by practical user act, not violation type alone.
+- Emotional-disclosure lore fallback now acknowledges the disclosure instead of using generic uncertainty.
+
+Metrics:
+
+| Metric | Result |
+|---|---:|
+| wrong-addressee mock provider calls | 1 |
+| wrong-addressee fallback | 0 |
+| lore-drift mock provider calls | 2 |
+| lore-drift constrained rewrite attempted | yes |
+| situation packet A/B pass | 8/10 |
+| situation packet A/B repaired | 2/10 |
+| situation packet A/B fallback | 0/10 |
+| situation packet fallback rate | 0% |
+| current packet fallback rate | 10% |
+
+Representative outputs:
+
+```text
+Kiki, the work is unfinished. What would you do with the loose thread?
+```
+
+```text
+I hear the weight of it. Stay with that a moment.
+```
+
+What improved:
+
+- Wrong-name failures preserve the model's actual conversational move instead of reverting to a canned line.
+- Lore drift still stays behind the firewall, but the final fallback is less generic and better matched to the user's turn.
+- Situation packet mode kept the zero-fallback result after the hard-repair pass.
+
+What failed or felt fake:
+
+- The current packet path still had one lore-drift fallback in the A/B harness.
+- Act-aware fallback is safer and more relevant than template fallback, but it is still less character-specific than a successful renderer response.
+
+Engine-level implications:
+
+- `wrong_addressee` should be tracked as an audit violation but not treated like content-compromising lore drift.
+- `lore_drift` should stay hard, but a single constrained rewrite is worthwhile before fallback.
+- Fallback selection needs both violation type and user act.
+
+Cartridge/profile implications:
+
+- Better cast and allowed-name anchoring should reduce lore drift before audit has to repair it.
+- Future cartridge-authored audit fallback surfaces could make the act-aware fallback more character-specific without putting psychology in the renderer.
+
+Next action:
+
+- Move situation packet mode closer to the preferred SLM path, while keeping template mode canonical.
+- Improve allowed-name and cast anchoring before adding any broader renderer freedom.
+
 ## Future Test Entries Template
 
 Copy this block for each substantial run:
