@@ -703,6 +703,9 @@ struct Engine {
     int            scheduled_delay_ms;
     char           out_buffer[512];
     uint8_t        last_audit_result;     /* PE_AUDIT_* for current/last turn */
+    uint8_t        last_audit_violation;  /* PE_AUDIT_V_* diagnostic */
+    uint8_t        last_audit_hardness;   /* PE_AUDIT_SOFT/HARD */
+    uint8_t        last_audit_rewrite;    /* constrained retry attempted */
 
     /* v2 per-turn scratch */
     char           lowered[512];      /* cached lowercased input */

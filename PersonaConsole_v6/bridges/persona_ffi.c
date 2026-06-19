@@ -324,6 +324,9 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"last_speech_act\":\"%s\","
         "\"last_withhold_reason\":\"%s\","
         "\"last_audit_result\":%u,"
+        "\"last_audit_violation\":%u,"
+        "\"last_audit_hardness\":%u,"
+        "\"last_audit_rewrite\":%u,"
         "\"cold_open_callback_source\":%u,"
         "\"cold_open_callback_template_index\":%u,"
         "\"cold_open_callback_exclusive\":%u,"
@@ -387,6 +390,9 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
                                 ? pe_speech_ledger_last(&eng->speech_ledger)->withhold_reason
                                 : PE_WR_NONE),
         (unsigned)eng->last_audit_result,
+        (unsigned)eng->last_audit_violation,
+        (unsigned)eng->last_audit_hardness,
+        (unsigned)eng->last_audit_rewrite,
         (unsigned)eng->cold_open_callback_source,
         (unsigned)eng->cold_open_callback_template_index,
         (unsigned)eng->cold_open_callback_exclusive,

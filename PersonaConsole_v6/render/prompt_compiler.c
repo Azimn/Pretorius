@@ -65,6 +65,36 @@ static int append(char *buf, int cap, int *pos, const char *fmt, ...){
     return 1;
 }
 
+static const char *audit_violation_token(uint8_t v){
+    switch (v){
+    case PE_AUDIT_V_SPEECH_ACT:   return "speech_act_mismatch";
+    case PE_AUDIT_V_EMPTY:        return "empty_output";
+    case PE_AUDIT_V_SELF_REPEAT:  return "self_repeat";
+    case PE_AUDIT_V_FATIGUE:      return "fatigue_terms";
+    case PE_AUDIT_V_META:         return "meta_or_assistant_tone";
+    case PE_AUDIT_V_LORE:         return "lore_drift";
+    case PE_AUDIT_V_COPY:         return "copied_user_text";
+    case PE_AUDIT_V_OUTPUT_LABEL: return "memory_label";
+    case PE_AUDIT_V_ADDRESSEE:    return "wrong_addressee";
+    default:                      return "none";
+    }
+}
+
+static void append_repair_block(const RenderContext *ctx,
+                                char *out_buf, int cap, int *pos){
+    if (!ctx || !ctx->repair_mode) return;
+    append(out_buf, cap, pos, "\n[REPAIR]\n");
+    append(out_buf, cap, pos, "previous_draft=%.384s\n",
+           ctx->repair_source_text ? ctx->repair_source_text : "");
+    append(out_buf, cap, pos, "violation=%s\n",
+           audit_violation_token(ctx->repair_violation));
+    if (ctx->repair_instruction && ctx->repair_instruction[0])
+        append(out_buf, cap, pos, "repair_instruction=%s\n",
+               ctx->repair_instruction);
+    append(out_buf, cap, pos, "Rewrite the same conversational move. Do not change the psychology, topic, addressee, or memory basis.\n");
+    append(out_buf, cap, pos, "Return only the repaired spoken line.\n");
+}
+
 static void lower_copy_bounded(char *dst, size_t cap, const char *src){
     size_t i = 0;
     if (!dst || cap == 0) return;
@@ -511,6 +541,21 @@ static int prompt_compile_situation(const RenderContext *ctx,
     }
     append(out_buf, cap, &pos, "Use memory as motive or continuity, not as a quoted database record.\n");
 
+    if (!strcmp(it.user_act, "memory_probe")){
+        append(out_buf, cap, &pos, "\n[MEMORY_PROBE_OVERLAY]\n");
+        append(out_buf, cap, &pos, "The user is asking whether continuity exists. This is high priority.\n");
+        if (ctx->memories && ctx->memories->episodic_count > 0){
+            append(out_buf, cap, &pos, "Use one selected canonical memory above as the basis of the reply.\n");
+            append(out_buf, cap, &pos, "If the selected memories do not match the user's probed subject, do not substitute an unrelated memory.\n");
+            append(out_buf, cap, &pos, "When no selected memory matches, express grounded uncertainty in character.\n");
+            append(out_buf, cap, &pos, "Preserve actor attribution: if memory says the user said or asked it, say the user said or asked it, not that you said it.\n");
+            append(out_buf, cap, &pos, "Surface the memory naturally, as a person recalling a thread, not as a log entry.\n");
+        } else {
+            append(out_buf, cap, &pos, "No canonical memory is selected. Express grounded uncertainty in character.\n");
+        }
+        append(out_buf, cap, &pos, "Do not deflect with generic wording such as \"say it another way\" or \"ask differently\".\n");
+    }
+
     append(out_buf, cap, &pos, "\n[USER_TURN_INTERPRETATION]\n");
     append(out_buf, cap, &pos, "act=%s\n", it.user_act);
     append(out_buf, cap, &pos, "conversational_pressure=%s\n", it.pressure);
@@ -525,6 +570,7 @@ static int prompt_compile_situation(const RenderContext *ctx,
     append(out_buf, cap, &pos, "If the current message is rich or direct, attend to it before resuming open loops or proactive thoughts.\n");
     append(out_buf, cap, &pos, "If the user asks a direct question, answer the question before adding color or resistance.\n");
     append(out_buf, cap, &pos, "Use the character voice, but do not over-perform it. Prefer listening and direct relevance over catchphrases.\n");
+    append_repair_block(ctx, out_buf, cap, &pos);
 
     append(out_buf, cap, &pos, "\n[OUTPUT]\n");
     append(out_buf, cap, &pos, "Return only the spoken character response.\n");
@@ -737,6 +783,7 @@ int prompt_compile_with_input(const RenderContext *ctx,
         append(out_buf, cap, &pos, "Balanced model rules: concise, grounded, one to three sentences unless the frame asks otherwise.\n");
         append(out_buf, cap, &pos, "Favor direct answers over atmosphere.\n");
     }
+    append_repair_block(ctx, out_buf, cap, &pos);
     append(out_buf, cap, &pos, "Do NOT use the bracket tags in your reply.\n");
 
     return pos;

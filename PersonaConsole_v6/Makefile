@@ -153,7 +153,7 @@ RENDER_HEADERS := \
         strict_check strict_gate v6_believability_battery_run v6_demo_pack_battery_run society_pair_probe v6_recall_mode_order_run v6_contradiction_protocol_run \
         v6_greeting_status_routing_run v6_greeting_status_exhaustion_run \
         v6_cold_open_memory_realism_run v6_cold_open_memory_surface_templates_run \
-        v6_packet_experiment_run \
+        v6_packet_experiment_run v6_audit_rewrite_run v6_memory_probe_overlay_run \
         v7_api_run
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
@@ -569,6 +569,14 @@ v6_believability_battery_run: build/persona_host profiles/pretorius/pretorius.ca
 v6_packet_experiment_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/packet_experiment_ab.js
+
+v6_audit_rewrite_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/replay/audit_constrained_rewrite_test.js
+
+v6_memory_probe_overlay_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/memory_probe_overlay_test.js
 
 v6_demo_pack_battery_run: build/persona_host cartridges
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }

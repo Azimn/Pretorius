@@ -73,6 +73,28 @@ enum {
     PE_AUDIT_FALLBACK = 2    /* template fallback was used */
 };
 
+/* Last-turn audit violation.  These are diagnostic and repair-routing
+ * categories, not memories.  Hard violations go directly to template
+ * fallback; soft violations may receive one constrained renderer retry. */
+enum {
+    PE_AUDIT_V_NONE = 0,
+    PE_AUDIT_V_SPEECH_ACT,
+    PE_AUDIT_V_EMPTY,
+    PE_AUDIT_V_SELF_REPEAT,
+    PE_AUDIT_V_FATIGUE,
+    PE_AUDIT_V_META,
+    PE_AUDIT_V_LORE,
+    PE_AUDIT_V_COPY,
+    PE_AUDIT_V_OUTPUT_LABEL,
+    PE_AUDIT_V_ADDRESSEE,
+    PE_AUDIT_V_COUNT
+};
+
+enum {
+    PE_AUDIT_SOFT = 0,
+    PE_AUDIT_HARD = 1
+};
+
 /* 48-byte packed speech event. Stored in a ring buffer.
  *
  * Field layout chosen for natural alignment and forward-compat reserved

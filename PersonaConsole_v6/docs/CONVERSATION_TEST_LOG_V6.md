@@ -586,6 +586,82 @@ Engine conclusions:
 - Memory should surface as continuity, not as explicit database labels.
 - Open-loop pressure must be capped or decayed carefully in multi-agent runs.
 
+### 2026-06-19 - Renderer Packet A/B And Memory Probe Repair
+
+Branch/commit:
+
+- Working branch: `v6-phase5d-recall-modes`
+- Pass context: V6 packet experiment after constrained audit rewrite and memory-probe overlay.
+
+Renderer:
+
+- Current packet versus `V6_PACKET_MODE=situation`
+
+Provider/model:
+
+- Ollama `qwen3:8b`
+
+Turns:
+
+- 10 paired Kiki-as-user turns against Pretorius.
+
+Scenario:
+
+- Greeting
+- Rich neutral input about code as spellwork
+- Direct question about the homunculi
+- Correction of name
+- Mild challenge
+- Emotional disclosure
+- Topic shift to Henry
+- Memory probe
+- Identity-pressure test
+- Open-ended invitation
+
+Metrics:
+
+| Metric | Current Packet | Situation Packet |
+|---|---:|---:|
+| turns | 10 | 10 |
+| pass | 8 | 7 |
+| repaired | 1 | 3 |
+| fallback | 1 | 0 |
+| constrained rewrites | 1 | 0 |
+| fallback rate | 10% | 0% |
+| memory-probe deflection | yes in earlier baseline | no |
+| memory-probe grounded callback | partial | yes |
+
+What improved:
+
+- Situation packet fallback rate dropped from 10 percent to 0 percent.
+- Memory probe stopped falling into generic deflection.
+- After recall boost, the memory probe selected Kiki's code/spellwork memory instead of unrelated Henry lore.
+- The final situation memory-probe reply preserved actor attribution: Kiki said the code/spellwork line.
+
+What failed or felt fake:
+
+- Some hard violations still repair into template lines.
+- Situation mode still had hard `lore_drift` and `wrong_addressee` repairs.
+- Current packet constrained rewrite attempted once but still fell through to template fallback.
+
+Engine-level implications:
+
+- Audit needs violation categories, not only pass/repaired/fallback.
+- Hard violations should remain hard fallback.
+- Soft violations can safely receive one constrained renderer retry.
+- Memory probes need Layer 1 recall assistance, not only prompt wording.
+- Relation `known_as` must count as an allowed lore/addressee name.
+
+Cartridge/profile implications:
+
+- No Pretorius-specific engine code was added.
+- Better cast/name anchoring may reduce hard lore/addressee repairs for all cartridges.
+
+Next action:
+
+- Investigate why current-packet constrained rewrite still fell through once.
+- Improve cast/addressee anchoring before relaxing any hard audit behavior.
+
 ## Future Test Entries Template
 
 Copy this block for each substantial run:

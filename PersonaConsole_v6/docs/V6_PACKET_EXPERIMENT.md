@@ -151,7 +151,39 @@ Do not collapse this into one vague quality score. The point is to see which fai
 - A lively raw model output may still be repaired or replaced by audit. Check both `raw_model_output` and `final_output` in the trace.
 - The experiment evaluates the renderer packet, not memory quality by itself. Memory realism still needs the cold-open and cross-session tests.
 
-## Latest Local Result
+## Audit Categories And Repair
+
+The audit now records both result and violation category:
+
+- `none`
+- `speech_act_mismatch`
+- `empty_output`
+- `self_repeat`
+- `fatigue_terms`
+- `meta_or_assistant_tone`
+- `lore_drift`
+- `copied_user_text`
+- `memory_label`
+- `wrong_addressee`
+
+Hard violations go directly to template fallback:
+
+- meta or assistant tone
+- lore drift
+- copied user text
+- memory/system labels
+- wrong addressee
+
+Soft violations receive one constrained renderer retry:
+
+- speech-act mismatch
+- empty output
+- self-repeat
+- fatigue-term overuse
+
+The repair prompt includes a `[REPAIR]` block with the previous draft, violation type, and instruction to preserve the same conversational move. The renderer still cannot write memory.
+
+## Latest Local Result After Repair Pass
 
 Run:
 
@@ -165,7 +197,30 @@ Model:
 qwen3:8b
 ```
 
-The first run exposed useful heuristic bugs:
+Baseline before this pass:
+
+- Current packet: 8 pass, 1 repaired, 1 fallback.
+- Situation packet: 6 pass, 3 repaired, 1 fallback.
+- Situation memory probe fell back to generic deflection.
+
+After audit categorization, constrained rewrite, memory-probe overlay, and memory-probe recall boost:
+
+- Current packet: 8 pass, 1 repaired, 1 fallback, 1 constrained rewrite attempted.
+- Situation packet: 7 pass, 3 repaired, 0 fallback.
+- Situation fallback rate dropped from 10 percent to 0 percent.
+- Situation memory probe stopped deflecting and answered from the planted code/spellwork memory.
+
+Representative improved memory-probe output:
+
+```text
+Kiki, you said code feels like spellwork, like you're stitching together something that should not exist, but somehow does. Did you mean that in the sense of creation, or in the sense of... well, the work?
+```
+
+Important trace finding:
+
+The earlier memory-probe failure was not only prompt wording. Layer 1 selected Henry memories instead of the user's code/spellwork memory. A small engine-level memory-probe recall boost now prepends recent episodic memories that share content words with explicit memory-probe input.
+
+The first packet experiment exposed useful heuristic bugs:
 
 - "What do you actually want..." was misread as correction because of the word "actually".
 - A reflective sentence with an internal "but" was misread as challenge.
@@ -174,14 +229,17 @@ The first run exposed useful heuristic bugs:
 
 Those issues are now covered by `v4_modules_test`.
 
-After the fixes, the situation packet showed partial support for the hypothesis:
+Those issues are covered by `v4_modules_test`.
 
-- It attended better to the direct jar question than the current packet.
-- It gave a more relevant response to Kiki's nervous disclosure.
-- It produced a stronger character-led question for the open-ended invitation.
-- It still failed the memory probe once and fell back to "Say it another way."
-- It still sometimes repaired into template lines when audit rejected the model output.
+New tests added:
+
+- `v6_audit_rewrite_run`
+- `v6_memory_probe_overlay_run`
 
 Interpretation:
 
-The result supports the narrow version of the hypothesis: richer situation packets can help the local model attend to the live turn instead of merely decorating an engine cue. It does not prove the packet is finished. The next improvement should focus on memory-probe wording and reducing audit-triggered fallback in situation mode without weakening the firewall.
+The result supports the hypothesis more strongly than the first pass. Richer situation packets help, but the bigger lesson is that renderer quality depends on Layer 1 selecting the right symbolic memory and exposing audit failures precisely. When Layer 1 selected the correct memory, qwen produced a much more alive response without weakening the firewall.
+
+Remaining weakness:
+
+Some hard lore/addressee failures still repair into template lines. That means the next improvement is not broader rewrite freedom. It is better prompt guardrails and possibly richer allowed-name/cast anchoring.

@@ -57,6 +57,10 @@ typedef struct {
     const Relation           *relation;   /* current interlocutor */
     const SchemaState        *schema;     /* compressed beliefs */
     const char               *user_input; /* current user utterance, read-only */
+    uint8_t                   repair_mode;      /* constrained rewrite pass */
+    uint8_t                   repair_violation; /* PE_AUDIT_V_* */
+    const char               *repair_source_text;
+    const char               *repair_instruction;
     uint32_t                  seed;       /* deterministic RNG seed for this turn */
 } RenderContext;
 

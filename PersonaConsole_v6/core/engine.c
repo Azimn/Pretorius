@@ -149,6 +149,34 @@ static const char *pe_audit_result_name(uint8_t r){
     }
 }
 
+static const char *pe_audit_violation_name(uint8_t v){
+    switch (v){
+    case PE_AUDIT_V_SPEECH_ACT:   return "speech_act_mismatch";
+    case PE_AUDIT_V_EMPTY:        return "empty_output";
+    case PE_AUDIT_V_SELF_REPEAT:  return "self_repeat";
+    case PE_AUDIT_V_FATIGUE:      return "fatigue_terms";
+    case PE_AUDIT_V_META:         return "meta_or_assistant_tone";
+    case PE_AUDIT_V_LORE:         return "lore_drift";
+    case PE_AUDIT_V_COPY:         return "copied_user_text";
+    case PE_AUDIT_V_OUTPUT_LABEL: return "memory_label";
+    case PE_AUDIT_V_ADDRESSEE:    return "wrong_addressee";
+    default:                      return "none";
+    }
+}
+
+static int pe_audit_violation_is_hard(uint8_t v){
+    switch (v){
+    case PE_AUDIT_V_META:
+    case PE_AUDIT_V_LORE:
+    case PE_AUDIT_V_COPY:
+    case PE_AUDIT_V_OUTPUT_LABEL:
+    case PE_AUDIT_V_ADDRESSEE:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
 static void pe_packet_trace_write(const Engine *eng,
                                   const char *input_text,
                                   const V6UserTurnInterpretation *it,
@@ -220,6 +248,12 @@ static void pe_packet_trace_write(const Engine *eng,
     pe_json_escape(f, raw_model_output);
     fprintf(f, "\",\"audit_result\":\"%s\"",
             pe_audit_result_name(eng->last_audit_result));
+    fprintf(f, ",\"audit_violation\":\"%s\"",
+            pe_audit_violation_name(eng->last_audit_violation));
+    fprintf(f, ",\"audit_hardness\":\"%s\"",
+            eng->last_audit_hardness == PE_AUDIT_HARD ? "hard" : "soft");
+    fprintf(f, ",\"constrained_rewrite\":%s",
+            eng->last_audit_rewrite ? "true" : "false");
     fprintf(f, ",\"final_output\":\"");
     pe_json_escape(f, final_output);
     fprintf(f, "\",\"layer1_memory_changed\":%s",
@@ -489,6 +523,8 @@ static int lore_word_allowed(const Engine *eng, const char *user_input,
     }
     if (word_in_text_ci(eng->identity.character_name, word, wlen))
         return 1;
+    if (word_in_text_ci(eng->relation.known_as, word, wlen))
+        return 1;
     for (int i = 0; i < PE_ADDRESS_COUNT; ++i){
         if (word_in_text_ci(eng->identity.address_user_as[i], word, wlen))
             return 1;
@@ -546,7 +582,13 @@ static int pe_lore_audit_pass(const Engine *eng, const char *user_input,
     return 1;
 }
 
-static int pe_render_audit_pass(const CanonicalTurnFrame *f, const char *out){
+static int pe_copy_audit_pass(const char *input, const char *out);
+static int pe_output_label_audit_pass(const char *out);
+static int pe_self_repeat_audit_pass(const char *out);
+static int pe_fatigue_audit_pass(const CanonicalTurnFrame *f, const char *out);
+static int pe_addressee_audit_pass(const Engine *eng, const char *out);
+
+static uint8_t pe_render_audit_violation(const CanonicalTurnFrame *f, const char *out){
     char low[PE_RENDER_MAX_TEXT];
     const char *apology[]    = {"sorry","apolog","forgive","regret"};
     const char *refusal[]    = {"no","not","refuse","will not","won't","cannot","shall not"};
@@ -559,28 +601,100 @@ static int pe_render_audit_pass(const CanonicalTurnFrame *f, const char *out){
     const char *evasion[]    = {"perhaps","another time","not tonight","delicate","oblique"};
     const char *deflect[]    = {"instead","leave that","another matter","turn to","not the point"};
     const char *withdraw[]   = {"enough","leave","not now","silence","go"};
-    if (!f || !out) return 0;
+    if (!f || !out) return PE_AUDIT_V_EMPTY;
     lowercase_copy(low, sizeof(low), out);
-    if (!f->allow_empty && low[0] == 0) return 0;
+    if (!f->allow_empty && low[0] == 0) return PE_AUDIT_V_EMPTY;
     if (f->forbid_meta && has_any_token(low, (const char*[]){"as an ai","language model","how can i help","let me know"}, 4))
-        return 0;
+        return PE_AUDIT_V_META;
     switch (f->speech_act){
-    case PE_SA_APOLOGY:    return has_any_token(low, apology, 4);
-    case PE_SA_REFUSAL:    return has_any_token(low, refusal, 7);
-    case PE_SA_QUESTION:   return strchr(out, '?') || has_any_token(low, (const char*[]){"what ","why ","how ","tell me","would you","do you"}, 6);
-    case PE_SA_INSULT:     return has_any_token(low, accusation, 8);
-    case PE_SA_THREAT:     return has_any_token(low, threat, 8);
-    case PE_SA_PRAISE:     return has_any_token(low, praise, 7);
-    case PE_SA_CONFESSION: return has_any_token(low, confess, 6);
-    case PE_SA_CONCESSION: return has_any_token(low, concede, 5);
-    case PE_SA_PROMISE:    return has_any_token(low, promise, 4);
-    case PE_SA_EVASION:    return has_any_token(low, evasion, 5);
-    case PE_SA_DEFLECTION: return has_any_token(low, deflect, 5);
-    case PE_SA_PAUSE:      return low[0] == 0 || strlen(low) < 12;
-    case PE_SA_WITHDRAWAL: return has_any_token(low, withdraw, 5) || strlen(low) < 80;
+    case PE_SA_APOLOGY:    return has_any_token(low, apology, 4) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
+    case PE_SA_REFUSAL:    return has_any_token(low, refusal, 7) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
+    case PE_SA_QUESTION:   return (strchr(out, '?') || has_any_token(low, (const char*[]){"what ","why ","how ","tell me","would you","do you"}, 6)) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
+    case PE_SA_INSULT:     return has_any_token(low, accusation, 8) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
+    case PE_SA_THREAT:     return has_any_token(low, threat, 8) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
+    case PE_SA_PRAISE:     return has_any_token(low, praise, 7) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
+    case PE_SA_CONFESSION: return has_any_token(low, confess, 6) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
+    case PE_SA_CONCESSION: return has_any_token(low, concede, 5) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
+    case PE_SA_PROMISE:    return has_any_token(low, promise, 4) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
+    case PE_SA_EVASION:    return has_any_token(low, evasion, 5) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
+    case PE_SA_DEFLECTION: return has_any_token(low, deflect, 5) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
+    case PE_SA_PAUSE:      return (low[0] == 0 || strlen(low) < 12) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
+    case PE_SA_WITHDRAWAL: return (has_any_token(low, withdraw, 5) || strlen(low) < 80) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
     default:
-        return 1;
+        return PE_AUDIT_V_NONE;
     }
+}
+
+static int pe_render_audit_pass(const CanonicalTurnFrame *f, const char *out){
+    return pe_render_audit_violation(f, out) == PE_AUDIT_V_NONE;
+}
+
+static uint8_t pe_audit_evaluate(const Engine *eng,
+                                 const char *input,
+                                 const char *out,
+                                 int renderer_output){
+    uint8_t v = pe_render_audit_violation(&eng->frame, out);
+    if (v == PE_AUDIT_V_META) return v;
+    if (renderer_output && !pe_lore_audit_pass(eng, input, out)) return PE_AUDIT_V_LORE;
+    if (renderer_output && !pe_copy_audit_pass(input, out)) return PE_AUDIT_V_COPY;
+    if (renderer_output && !pe_output_label_audit_pass(out)) return PE_AUDIT_V_OUTPUT_LABEL;
+    if (renderer_output && !pe_addressee_audit_pass(eng, out)) return PE_AUDIT_V_ADDRESSEE;
+    if (v != PE_AUDIT_V_NONE) return v;
+    if (renderer_output && !pe_self_repeat_audit_pass(out)) return PE_AUDIT_V_SELF_REPEAT;
+    if (renderer_output && !pe_fatigue_audit_pass(&eng->frame, out)) return PE_AUDIT_V_FATIGUE;
+    return PE_AUDIT_V_NONE;
+}
+
+static const char *pe_repair_instruction_for(uint8_t violation,
+                                             const V6UserTurnInterpretation *it){
+    switch (violation){
+    case PE_AUDIT_V_SPEECH_ACT:
+        return "Realize the selected speech act while preserving the same answer, topic, and conversational move.";
+    case PE_AUDIT_V_EMPTY:
+        return "Write a complete spoken reply. Preserve the intended conversational move.";
+    case PE_AUDIT_V_SELF_REPEAT:
+        return "Remove the repeated phrase or sentence shape. Preserve the same conversational move.";
+    case PE_AUDIT_V_FATIGUE:
+        return "Replace overused terms with fresher wording. Preserve the same conversational move.";
+    default:
+        break;
+    }
+    if (it && it->response_move) return it->response_move;
+    return "Repair the draft without changing the conversational move.";
+}
+
+static int pe_try_constrained_rewrite(RenderBackend *be,
+                                      RenderContext *ctx,
+                                      uint8_t violation,
+                                      const V6UserTurnInterpretation *it,
+                                      const char *draft,
+                                      char *out,
+                                      size_t n,
+                                      char *repair_out,
+                                      size_t repair_cap){
+    RenderResult res;
+    size_t copy;
+    if (!be || !be->render || !ctx || !draft || !out || n == 0) return 0;
+    memset(&res, 0, sizeof(res));
+    ctx->repair_mode = 1u;
+    ctx->repair_violation = violation;
+    ctx->repair_source_text = draft;
+    ctx->repair_instruction = pe_repair_instruction_for(violation, it);
+    ctx->seed ^= 0xA17D1A1Du;
+    be->render(be, ctx, &res);
+    ctx->repair_mode = 0u;
+    if (res.output_len <= 0 || (res.flags & 0x3u)) return 0;
+    copy = (size_t)res.output_len;
+    if (repair_out && repair_cap > 0){
+        size_t rcopy = copy;
+        if (rcopy >= repair_cap) rcopy = repair_cap - 1u;
+        memcpy(repair_out, res.output, rcopy);
+        repair_out[rcopy] = 0;
+    }
+    if (copy >= n) copy = n - 1u;
+    memcpy(out, res.output, copy);
+    out[copy] = 0;
+    return 1;
 }
 
 static int pe_copy_audit_pass(const char *input, const char *out){
@@ -784,6 +898,76 @@ static void pe_prime_unprompted_memory(Engine *eng){
         best->retrieval_prob = 240;
         eng->state.turns_since_unprompted_recall = 0;
     }
+}
+
+static int pe_probe_skip_word(const char *w){
+    static const char *skip[] = {
+        "remember","what","about","earlier","before","said","told","tell",
+        "that","this","with","from","your","youre","were","was","feeling",
+        NULL
+    };
+    if (!w || !w[0]) return 1;
+    for (int i = 0; skip[i]; ++i)
+        if (!strcmp(w, skip[i])) return 1;
+    return 0;
+}
+
+static int pe_memory_probe_overlap(const char *input, const char *summary){
+    char word[32];
+    int len = 0;
+    int score = 0;
+    const unsigned char *p;
+    if (!input || !summary) return 0;
+    for (p = (const unsigned char*)input;; ++p){
+        int is_word = *p && isalnum(*p);
+        if (is_word){
+            if (len < (int)sizeof(word) - 1)
+                word[len++] = (char)tolower(*p);
+            continue;
+        }
+        if (len >= 4){
+            word[len] = 0;
+            if (!pe_probe_skip_word(word) &&
+                word_in_text_ci(summary, word, (size_t)len))
+                score += len >= 7 ? 3 : 1;
+        }
+        len = 0;
+        if (!*p) break;
+    }
+    return score;
+}
+
+static void pe_memory_probe_recall_boost(Engine *eng, const char *input){
+    uint16_t best = 0xFFFFu;
+    int best_score = 0;
+    if (!eng || !input) return;
+    if (!word_in_text_ci(input, "remember", 8) &&
+        !word_in_text_ci(input, "recall", 6) &&
+        !word_in_text_ci(input, "last time", 9))
+        return;
+    for (uint16_t i = 0; i < eng->memory.episodic_count; ++i){
+        const MemoryNode *m = &eng->memory.episodic[i];
+        if (!m->summary[0] || m->memory_type == MEM_CORE || m->core_memory) continue;
+        int overlap = pe_memory_probe_overlap(input, m->summary);
+        if (overlap <= 0) continue;
+        int recency = (int)i;
+        int score = overlap * 100 + recency;
+        if (score > best_score){
+            best_score = score;
+            best = i;
+        }
+    }
+    if (best == 0xFFFFu) return;
+    for (uint16_t i = 0; i < eng->active_count; ++i)
+        if (eng->active_memories[i] == best) return;
+    uint16_t limit = eng->active_count < PE_ACTIVE_MAX ? eng->active_count : (PE_ACTIVE_MAX - 1u);
+    for (uint16_t i = limit; i > 0; --i){
+        eng->active_memories[i] = eng->active_memories[i - 1u];
+        eng->active_match[i] = eng->active_match[i - 1u];
+    }
+    eng->active_memories[0] = best;
+    eng->active_match[0] = 1000;
+    if (eng->active_count < PE_ACTIVE_MAX) eng->active_count++;
 }
 
 static void pe_queue_resumption(Engine *eng, uint32_t real_gap_seconds){
@@ -1538,10 +1722,12 @@ int persona_process_input(Engine *eng,
     uint32_t pre_open_total = 0;
     uint32_t pre_habit_turns = 0;
     char raw_model_output[PE_RENDER_MAX_TEXT];
+    char repair_model_output[PE_RENDER_MAX_TEXT];
     char render_backend_name[32];
     V6UserTurnInterpretation packet_it;
 
     raw_model_output[0] = 0;
+    repair_model_output[0] = 0;
     snprintf(render_backend_name, sizeof(render_backend_name), "%s", "template");
     memset(&packet_it, 0, sizeof(packet_it));
 
@@ -1664,6 +1850,7 @@ int persona_process_input(Engine *eng,
 
     /* 4. associative recall */
     pe_associative_recall(eng, &ev);
+    pe_memory_probe_recall_boost(eng, input_text);
 
     /* 4a. V5: retrieval is a write event.  Recalled memories are gently
      * reconsolidated through the current affect/schema context. */
@@ -1828,7 +2015,15 @@ int persona_process_input(Engine *eng,
     pe_build_plan(eng);
     pe_build_turn_frame(eng);
     eng->last_audit_result = PE_AUDIT_PASS;
+    eng->last_audit_violation = PE_AUDIT_V_NONE;
+    eng->last_audit_hardness = PE_AUDIT_SOFT;
+    eng->last_audit_rewrite = 0;
     int renderer_output = 0;
+    RetrievedMemorySet render_mem;
+    RenderContext render_ctx;
+    RenderBackend *render_be = NULL;
+    memset(&render_mem, 0, sizeof(render_mem));
+    memset(&render_ctx, 0, sizeof(render_ctx));
 
     /* V4: renderer dispatch.  Compose a RenderContext from Layer 1 state
      * and offer the selected backend the chance to produce the reply.
@@ -1836,36 +2031,32 @@ int persona_process_input(Engine *eng,
      * call below (signaled by flags bit 0).  An SLM backend that's
      * actually available will fill out->output and we use that instead. */
     {
-        RetrievedMemorySet mem;
-        memset(&mem, 0, sizeof(mem));
         int em_n = 0;
         for (int i = 0; i < PE_ACTIVE_MAX && em_n < 4; ++i){
             uint16_t idx = eng->active_memories[i];
             if (idx >= PE_EPISODIC_MAX) break;  /* sentinel-tagged cold entries */
-            mem.episodic_idx[em_n++] = idx;
+            render_mem.episodic_idx[em_n++] = idx;
         }
-        mem.episodic_count = em_n;
+        render_mem.episodic_count = em_n;
 
-        RenderContext ctx;
-        memset(&ctx, 0, sizeof(ctx));
-        ctx.npc       = eng;
-        ctx.memories  = &mem;
-        ctx.plan      = &eng->plan;
-        ctx.frame     = &eng->frame;
-        ctx.relation  = &eng->relation;
-        ctx.schema    = &eng->schema;
-        ctx.user_input = input_text;
-        ctx.seed      = eng->state.rng_state;
-        v6_interpret_user_turn(&ctx, input_text, &packet_it);
+        render_ctx.npc       = eng;
+        render_ctx.memories  = &render_mem;
+        render_ctx.plan      = &eng->plan;
+        render_ctx.frame     = &eng->frame;
+        render_ctx.relation  = &eng->relation;
+        render_ctx.schema    = &eng->schema;
+        render_ctx.user_input = input_text;
+        render_ctx.seed      = eng->state.rng_state;
+        v6_interpret_user_turn(&render_ctx, input_text, &packet_it);
 
-        RenderBackend *be = render_backend_default();
-        if (be && be->render){
+        render_be = render_backend_default();
+        if (render_be && render_be->render){
             RenderResult res;
             memset(&res, 0, sizeof(res));
             snprintf(render_backend_name, sizeof(render_backend_name), "%s",
-                     be->name ? be->name : "unknown");
-            be->render(be, &ctx, &res);
-            trace_render_dispatch(eng->state.turn_count, be->name,
+                     render_be->name ? render_be->name : "unknown");
+            render_be->render(render_be, &render_ctx, &res);
+            trace_render_dispatch(eng->state.turn_count, render_be->name,
                                   res.latency_ms, res.output_len, res.flags);
             /* bit 0: backend deferred to legacy path.  bit 1: backend
              * unavailable, fall back.  Either way drop to legacy. */
@@ -1884,7 +2075,7 @@ int persona_process_input(Engine *eng,
             }
             if (res.flags & 0x2u){
                 trace_emit(eng->state.turn_count, PE_TRACE_RENDER_FALLBACK,
-                           0, 0, be->name, "unavailable→template");
+                           0, 0, render_be->name, "unavailable->template");
             }
         }
     }
@@ -1893,24 +2084,37 @@ int persona_process_input(Engine *eng,
     pe_generate_response(eng, input_text, out, n);
 post_render:;
 
-    if (!pe_render_audit_pass(&eng->frame, out)
-        || (renderer_output && !pe_lore_audit_pass(eng, input_text, out))
-        || (renderer_output && !pe_copy_audit_pass(input_text, out))
-        || (renderer_output && !pe_output_label_audit_pass(out))
-        || (renderer_output && !pe_self_repeat_audit_pass(out))
-        || (renderer_output && !pe_fatigue_audit_pass(&eng->frame, out))
-        || (renderer_output && !pe_addressee_audit_pass(eng, out))){
-        pe_generate_response(eng, input_text, out, n);
-        if (!pe_copy_audit_pass(input_text, out)
-            || !pe_output_label_audit_pass(out)
-            || !pe_self_repeat_audit_pass(out)){
-            snprintf(out, n, "Say it another way.");
-            eng->state.current_intent = PE_INTENT_CLARIFY;
+    {
+        uint8_t violation = pe_audit_evaluate(eng, input_text, out, renderer_output);
+        if (violation != PE_AUDIT_V_NONE){
+            eng->last_audit_violation = violation;
+            eng->last_audit_hardness =
+                pe_audit_violation_is_hard(violation) ? PE_AUDIT_HARD : PE_AUDIT_SOFT;
+            if (renderer_output
+                && eng->last_audit_hardness == PE_AUDIT_SOFT
+                && pe_try_constrained_rewrite(render_be, &render_ctx, violation,
+                                              &packet_it, out, out, n,
+                                              repair_model_output,
+                                              sizeof(repair_model_output))){
+                eng->last_audit_rewrite = 1u;
+                violation = pe_audit_evaluate(eng, input_text, out, 1);
+            }
         }
-        eng->last_audit_result =
-            pe_render_audit_pass(&eng->frame, out)
-                ? PE_AUDIT_REPAIRED
-                : PE_AUDIT_FALLBACK;
+        if (violation != PE_AUDIT_V_NONE){
+            pe_generate_response(eng, input_text, out, n);
+            if (!pe_copy_audit_pass(input_text, out)
+                || !pe_output_label_audit_pass(out)
+                || !pe_self_repeat_audit_pass(out)){
+                snprintf(out, n, "Say it another way.");
+                eng->state.current_intent = PE_INTENT_CLARIFY;
+            }
+            eng->last_audit_result =
+                pe_render_audit_pass(&eng->frame, out)
+                    ? PE_AUDIT_REPAIRED
+                    : PE_AUDIT_FALLBACK;
+        } else if (eng->last_audit_rewrite) {
+            eng->last_audit_result = PE_AUDIT_REPAIRED;
+        }
     }
 
     /* 11b. v3.1: dream recall — prepend dream_phrase to first response after

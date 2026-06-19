@@ -150,10 +150,10 @@ async function main(){
    *    hallucinations directly; newer render-audit builds may repair or
    *    fallback before display. Provider request count is the stable proof
    *    that Layer 2 was exercised. */
-  if (seedsSeen.length === 5){
-    console.log(`ok:   mock SLM provider received all ${seedsSeen.length} generation request(s)`);
+  if (seedsSeen.length >= 5){
+    console.log(`ok:   mock SLM provider received ${seedsSeen.length} generation request(s) for 5 turns`);
   } else {
-    console.error(`FAIL: mock SLM provider received ${seedsSeen.length}/5 request(s)`);
+    console.error(`FAIL: mock SLM provider received ${seedsSeen.length}/5 minimum request(s)`);
     ++fail;
   }
 

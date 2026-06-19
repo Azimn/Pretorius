@@ -128,9 +128,22 @@ function printMode(result){
     console.log(`Kiki: ${turn.text}`);
     console.log(`Pretorius: ${reply}`);
     if (trace.detected_user_act || trace.response_move){
-      console.log(`trace: act=${trace.detected_user_act || "?"}; pressure=${trace.detected_conversational_pressure || "?"}; move=${trace.response_move || "?"}; audit=${trace.audit_result || "?"}`);
+      console.log(`trace: act=${trace.detected_user_act || "?"}; pressure=${trace.detected_conversational_pressure || "?"}; move=${trace.response_move || "?"}; audit=${trace.audit_result || "?"}; violation=${trace.audit_violation || "none"}; rewrite=${trace.constrained_rewrite ? "yes" : "no"}`);
     }
   }
+  const counts = {};
+  const violations = {};
+  let rewrites = 0;
+  for (const r of result.traceRows){
+    const ar = r.audit_result || "unknown";
+    counts[ar] = (counts[ar] || 0) + 1;
+    const av = r.audit_violation || "none";
+    if (av !== "none") violations[av] = (violations[av] || 0) + 1;
+    if (r.constrained_rewrite) rewrites++;
+  }
+  const total = result.traceRows.length || 1;
+  console.log(`\nsummary: pass=${counts.pass || 0}, repaired=${counts.repaired || 0}, fallback=${counts.fallback || 0}, rewrite=${rewrites}, fallback_rate=${Math.round(((counts.fallback || 0) / total) * 100)}%`);
+  console.log(`violations: ${Object.keys(violations).length ? JSON.stringify(violations) : "none"}`);
 }
 
 (async function main(){
