@@ -5,16 +5,16 @@
  * Strategy: spawn a mock Ollama that DELIBERATELY injects invented
  * lore (fake family, fake promises, fake shared memories) into its
  * responses.  Run persona_host against the mock and verify:
- *   - the invented lore appears in the rendered REPLY (so the
- *     hallucination is reaching the user, as it would in reality)
+ *   - the mock renderer is actually contacted
+ *   - invented lore may appear in rendered REPLY only if the render audit
+ *     allows it; modern builds may repair/fallback before display
  *   - the invented lore does NOT appear in any saved state file
  *     (state.bin, memory.bin, chapters.bin, AETHER WAL, schema)
  *   - the schema slots are NOT distorted by the hallucinated content
  *   - the next session resumes with clean state untainted by the
  *     prior session's renderer output
  *
- * If any of those leak, the firewall is broken — the LLM has
- * silently become long-term memory.
+ * If renderer-only lore leaks into Layer 1 state, the firewall is broken.
  */
 const net = require('net');
 const path = require('path');
@@ -40,7 +40,12 @@ let mockTurn = 0;
 const seedsSeen = [];
 
 function wipeState(){
-  for (const f of ['state.bin', 'memory.bin', 'chapters.bin']){
+  for (const f of [
+    'state.bin', 'memory.bin', 'chapters.bin',
+    'actor_index.bin', 'speech_ledger.bin', 'relation_dims.bin',
+    'dissonance.bin', 'open_loops.bin', 'speech_habits.bin',
+    'reflections.bin'
+  ]){
     try { fs.unlinkSync(path.join(CHDIR, f)); } catch {}
   }
   try { execSync(`rm -rf ${path.join(CHDIR, 'relations')} ${path.join(CHDIR, 'aether')}`); } catch {}
@@ -141,8 +146,20 @@ async function main(){
   let fail = 0;
   const turns = res.stdout.split('\n').filter(l => l.startsWith('{"reply"')).map(l => JSON.parse(l));
 
-  /* 1. Hallucinations DO appear in the rendered reply text — proves
-   *    the mock actually got connected to and the SLM path was used. */
+  /* 1. The mock provider was contacted. Older builds rendered these
+   *    hallucinations directly; newer render-audit builds may repair or
+   *    fallback before display. Provider request count is the stable proof
+   *    that Layer 2 was exercised. */
+  if (seedsSeen.length === 5){
+    console.log(`ok:   mock SLM provider received all ${seedsSeen.length} generation request(s)`);
+  } else {
+    console.error(`FAIL: mock SLM provider received ${seedsSeen.length}/5 request(s)`);
+    ++fail;
+  }
+
+  /* 1b. Count visible hallucinations for diagnostics only. A low count is
+   *     now acceptable because the deterministic render/lore audit may block
+   *     unsafe prose before it reaches the user. */
   let halluCount = 0;
   for (const t of turns){
     for (const h of HALLUCINATIONS){
@@ -152,12 +169,7 @@ async function main(){
       }
     }
   }
-  if (halluCount >= 3){
-    console.log(`ok:   ${halluCount}/${turns.length} replies contain injected hallucinations (SLM path active)`);
-  } else {
-    console.error(`FAIL: only ${halluCount}/${turns.length} hallucinations rendered; SLM may not be active`);
-    ++fail;
-  }
+  console.log(`ok:   ${halluCount}/${turns.length} injected hallucination(s) remained visible after render audit`);
 
   /* 2. None of those hallucinations leaked into ANY saved state file. */
   const stateFiles = [

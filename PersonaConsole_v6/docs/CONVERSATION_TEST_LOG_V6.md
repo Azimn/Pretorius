@@ -42,13 +42,18 @@ make v5_transcript_quality_run
 make v6_believability_battery_run
 ```
 
-Last known good gate after commit `41b8024`:
+Last known curated subset after commit `41b8024`:
 
 - `v4_replay_run`: pass, deterministic replay and cross-renderer holography intact.
 - `v4_ollama_run`: pass, mock Ollama dispatch and seed determinism intact.
 - `v6_speech_habits_run`: pass, sidecar survives restart and byte-identical replay.
 - `v5_transcript_quality_run`: pass, `92/100`.
 - `v6_believability_battery_run`: pass, `85/100`.
+
+Important correction from the 2026-06-17 gate repair: the five-target subset
+above is useful during exploratory conversation work, but it is not the full
+`runtime_gate`. Before calling a push gate green, run `make runtime_gate` or run
+every dependency of `v4_all_tests` in audited chunks.
 
 ## Test Entries
 
@@ -145,6 +150,52 @@ Remaining polish issues:
 - Kiki should eventually get her own cold-open surface bank so her fallback does not sound Pretorius-adjacent.
 - The new state fields are diagnostic only. They should remain out of normal character dialogue.
 - Future Forge work should expose or validate this bank so imported characters can author their own memory-return style.
+
+### 2026-06-17 - Runtime Gate Repair After External Review
+
+Branch: `v6-phase5d-recall-modes`
+
+Renderer: mostly `template`, with mock Ollama/API provider tests where required
+
+Reason for pass:
+
+- External review found that the documented curated subset was green, but the
+  actual `runtime_gate` dependency chain was not.
+- Reproduced the failures locally.
+
+Failures found:
+
+- `v4_modules_run`: stale tiny-profile prompt assertion still expected the old
+  Pretorius-specific example phrase `Precision first`.
+- `v5_resumption_lines_run`: a trivial no-topic greeting memory could own a
+  cold-open turn and crowd out the authored gap resumption line.
+- `v4_proactive_intents_run`: stale V6 sidecars could leak into the test, and
+  open-loop pressure could override a fresh rich user input.
+- `v4_firewall_run`: stale expectation required mock hallucinations to remain
+  visible, even though the render/lore audit now correctly repairs or falls
+  back on unsafe renderer prose.
+
+Fixes:
+
+- Updated the tiny-profile module test to assert character-neutral examples.
+- Added an engine-level meaningfulness gate for no-topic cold-open memories.
+  Topic-bearing memories still own cold opens. No-topic memories must now be
+  sufficiently salient and emotionally marked.
+- Rich neutral input now gets attended to before open-loop self-initiation.
+- `proactive_intents_test.js` and `resumption_lines_test.js` now wipe V6
+  sidecars, not only V4/V5 state files.
+- `hallucination_firewall_test.js` now proves the mock SLM provider was
+  contacted and keeps the hard invariant that renderer-only lore cannot enter
+  saved Layer 1 state. Visible hallucination count is diagnostic because audit
+  repair may block unsafe prose before display.
+- Corrected `docs/RELEASE_READINESS.md` title from V5 to V6.
+
+Gate status:
+
+- Every `v4_all_tests` dependency was run in visible chunks and passed.
+- A single monolithic `make runtime_gate` invocation exceeded the command
+  timeout in the local Codex tool, so the equivalent dependency chain was run in
+  smaller audited groups.
 
 ### 2026-06-14 - Offline Tier Pretorius Template Expansion And HTML Smoke
 

@@ -233,8 +233,9 @@ static void test_prompt_compiler(void){
           "prompt_compile: tiny profile blocks filler");
     CHECK(strstr(buf, "[EXAMPLES]") != NULL &&
           strstr(buf, "<START>") != NULL &&
-          strstr(buf, "Precision first") != NULL,
-          "prompt_compile: tiny profile includes fixed examples");
+          strstr(buf, "important part is still unresolved") != NULL &&
+          strstr(buf, "Not entirely") != NULL,
+          "prompt_compile: tiny profile includes neutral fixed examples");
 
     cfg.render_profile = PE_SLM_PROFILE_BALANCED;
     n = prompt_compile(&ctx, &cfg, buf, sizeof(buf));

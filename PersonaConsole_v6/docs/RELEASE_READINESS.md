@@ -1,4 +1,4 @@
-# PersonaConsole V5 Release Readiness
+# PersonaConsole V6 Release Readiness
 
 Status: pre-alpha external tester gate  
 Goal: make the current deterministic system safe and understandable for real users before SLM work becomes the focus

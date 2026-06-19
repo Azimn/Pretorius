@@ -192,6 +192,19 @@ static int pe_pick_cold_open_surface(Engine *eng, int case_id,
     return idx;
 }
 
+static int pe_memory_can_own_cold_open(const MemoryNode *m){
+    if (!m) return 0;
+    if (m->topic_id != 0xFFFFu) return 1;
+    size_t summary_len = strnlen(m->summary, sizeof(m->summary));
+    if (summary_len >= 48u
+        && m->salience >= 180u
+        && (m->emotion.arousal >= 45
+            || m->emotion.valence >= 40
+            || m->emotion.valence <= -40))
+        return 1;
+    return 0;
+}
+
 static void pe_update_character_wants(Engine *eng){
     if (!eng) return;
     for (uint16_t i = 0; i < PE_WANT_COUNT; ++i){
@@ -714,6 +727,7 @@ static void pe_queue_resumption(Engine *eng, uint32_t real_gap_seconds){
             const char *name = eng->relation.known_as[0]
                              ? eng->relation.known_as : NULL;
             const char *topic = topic_name_by_id(eng, best->topic_id);
+            if (!pe_memory_can_own_cold_open(best)) return;
             int case_id = (topic && topic[0])
                         ? (name ? 0 : 1)
                         : (name ? 2 : 3);
@@ -1572,6 +1586,17 @@ int persona_process_input(Engine *eng,
     /* exhaustion > 800 + paranoia > 600 → theatrical collapse (withdraw) */
     if (eng->state.exhaustion > 800 && eng->state.paranoia > 600)
         eng->state.current_intent = PE_INTENT_WITHDRAW;
+    size_t input_len = strlen(input_text);
+    int rich_input = (ev.arousal > 50) || (input_len > 80);
+    if (rich_input
+        && eng->input_class == 0
+        && eng->matched_group == 0xFFFF
+        && eng->state.current_intent != PE_INTENT_PAUSE
+        && eng->state.current_intent != PE_INTENT_WITHDRAW
+        && eng->state.current_intent != PE_INTENT_REMINISCE){
+        if (input_len > 100 || (persona_rng_u32(&eng->state) & 0xFFu) < 60u)
+            eng->state.current_intent = PE_INTENT_ATTEND;
+    }
     if (eng->state.turns_since_question >= 4
         && eng->input_class != 2
         && eng->input_class != 3
@@ -1584,6 +1609,7 @@ int persona_process_input(Engine *eng,
     }
     if (eng->state.neutral_streak >= 3
         && eng->matched_group == 0xFFFF
+        && eng->state.current_intent != PE_INTENT_ATTEND
         && eng->state.current_intent != PE_INTENT_REMINISCE){
         if ((persona_rng_u32(&eng->state) & 0xFFu) < 80u){
             eng->state.current_intent = PE_INTENT_INITIATE;
@@ -1598,14 +1624,6 @@ int persona_process_input(Engine *eng,
         eng->state.current_intent = PE_INTENT_INITIATE;
     }
     {
-        size_t input_len = strlen(input_text);
-        int rich_input = (ev.arousal > 50) || (input_len > 80);
-        if (rich_input && eng->input_class == 0
-            && eng->state.current_intent != PE_INTENT_INITIATE){
-            if (input_len > 100 || (persona_rng_u32(&eng->state) & 0xFFu) < 60u)
-                eng->state.current_intent = PE_INTENT_ATTEND;
-        }
-
         if (eng->input_class == 0
             && eng->matched_group == 0xFFFF
             && input_len > 20 && input_len < 80
@@ -1653,6 +1671,7 @@ int persona_process_input(Engine *eng,
             && eng->input_class == 0
             && eng->matched_group == 0xFFFF
             && eng->state.current_intent != PE_INTENT_PAUSE
+            && eng->state.current_intent != PE_INTENT_ATTEND
             && eng->state.current_intent != PE_INTENT_WITHDRAW){
             if (loop->avoidance_pressure > loop->urgency + 180u)
                 eng->state.current_intent = PE_INTENT_REDIRECT;
