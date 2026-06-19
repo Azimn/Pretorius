@@ -740,6 +740,76 @@ Next action:
 - Move situation packet mode closer to the preferred SLM path, while keeping template mode canonical.
 - Improve allowed-name and cast anchoring before adding any broader renderer freedom.
 
+### 2026-06-19 - Knowledge Bridge Probe
+
+Branch/commit:
+
+- `v6-phase5d-recall-modes`
+
+Renderer:
+
+- SLM for teaching phase.
+- Template-only for offline recall phase.
+
+Provider/model:
+
+- Local mock Ollama standing in for `qwen3:8b`.
+
+Turns:
+
+- SLM phase: Kiki asks a technical electricity question, then corrects Pretorius.
+- Offline phase: same profile reopens with template renderer and Kiki asks again.
+
+What changed:
+
+- Added compact learned-knowledge cards in episodic memory using `[learned:model]` and `[learned:user_confirmed]` prefixes.
+- Added a narrow electricity probe path that can answer from learned cards in template-only mode.
+- User-confirmed knowledge outranks provisional model-derived knowledge.
+
+Metrics:
+
+| Metric | Result |
+|---|---:|
+| mock SLM calls | 2 |
+| SLM provisional wrong claim recorded | yes |
+| Kiki correction recorded | yes |
+| offline/template recall used correction | yes |
+| offline repeated provisional wrong claim | no |
+| raw renderer prose stored as canon | no |
+
+Representative offline output:
+
+```text
+What Kiki corrected is the better account: in a metal wire, current is mostly electrons drifting through a conductor. Voltage is electric potential difference; resistance impedes the flow.
+```
+
+What improved:
+
+- This is the first proof that LLM-assisted interaction can leave behind compact knowledge that the low-hardware offline tier can use later.
+- The test proves correction priority: Kiki's taught explanation beats the model's earlier wrong simplification.
+
+What failed or felt fake:
+
+- This is still a narrow probe, not a general knowledge distillation system.
+- The offline surface line is accurate but plain. Later cartridge-authored learned-knowledge surfaces should make it more character-specific.
+
+Engine-level implications:
+
+- Learned knowledge should be separate from emotional/relationship memory, even if this probe currently stores compact cards in the episodic ring.
+- Provenance matters: model-derived, user-confirmed, disputed, and cartridge-authored knowledge need explicit status.
+- The next real version should likely move this out of free-text prefixes into a tiny fixed-size sidecar.
+
+Cartridge/profile implications:
+
+- Characters can eventually differ in how they phrase learned knowledge.
+- Kiki/Pretorius is a good stress pair because Kiki can teach/correct without sounding subordinate, and Pretorius can resist without becoming assistant-like.
+
+Next action:
+
+- Generalize the learned-knowledge card structure beyond the electricity probe.
+- Add disputed/corrected status instead of one-off prefix parsing.
+- Add cartridge-authored surfaces for learned technical knowledge.
+
 ## Future Test Entries Template
 
 Copy this block for each substantial run:

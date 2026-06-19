@@ -155,6 +155,7 @@ RENDER_HEADERS := \
         v6_cold_open_memory_realism_run v6_cold_open_memory_surface_templates_run \
         v6_packet_experiment_run v6_audit_rewrite_run v6_memory_probe_overlay_run \
         v6_wrong_addressee_repair_run v6_lore_act_fallback_run \
+        v6_knowledge_bridge_run \
         v7_api_run
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
@@ -586,6 +587,10 @@ v6_wrong_addressee_repair_run: build/persona_host profiles/pretorius/pretorius.c
 v6_lore_act_fallback_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/replay/audit_lore_act_fallback_test.js
+
+v6_knowledge_bridge_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/knowledge_bridge_test.js
 
 v6_demo_pack_battery_run: build/persona_host cartridges
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }

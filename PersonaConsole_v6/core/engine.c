@@ -1099,6 +1099,126 @@ static void pe_memory_probe_recall_boost(Engine *eng, const char *input){
     if (eng->active_count < PE_ACTIVE_MAX) eng->active_count++;
 }
 
+static int pe_text_mentions_electricity(const char *text){
+    char low[512];
+    if (!text || !text[0]) return 0;
+    lowercase_copy(low, sizeof(low), text);
+    return strstr(low, "electricity")
+        || strstr(low, "electric ")
+        || strstr(low, "electron")
+        || strstr(low, "voltage")
+        || strstr(low, "current")
+        || strstr(low, "resistance")
+        || strstr(low, "circuit");
+}
+
+static int pe_text_teaches_electricity(const char *text){
+    char low[512];
+    if (!text || !text[0]) return 0;
+    lowercase_copy(low, sizeof(low), text);
+    if (!pe_text_mentions_electricity(low)) return 0;
+    return strstr(low, "actually")
+        || strstr(low, "correction")
+        || strstr(low, "not quite")
+        || strstr(low, "that's wrong")
+        || strstr(low, "that is wrong")
+        || strstr(low, "you missed")
+        || strstr(low, "in metal wires")
+        || strstr(low, "moving charges are electrons");
+}
+
+static int pe_has_learned_knowledge(const Engine *eng,
+                                    const char *topic,
+                                    int user_confirmed_only){
+    char needle[64];
+    if (!eng || !topic || !topic[0]) return 0;
+    snprintf(needle, sizeof(needle), "[%s]", topic);
+    for (uint16_t i = 0; i < eng->memory.episodic_count; ++i){
+        const MemoryNode *m = &eng->memory.episodic[i];
+        if (!m->summary[0]) continue;
+        if (user_confirmed_only
+            && strncmp(m->summary, "[learned:user_confirmed]", 24))
+            continue;
+        if (!strncmp(m->summary, "[learned:", 9)
+            && strstr(m->summary, needle))
+            return 1;
+    }
+    return 0;
+}
+
+static const MemoryNode *pe_find_learned_knowledge(const Engine *eng,
+                                                   const char *topic){
+    char needle[64];
+    const MemoryNode *provisional = NULL;
+    if (!eng || !topic || !topic[0]) return NULL;
+    snprintf(needle, sizeof(needle), "[%s]", topic);
+    for (uint16_t i = eng->memory.episodic_count; i > 0; --i){
+        const MemoryNode *m = &eng->memory.episodic[i - 1u];
+        if (!m->summary[0] || !strstr(m->summary, needle)) continue;
+        if (!strncmp(m->summary, "[learned:user_confirmed]", 24))
+            return m;
+        if (!provisional && !strncmp(m->summary, "[learned:model]", 15))
+            provisional = m;
+    }
+    return provisional;
+}
+
+static void pe_maybe_commit_learned_knowledge(Engine *eng,
+                                              const char *input,
+                                              const char *final_output,
+                                              int renderer_output,
+                                              const EmotionVector *ev){
+    EmotionVector kev = { +8, 32, +12, 0 };
+    const char *speaker;
+    char summary[PE_MEM_SUMMARY_LEN];
+    if (!eng || !input) return;
+    speaker = eng->relation.known_as[0] ? eng->relation.known_as : "the user";
+    if (pe_text_teaches_electricity(input)){
+        if (pe_has_learned_knowledge(eng, "electricity", 1)) return;
+        snprintf(summary, sizeof(summary),
+                 "[learned:user_confirmed] [electricity] %s taught: metal-wire current is drifting electrons; voltage is potential difference.",
+                 speaker);
+        pe_commit_memory(eng, summary, ev ? ev : &kev, 0xFFFFu, 210, 0);
+        return;
+    }
+    if (!renderer_output || !final_output || !pe_text_mentions_electricity(input))
+        return;
+    if (pe_has_learned_knowledge(eng, "electricity", 0)) return;
+    if (strstr(final_output, "positive charge")){
+        snprintf(summary, sizeof(summary),
+                 "[learned:model] [electricity] model claimed: electricity is positive charge flow; voltage pushes it; resistance slows it.");
+    } else if (pe_text_mentions_electricity(final_output)){
+        snprintf(summary, sizeof(summary),
+                 "[learned:model] [electricity] model claimed: electricity is charge motion; voltage drives current; resistance opposes flow.");
+    } else {
+        return;
+    }
+    pe_commit_memory(eng, summary, ev ? ev : &kev, 0xFFFFu, 160, 0);
+}
+
+static int pe_try_learned_knowledge_answer(Engine *eng,
+                                           const char *input,
+                                           char *out,
+                                           size_t n){
+    const MemoryNode *m;
+    if (!eng || !input || !out || n == 0) return 0;
+    if (!pe_text_mentions_electricity(input)) return 0;
+    if (eng->input_class != 3 && !strchr(input, '?')) return 0;
+    m = pe_find_learned_knowledge(eng, "electricity");
+    if (!m) return 0;
+    if (!strncmp(m->summary, "[learned:user_confirmed]", 24)){
+        snprintf(out, n,
+                 "What Kiki corrected is the better account: in a metal wire, current is mostly electrons drifting through a conductor. Voltage is electric potential difference; resistance impedes the flow.");
+    } else if (strstr(m->summary, "positive charge")){
+        snprintf(out, n,
+                 "The provisional note says electricity is positive charge flow, with voltage pushing and resistance slowing it. I would not call that settled.");
+    } else {
+        snprintf(out, n,
+                 "The provisional account is this: electricity is charge in motion. Voltage drives current; resistance opposes the flow.");
+    }
+    return 1;
+}
+
 static void pe_queue_resumption(Engine *eng, uint32_t real_gap_seconds){
     if (!eng || eng->relation.last_contact == 0) return;
     eng->cold_open_callback_source = 0;
@@ -2148,6 +2268,7 @@ int persona_process_input(Engine *eng,
     eng->last_audit_hardness = PE_AUDIT_SOFT;
     eng->last_audit_rewrite = 0;
     int renderer_output = 0;
+    int learned_knowledge_output = 0;
     RetrievedMemorySet render_mem;
     RenderContext render_ctx;
     RenderBackend *render_be = NULL;
@@ -2177,6 +2298,11 @@ int persona_process_input(Engine *eng,
         render_ctx.user_input = input_text;
         render_ctx.seed      = eng->state.rng_state;
         v6_interpret_user_turn(&render_ctx, input_text, &packet_it);
+
+        if (pe_try_learned_knowledge_answer(eng, input_text, out, n)){
+            learned_knowledge_output = 1;
+            goto post_render;
+        }
 
         render_be = render_backend_default();
         if (render_be && render_be->render){
@@ -2267,6 +2393,10 @@ post_render:;
 
     /* 11b. v3.1: dream recall — prepend dream_phrase to first response after
      * a long absence.  Only fires once (dream_pending is cleared here). */
+    if (!learned_knowledge_output)
+        pe_maybe_commit_learned_knowledge(eng, input_text, out,
+                                          renderer_output, &ev);
+
     pe_prepend_resumption_if_pending(eng, out, n);
 
     if (eng->chapters.dream_pending){

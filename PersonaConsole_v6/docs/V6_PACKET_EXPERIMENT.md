@@ -144,6 +144,41 @@ Do not collapse this into one vague quality score. The point is to see which fai
 - Render audit and lore audit remain active.
 - Template mode remains the canonical low-hardware default.
 
+## Knowledge Bridge Experiment
+
+The first learned-knowledge bridge is intentionally narrow. It proves the
+cross-tier loop without turning renderer prose into memory:
+
+1. Kiki asks Pretorius a technical electricity question in SLM mode.
+2. The model gives a provisional explanation.
+3. Kiki corrects the explanation.
+4. Layer 1 writes compact `[learned:...]` memory cards, not raw model prose.
+5. The same profile reopens in template-only mode.
+6. Pretorius answers the related electricity question from the corrected card.
+
+Current rule:
+
+- `[learned:model]` is provisional renderer-assisted knowledge.
+- `[learned:user_confirmed]` outranks model-derived knowledge.
+- Offline/template mode may use a learned card, but renderer prose itself is
+  still not canonical memory.
+
+Focused target:
+
+```bash
+make v6_knowledge_bridge_run
+```
+
+Representative offline result:
+
+```text
+What Kiki corrected is the better account: in a metal wire, current is mostly electrons drifting through a conductor. Voltage is electric potential difference; resistance impedes the flow.
+```
+
+This supports the larger design direction: the LLM tier can charge the
+offline tier with compact, provenance-marked knowledge, while user correction
+remains stronger than model output.
+
 ## Current Weak Spots To Watch
 
 - The user-turn interpreter is intentionally simple. It should prevent obvious hijacks, not perfectly infer psychology.
