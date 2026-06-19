@@ -68,7 +68,22 @@ typedef struct {
     int     chat_format;          /* SlmChatFormat, default flat */
 } PromptCompilerConfig;
 
+typedef struct {
+    const char *packet_mode;       /* current or situation */
+    const char *user_act;          /* greeting, direct_question, etc. */
+    const char *pressure;          /* wants information, repair, challenge response... */
+    const char *response_move;     /* non-textual recommendation to renderer */
+    uint8_t     rich_input;
+    uint8_t     direct_input;
+    uint8_t     attend_before_open_loops;
+} V6UserTurnInterpretation;
+
 void prompt_compiler_default_config(PromptCompilerConfig *out);
+
+int v6_packet_mode_is_situation(void);
+void v6_interpret_user_turn(const RenderContext *ctx,
+                            const char *user_input,
+                            V6UserTurnInterpretation *out);
 
 /* Compile a RenderContext into a structured constraint block.  Returns
  * the number of bytes written (excluding terminator), or negative on

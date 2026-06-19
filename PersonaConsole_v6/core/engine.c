@@ -11,6 +11,7 @@
 #include "environment.h"
 #include "engine_clock.h"        /* canonical Layer 1 clock */
 #include "../render/render_backend.h"   /* v4: renderer dispatch */
+#include "../render/prompt_compiler.h"  /* v6 packet experiment */
 #include "../memory/affect_curve.h"     /* v4: nonlinear affect */
 #include "../memory/reflection.h"       /* v5: reflective consolidation */
 #include "../memory/recall_plasticity.h" /* v5: recall-coupled plasticity */
@@ -21,6 +22,7 @@
 #include <time.h>
 #include <stddef.h>
 #include <ctype.h>
+#include <sys/stat.h>
 
 /* ---------- load helpers ---------- */
 static int load_or_zero(const char *dir, const char *name, void *buf, size_t n){
@@ -101,6 +103,131 @@ static const char *input_class_label(int input_class){
     case 5: return "intimacy";
     default: return NULL;
     }
+}
+
+static int pe_packet_trace_enabled(void){
+    const char *e = getenv("V6_PACKET_TRACE");
+    if (e && e[0] && strcmp(e, "0") != 0) return 1;
+    return v6_packet_mode_is_situation();
+}
+
+static void pe_json_escape(FILE *f, const char *s){
+    if (!f) return;
+    if (!s) s = "";
+    for (; *s; ++s){
+        unsigned char c = (unsigned char)*s;
+        switch (c){
+        case '\\': fputs("\\\\", f); break;
+        case '"':  fputs("\\\"", f); break;
+        case '\n': fputs("\\n", f);  break;
+        case '\r': fputs("\\r", f);  break;
+        case '\t': fputs("\\t", f);  break;
+        default:
+            if (c < 32) fprintf(f, "\\u%04x", (unsigned)c);
+            else fputc((int)c, f);
+            break;
+        }
+    }
+}
+
+static const char *pe_packet_model_name(void){
+    const char *m = getenv("PE_OLLAMA_MODEL");
+    if (m && m[0]) return m;
+    m = getenv("PE_SLM_MODEL");
+    if (m && m[0]) return m;
+    m = getenv("PE_API_MODEL");
+    if (m && m[0]) return m;
+    return "";
+}
+
+static const char *pe_audit_result_name(uint8_t r){
+    switch (r){
+    case PE_AUDIT_PASS: return "pass";
+    case PE_AUDIT_REPAIRED: return "repaired";
+    case PE_AUDIT_FALLBACK: return "fallback";
+    default: return "unknown";
+    }
+}
+
+static void pe_packet_trace_write(const Engine *eng,
+                                  const char *input_text,
+                                  const V6UserTurnInterpretation *it,
+                                  const char *backend_name,
+                                  const char *raw_model_output,
+                                  int renderer_output,
+                                  const char *final_output,
+                                  uint16_t pre_epi_count,
+                                  uint32_t pre_next_memory_id,
+                                  uint32_t pre_speech_count,
+                                  uint32_t pre_open_total,
+                                  uint32_t pre_habit_turns){
+    const char *path;
+    FILE *f;
+    int memory_changed;
+    int sidecars_changed;
+    if (!eng || !pe_packet_trace_enabled()) return;
+    mkdir("tmp", 0777);
+    mkdir("tmp/packet_experiment", 0777);
+    path = getenv("V6_PACKET_TRACE_PATH");
+    if (!path || !path[0]) path = "tmp/packet_experiment/packet_trace.jsonl";
+    f = fopen(path, "ab");
+    if (!f) return;
+
+    memory_changed = (pre_epi_count != eng->memory.episodic_count ||
+                      pre_next_memory_id != eng->memory.next_memory_id);
+    sidecars_changed = (pre_speech_count != pe_speech_ledger_count(&eng->speech_ledger) ||
+                        pre_open_total != eng->open_loops.total_recorded ||
+                        pre_habit_turns != eng->speech_habits.turns_observed);
+
+    fprintf(f, "{\"timestamp_ms\":%llu",
+            (unsigned long long)pe_clock_now_ms());
+    fprintf(f, ",\"profile\":\"");
+    pe_json_escape(f, eng->identity.character_name);
+    fprintf(f, "\",\"input_text\":\"");
+    pe_json_escape(f, input_text);
+    fprintf(f, "\",\"packet_mode\":\"%s\"",
+            it && it->packet_mode ? it->packet_mode : "current");
+    fprintf(f, ",\"detected_user_act\":\"%s\"",
+            it && it->user_act ? it->user_act : "unclear");
+    fprintf(f, ",\"detected_conversational_pressure\":\"%s\"",
+            it && it->pressure ? it->pressure : "");
+    fprintf(f, ",\"open_loop_pressure\":%u",
+            (unsigned)eng->frame.open_loop_pressure);
+    fprintf(f, ",\"selected_goal\":%u,\"selected_intent\":%u",
+            (unsigned)eng->state.current_goal,
+            (unsigned)eng->state.current_intent);
+    fprintf(f, ",\"retrieved_memories\":[");
+    for (uint16_t i = 0, shown = 0; i < eng->active_count && shown < 4; ++i){
+        uint16_t idx = eng->active_memories[i];
+        const MemoryNode *m;
+        if (idx >= PE_EPISODIC_MAX || idx >= eng->memory.episodic_count) continue;
+        m = &eng->memory.episodic[idx];
+        fprintf(f, "%s{\"id\":%u,\"topic\":%u,\"summary\":\"",
+                shown ? "," : "", (unsigned)m->id, (unsigned)m->topic_id);
+        pe_json_escape(f, m->summary);
+        fprintf(f, "\"}");
+        ++shown;
+    }
+    fprintf(f, "]");
+    fprintf(f, ",\"response_move\":\"");
+    pe_json_escape(f, it && it->response_move ? it->response_move : "");
+    fprintf(f, "\",\"model_name\":\"");
+    pe_json_escape(f, pe_packet_model_name());
+    fprintf(f, "\",\"backend\":\"");
+    pe_json_escape(f, backend_name ? backend_name : "");
+    fprintf(f, "\",\"renderer_output\":%s", renderer_output ? "true" : "false");
+    fprintf(f, ",\"raw_model_output\":\"");
+    pe_json_escape(f, raw_model_output);
+    fprintf(f, "\",\"audit_result\":\"%s\"",
+            pe_audit_result_name(eng->last_audit_result));
+    fprintf(f, ",\"final_output\":\"");
+    pe_json_escape(f, final_output);
+    fprintf(f, "\",\"layer1_memory_changed\":%s",
+            memory_changed ? "true" : "false");
+    fprintf(f, ",\"sidecars_changed\":%s",
+            sidecars_changed ? "true" : "false");
+    fprintf(f, "}\n");
+    fclose(f);
 }
 
 static uint16_t pe_neglected_want_index(const Engine *eng){
@@ -1405,6 +1532,18 @@ int persona_process_input(Engine *eng,
                           char *out, size_t n)
 {
     if (!eng || !input_text || !out || n == 0) return -1;
+    uint16_t pre_epi_count = 0;
+    uint32_t pre_next_memory_id = 0;
+    uint32_t pre_speech_count = 0;
+    uint32_t pre_open_total = 0;
+    uint32_t pre_habit_turns = 0;
+    char raw_model_output[PE_RENDER_MAX_TEXT];
+    char render_backend_name[32];
+    V6UserTurnInterpretation packet_it;
+
+    raw_model_output[0] = 0;
+    snprintf(render_backend_name, sizeof(render_backend_name), "%s", "template");
+    memset(&packet_it, 0, sizeof(packet_it));
 
     /* 1. relation */
     pe_load_relation(eng, user_id);
@@ -1420,6 +1559,11 @@ int persona_process_input(Engine *eng,
     if (first_turn_of_session)
         pe_offscreen_autonomy_tick(eng, real_gap_seconds);
     environment_update_turn(eng, input_text);
+    pre_epi_count = eng->memory.episodic_count;
+    pre_next_memory_id = eng->memory.next_memory_id;
+    pre_speech_count = pe_speech_ledger_count(&eng->speech_ledger);
+    pre_open_total = eng->open_loops.total_recorded;
+    pre_habit_turns = eng->speech_habits.turns_observed;
 
     /* 2. time delta + decay */
     uint32_t now = persona_now_ms();
@@ -1712,11 +1856,14 @@ int persona_process_input(Engine *eng,
         ctx.schema    = &eng->schema;
         ctx.user_input = input_text;
         ctx.seed      = eng->state.rng_state;
+        v6_interpret_user_turn(&ctx, input_text, &packet_it);
 
         RenderBackend *be = render_backend_default();
         if (be && be->render){
             RenderResult res;
             memset(&res, 0, sizeof(res));
+            snprintf(render_backend_name, sizeof(render_backend_name), "%s",
+                     be->name ? be->name : "unknown");
             be->render(be, &ctx, &res);
             trace_render_dispatch(eng->state.turn_count, be->name,
                                   res.latency_ms, res.output_len, res.flags);
@@ -1724,6 +1871,11 @@ int persona_process_input(Engine *eng,
              * unavailable, fall back.  Either way drop to legacy. */
             if (res.output_len > 0 && !(res.flags & 0x3u)){
                 size_t copy = (size_t)res.output_len;
+                size_t raw_copy = (size_t)res.output_len;
+                if (raw_copy >= sizeof(raw_model_output))
+                    raw_copy = sizeof(raw_model_output) - 1u;
+                memcpy(raw_model_output, res.output, raw_copy);
+                raw_model_output[raw_copy] = 0;
                 if (copy >= n) copy = n - 1;
                 memcpy(out, res.output, copy);
                 out[copy] = 0;
@@ -1999,6 +2151,13 @@ skip_question_open_loop:;
                                          sev.speech_act,
                                          (uint8_t)(ev.arousal > 0 ? ev.arousal : 0));
     }
+
+    pe_packet_trace_write(eng, input_text, &packet_it,
+                          render_backend_name, raw_model_output,
+                          renderer_output, out,
+                          pre_epi_count, pre_next_memory_id,
+                          pre_speech_count, pre_open_total,
+                          pre_habit_turns);
 
     persona_save(eng);
     return (int)strlen(out);

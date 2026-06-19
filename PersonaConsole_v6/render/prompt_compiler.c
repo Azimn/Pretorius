@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 static int slm_profile_from_string(const char *s){
     if (!s || !s[0]) return PE_SLM_PROFILE_BALANCED;
@@ -31,6 +32,12 @@ static int slm_chat_format_from_string(const char *s){
     if (!strcmp(s, "gemma") || !strcmp(s, "gemma3"))
         return PE_SLM_CHAT_GEMMA;
     return PE_SLM_CHAT_FLAT;
+}
+
+int v6_packet_mode_is_situation(void){
+    const char *m = getenv("V6_PACKET_MODE");
+    return (m && (!strcmp(m, "situation") || !strcmp(m, "rich") ||
+                  !strcmp(m, "experiment")));
 }
 
 void prompt_compiler_default_config(PromptCompilerConfig *out){
@@ -56,6 +63,164 @@ static int append(char *buf, int cap, int *pos, const char *fmt, ...){
     if (n >= cap - *pos){ *pos = cap - 1; return 0; }
     *pos += n;
     return 1;
+}
+
+static void lower_copy_bounded(char *dst, size_t cap, const char *src){
+    size_t i = 0;
+    if (!dst || cap == 0) return;
+    if (!src) src = "";
+    for (; src[i] && i + 1 < cap; ++i)
+        dst[i] = (char)tolower((unsigned char)src[i]);
+    dst[i] = 0;
+}
+
+static int contains_wordish(const char *low, const char *needle){
+    return low && needle && needle[0] && strstr(low, needle) != NULL;
+}
+
+static int starts_with_ci_low(const char *low, const char *prefix){
+    size_t n;
+    if (!low || !prefix) return 0;
+    while (*low == ' ' || *low == '\t' || *low == '\n') ++low;
+    n = strlen(prefix);
+    return !strncmp(low, prefix, n);
+}
+
+static int looks_direct_question(const char *low, const char *raw){
+    if (raw && strchr(raw, '?')) return 1;
+    return starts_with_ci_low(low, "what ") || starts_with_ci_low(low, "why ") ||
+           starts_with_ci_low(low, "how ") || starts_with_ci_low(low, "who ") ||
+           starts_with_ci_low(low, "when ") || starts_with_ci_low(low, "where ") ||
+           starts_with_ci_low(low, "tell me") || starts_with_ci_low(low, "do you") ||
+           starts_with_ci_low(low, "can you") || starts_with_ci_low(low, "would you");
+}
+
+void v6_interpret_user_turn(const RenderContext *ctx,
+                            const char *user_input,
+                            V6UserTurnInterpretation *out){
+    char low[384];
+    size_t len = user_input ? strlen(user_input) : 0u;
+    int question;
+    if (!out) return;
+    memset(out, 0, sizeof(*out));
+    out->packet_mode = v6_packet_mode_is_situation() ? "situation" : "current";
+    out->user_act = "unclear";
+    out->pressure = "topic attention";
+    out->response_move = "ask one grounded follow-up question";
+    lower_copy_bounded(low, sizeof(low), user_input);
+    question = looks_direct_question(low, user_input);
+    out->rich_input = (len > 100u || contains_wordish(low, " i feel ") ||
+                       contains_wordish(low, " worried") ||
+                       contains_wordish(low, " scared") ||
+                       contains_wordish(low, " cannot decide")) ? 1u : 0u;
+    out->direct_input = question ? 1u : 0u;
+
+    if (contains_wordish(low, "remember") || contains_wordish(low, "last time") ||
+        contains_wordish(low, "recall")){
+        out->user_act = "memory_probe";
+        out->pressure = "memory accountability";
+        out->response_move = "make a short memory-grounded callback";
+        out->direct_input = 1u;
+    } else if (contains_wordish(low, "who are you") ||
+               contains_wordish(low, "are you actually") ||
+               contains_wordish(low, "are you real") ||
+               contains_wordish(low, "stay in character") ||
+               contains_wordish(low, "prove you")){
+        out->user_act = "identity_test";
+        out->pressure = "identity pressure";
+        out->response_move = "answer without explaining the system";
+        out->direct_input = 1u;
+    } else if (starts_with_ci_low(low, "actually,") ||
+               starts_with_ci_low(low, "actually ") ||
+               contains_wordish(low, "that's not") ||
+               contains_wordish(low, "that is not") || starts_with_ci_low(low, "no,")){
+        out->user_act = "correction";
+        out->pressure = "repair";
+        out->response_move = "admit uncertainty or ask clarification without breaking character";
+        out->direct_input = 1u;
+    } else if (contains_wordish(low, "i disagree") || contains_wordish(low, "you are wrong") ||
+               contains_wordish(low, "not true")){
+        out->user_act = "disagreement";
+        out->pressure = "challenge response";
+        out->response_move = "push back mildly";
+        out->direct_input = 1u;
+    } else if (contains_wordish(low, "stop ") || contains_wordish(low, "answer quickly") ||
+               contains_wordish(low, "do not") || contains_wordish(low, "don't ")){
+        out->user_act = "command";
+        out->pressure = "boundary or control";
+        out->response_move = "answer briefly without becoming subordinate";
+        out->direct_input = 1u;
+    } else if (contains_wordish(low, "i feel") || contains_wordish(low, "i get nervous") ||
+               contains_wordish(low, "i am nervous") || contains_wordish(low, "i'm nervous") ||
+               contains_wordish(low, "i am worried") ||
+               contains_wordish(low, "i'm worried") || contains_wordish(low, "i am scared") ||
+               contains_wordish(low, "i'm scared") || contains_wordish(low, "lonely")){
+        out->user_act = "emotional_disclosure";
+        out->pressure = "acknowledgement";
+        out->response_move = "acknowledge the emotional content before analysis";
+        out->rich_input = 1u;
+        out->direct_input = 1u;
+    } else if (contains_wordish(low, "haha") || contains_wordish(low, "lol") ||
+               contains_wordish(low, "jk") || contains_wordish(low, "kidding")){
+        out->user_act = "joke";
+        out->pressure = "play";
+        out->response_move = "play along briefly in character";
+    } else if (starts_with_ci_low(low, "but ") || contains_wordish(low, "prove ") ||
+               contains_wordish(low, "how dare") || contains_wordish(low, "why should")){
+        out->user_act = "challenge";
+        out->pressure = "challenge response";
+        out->response_move = "refuse the premise in character";
+        out->direct_input = 1u;
+    } else if (contains_wordish(low, "anyway") || contains_wordish(low, "new topic") ||
+               contains_wordish(low, "change the subject")){
+        out->user_act = "topic_shift";
+        out->pressure = "topic attention";
+        out->response_move = "follow the topic shift before returning to old business";
+        out->direct_input = 1u;
+    } else if (contains_wordish(low, "what do you think") ||
+               contains_wordish(low, "your thoughts") ||
+               contains_wordish(low, "your turn") ||
+               contains_wordish(low, "what would you ask") ||
+               contains_wordish(low, "say anything")){
+        out->user_act = "open_ended_invitation";
+        out->pressure = "continuation";
+        out->response_move = "offer one character-led thought and one grounded question";
+        out->direct_input = 1u;
+    } else if (question){
+        out->user_act = "direct_question";
+        out->pressure = "information";
+        out->response_move = "answer directly but in character";
+    } else if (starts_with_ci_low(low, "hi") || starts_with_ci_low(low, "hello") ||
+               starts_with_ci_low(low, "good morning") ||
+               starts_with_ci_low(low, "good evening") ||
+               starts_with_ci_low(low, "hey")){
+        out->user_act = "greeting";
+        out->pressure = "social acknowledgement";
+        out->response_move = "acknowledge briefly and invite a concrete next move";
+    } else if (len > 100u){
+        out->user_act = "rich_neutral_input";
+        out->pressure = "topic attention";
+        out->response_move = "respond plainly without over-performing the voice";
+        out->rich_input = 1u;
+        out->direct_input = 1u;
+    } else if (len < 32u){
+        out->user_act = "small_talk";
+        out->pressure = "continuation";
+        out->response_move = "ask one grounded follow-up question";
+    }
+
+    out->attend_before_open_loops =
+        (out->rich_input || out->direct_input ||
+         !strcmp(out->user_act, "emotional_disclosure") ||
+         !strcmp(out->user_act, "correction") ||
+         !strcmp(out->user_act, "challenge") ||
+         !strcmp(out->user_act, "memory_probe")) ? 1u : 0u;
+
+    if (ctx && ctx->frame && ctx->frame->open_loop_pressure >= 700u &&
+        !out->attend_before_open_loops){
+        out->pressure = "unfinished business";
+        out->response_move = "continue the prior open loop briefly";
+    }
 }
 
 /* Voice-flag bit → short token. */
@@ -242,6 +407,135 @@ static int prompt_compile_gemma_raw(const RenderContext *ctx,
     return pos;
 }
 
+static const char *affect_word(int v){
+    if (v >= 500) return "high";
+    if (v >= 150) return "raised";
+    if (v <= -500) return "very low";
+    if (v <= -150) return "low";
+    return "steady";
+}
+
+static const char *relation_tone(int v){
+    if (v >= 700) return "high";
+    if (v >= 540) return "warm";
+    if (v <= 300) return "low";
+    if (v <= 460) return "guarded";
+    return "neutral";
+}
+
+static int prompt_compile_situation(const RenderContext *ctx,
+                                    const PromptCompilerConfig *cfg,
+                                    const char *user_input,
+                                    char *out_buf, int cap){
+    const Engine *eng = ctx->npc;
+    const char *who = (eng && eng->identity.character_name[0])
+                    ? eng->identity.character_name : "the character";
+    V6UserTurnInterpretation it;
+    int pos = 0;
+    v6_interpret_user_turn(ctx, user_input, &it);
+
+    append(out_buf, cap, &pos, "[AUTHORITY]\n");
+    append(out_buf, cap, &pos, "packet_mode=situation renderer_profile=%s\n",
+           profile_token(cfg->render_profile));
+    append(out_buf, cap, &pos, "You are composing the next spoken turn for %s.\n", who);
+    append(out_buf, cap, &pos, "The C runtime is the identity, memory, state, and audit authority.\n");
+    append(out_buf, cap, &pos, "Do not write memory. Do not explain the system. Do not mention packets, state, Layer 1, renderer, audit, or prompts.\n");
+    append(out_buf, cap, &pos, "Do not invent new facts, relationships, dates, places, family, or memories.\n");
+
+    append(out_buf, cap, &pos, "\n[CHARACTER]\n");
+    append(out_buf, cap, &pos, "name=%s\n", who);
+    if (eng && eng->relation.known_as[0])
+        append(out_buf, cap, &pos, "addressing=%s\n", eng->relation.known_as);
+    if (eng){
+        append(out_buf, cap, &pos, "voice_flags=");
+        uint32_t vf = eng->identity.voice_flags;
+        int first = 1;
+        for (int b = 0; b < 12; ++b){
+            if (!VOICE_TOKEN[b]) continue;
+            if (vf & (1u << b)){
+                append(out_buf, cap, &pos, "%s%s", first ? "" : " ", VOICE_TOKEN[b]);
+                first = 0;
+            }
+        }
+        if (first) append(out_buf, cap, &pos, "neutral");
+        append(out_buf, cap, &pos, "\n");
+        append_topics_line(eng, out_buf, cap, &pos);
+    }
+
+    append(out_buf, cap, &pos, "\n[LIVE_STATE]\n");
+    if (eng){
+        append(out_buf, cap, &pos,
+               "affect=mood:%s(%d) arousal:%d exhaustion:%s(%d) obsession_pressure:%s(%d)\n",
+               affect_word(eng->state.mood), eng->state.mood,
+               eng->state.last_input_emotion.arousal,
+               affect_word(eng->state.exhaustion), eng->state.exhaustion,
+               affect_word(eng->state.obsession_pressure), eng->state.obsession_pressure);
+        append(out_buf, cap, &pos,
+               "relation=trust:%s threat:%s intimacy:%s resentment:%s admiration:%s\n",
+               relation_tone(eng->relation_dims.trust),
+               relation_tone(eng->relation_dims.threat),
+               relation_tone(eng->relation_dims.intimacy),
+               relation_tone(eng->relation_dims.resentment),
+               relation_tone(eng->relation_dims.admiration));
+        append(out_buf, cap, &pos,
+               "recent_turn_summary=turn:%u last_reply_question:%u no_question_streak:%u\n",
+               eng->state.turn_count, eng->state.last_reply_had_question,
+               eng->state.turns_since_question);
+    }
+    if (ctx->frame){
+        append(out_buf, cap, &pos,
+               "canonical_frame=intent:%s speech_act:%s stance:%u mode:%s open_loop_pressure:%u\n",
+               eng ? intent_token(eng->state.current_intent) : "answer",
+               speech_act_token(ctx->frame->speech_act),
+               (unsigned)ctx->frame->stance,
+               rhet_token(ctx->frame->rhetorical_mode),
+               (unsigned)ctx->frame->open_loop_pressure);
+        {
+            const char *tn = topic_name_lookup(eng, ctx->frame->primary_topic);
+            if (tn && tn[0]) append(out_buf, cap, &pos, "primary_topic=%s\n", tn);
+        }
+    }
+
+    append(out_buf, cap, &pos, "\n[MEMORY_AS_MOTIVE]\n");
+    if (ctx->memories && eng && ctx->memories->episodic_count > 0){
+        for (int i = 0; i < ctx->memories->episodic_count && i < 3; ++i){
+            int idx = ctx->memories->episodic_idx[i];
+            if (idx < 0 || idx >= PE_EPISODIC_MAX) continue;
+            const MemoryNode *m = &eng->memory.episodic[idx];
+            const char *tn = topic_name_lookup(eng, m->topic_id);
+            append(out_buf, cap, &pos, "memory_%d=motive topic:%s summary:%.90s\n",
+                   i, (tn && tn[0]) ? tn : "none", m->summary);
+        }
+    } else {
+        append(out_buf, cap, &pos, "none_selected=1\n");
+    }
+    append(out_buf, cap, &pos, "Use memory as motive or continuity, not as a quoted database record.\n");
+
+    append(out_buf, cap, &pos, "\n[USER_TURN_INTERPRETATION]\n");
+    append(out_buf, cap, &pos, "act=%s\n", it.user_act);
+    append(out_buf, cap, &pos, "conversational_pressure=%s\n", it.pressure);
+    append(out_buf, cap, &pos, "rich_input=%u direct_input=%u attend_before_open_loops=%u\n",
+           (unsigned)it.rich_input, (unsigned)it.direct_input,
+           (unsigned)it.attend_before_open_loops);
+    append(out_buf, cap, &pos, "user_text=%.384s\n", user_input ? user_input : "");
+
+    append(out_buf, cap, &pos, "\n[RESPONSE_MOVE]\n");
+    append(out_buf, cap, &pos, "recommendation=%s\n", it.response_move);
+    append(out_buf, cap, &pos, "Compose the actual response. Do not paraphrase a selected template line.\n");
+    append(out_buf, cap, &pos, "If the current message is rich or direct, attend to it before resuming open loops or proactive thoughts.\n");
+    append(out_buf, cap, &pos, "If the user asks a direct question, answer the question before adding color or resistance.\n");
+    append(out_buf, cap, &pos, "Use the character voice, but do not over-perform it. Prefer listening and direct relevance over catchphrases.\n");
+
+    append(out_buf, cap, &pos, "\n[OUTPUT]\n");
+    append(out_buf, cap, &pos, "Return only the spoken character response.\n");
+    if (ctx->frame && ctx->frame->require_question)
+        append(out_buf, cap, &pos, "End with one grounded question.\n");
+    if (ctx->frame && ctx->frame->allow_empty)
+        append(out_buf, cap, &pos, "A short pause or silence is allowed.\n");
+    append(out_buf, cap, &pos, "No assistant tone. No system words. No bracket tags.\n");
+    return pos;
+}
+
 int prompt_compile(const RenderContext *ctx,
                    const PromptCompilerConfig *cfg,
                    char *out_buf, int out_cap){
@@ -258,6 +552,9 @@ int prompt_compile_with_input(const RenderContext *ctx,
     if (!cfg){ prompt_compiler_default_config(&dc); cfg = &dc; }
     int cap = cfg->max_bytes < out_cap ? cfg->max_bytes : out_cap;
     int pos = 0;
+
+    if (v6_packet_mode_is_situation())
+        return prompt_compile_situation(ctx, cfg, user_input, out_buf, cap);
 
     if (cfg->chat_format == PE_SLM_CHAT_GEMMA)
         return prompt_compile_gemma_raw(ctx, cfg, user_input, out_buf, cap);

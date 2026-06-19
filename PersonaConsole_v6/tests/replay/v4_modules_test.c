@@ -264,6 +264,56 @@ static void test_prompt_compiler(void){
     CHECK(strstr(buf, "Understood.<end_of_turn>") != NULL &&
           strstr(buf, "Good evening.<end_of_turn>") != NULL,
           "prompt_compile: gemma format includes ack and live user turn");
+
+    {
+        setenv("V6_PACKET_MODE", "situation", 1);
+        prompt_compiler_default_config(&cfg);
+        n = prompt_compile_with_input(&ctx, &cfg,
+                                      "I have this weird thought about code and lightning.",
+                                      buf, sizeof(buf));
+        CHECK(n > 0 && strstr(buf, "[USER_TURN_INTERPRETATION]") != NULL &&
+              strstr(buf, "[RESPONSE_MOVE]") != NULL,
+              "prompt_compile: situation packet emits interpretation and move");
+        CHECK(strstr(buf, "The C runtime is the identity") != NULL,
+              "prompt_compile: situation packet preserves Layer 1 authority");
+        unsetenv("V6_PACKET_MODE");
+        n = prompt_compile_with_input(&ctx, &cfg,
+                                      "I have this weird thought about code and lightning.",
+                                      buf, sizeof(buf));
+        CHECK(n > 0 && strstr(buf, "[USER_TURN_INTERPRETATION]") == NULL,
+              "prompt_compile: current packet remains default when flag unset");
+    }
+}
+
+static void test_packet_interpretation(void){
+    RenderContext ctx;
+    V6UserTurnInterpretation it;
+    memset(&ctx, 0, sizeof(ctx));
+
+    v6_interpret_user_turn(&ctx,
+        "What do you actually want from your little people in the jars?", &it);
+    CHECK(!strcmp(it.user_act, "direct_question"),
+          "packet interpretation: actually inside a question is not correction");
+
+    v6_interpret_user_turn(&ctx,
+        "Okay, so I have this totally weird thought. Modern code feels like spellwork with better shoes, but it still obeys rules, inputs, limits, symbols, consequences. That seems very you.", &it);
+    CHECK(!strcmp(it.user_act, "rich_neutral_input"),
+          "packet interpretation: internal 'but' does not force challenge");
+
+    v6_interpret_user_turn(&ctx,
+        "I get nervous people hear the slang and miss that I understand the math.", &it);
+    CHECK(!strcmp(it.user_act, "emotional_disclosure"),
+          "packet interpretation: nervous disclosure is emotional");
+
+    v6_interpret_user_turn(&ctx,
+        "Okay, your turn. What would you ask me if you weren't waiting for permission?", &it);
+    CHECK(!strcmp(it.user_act, "open_ended_invitation"),
+          "packet interpretation: user invitation is not generic question");
+
+    v6_interpret_user_turn(&ctx,
+        "Are you actually Pretorius right now, or just doing a cute impression?", &it);
+    CHECK(!strcmp(it.user_act, "identity_test"),
+          "packet interpretation: identity pressure is explicit");
 }
 
 int main(void){
@@ -276,6 +326,7 @@ int main(void){
     test_obsession_strength();
     test_render_backend_registry();
     test_prompt_compiler();
+    test_packet_interpretation();
     if (g_fail){
         printf("FAILED — %d failure(s)\n", g_fail);
         return 1;
