@@ -203,6 +203,15 @@ const char *pe_withhold_reason_name(uint8_t reason){
     return (reason < PE_WR_COUNT) ? WR_NAMES[reason] : "unknown";
 }
 
+static const char *EXPR_NAMES[] = {
+    "genuine","masked","withheld","redirected"
+};
+
+const char *pe_expression_policy_name(uint8_t policy){
+    return (policy < (sizeof(EXPR_NAMES) / sizeof(EXPR_NAMES[0])))
+         ? EXPR_NAMES[policy] : "unknown";
+}
+
 int pe_speech_act_is_withhold(uint8_t sa){
     switch (sa){
     case PE_SA_REFUSAL:

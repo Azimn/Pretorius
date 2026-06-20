@@ -1,6 +1,7 @@
 /* topic_goal.c — topic momentum, pattern classification, goal arbitration, intent. */
 #include "persona.h"
 #include "persona_internal.h"
+#include "../memory/affect_dynamics.h"
 #include "intent.h"
 #include "lsh_memory.h"      /* v3.0: SimHash for fuzzy semantic recall */
 #include <string.h>
@@ -226,6 +227,15 @@ uint16_t pe_select_goal(Engine *eng){
             score += (eng->state.drive_values[d] * g->drive_weight[d]) / 128;
         /* topic bonus */
         score += topic_momentum_for(&eng->state, g->bias_topic) / 4;
+        {
+            int16_t forecast = affect_forecast_topic(g->bias_topic, &eng->memory,
+                                                     eng->identity.forecast_horizon_weight);
+            if (forecast < 0 && g->intent_id != PE_INTENT_ACCUSE
+                && g->intent_id != PE_INTENT_WITHDRAW)
+                score += forecast / 8;
+            else
+                score += forecast / 16;
+        }
         /* memory bonus: any active negative memory boosts vindication-like goals */
         for (uint16_t k = 0; k < eng->active_count && k < 6; ++k){
             const MemoryNode *m = pe_active_node(eng, eng->active_memories[k]);

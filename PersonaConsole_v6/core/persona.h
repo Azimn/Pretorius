@@ -101,6 +101,8 @@ extern "C" {
 #include "speech_habits.h"
 /* V6: compact learned-knowledge graph sidecar. */
 #include "learned_knowledge.h"
+/* V6: inferred actor mind model. */
+#include "theory_of_mind.h"
 
 /* V6 Phase 5d: recall modes — per V6_DOCTRINE §16, the same memory
  * store supports many retrieval intents; the planner selects one based
@@ -199,6 +201,7 @@ enum {
 #define PE_VF_ALLOW_CALLBACK     (1u<<9)
 #define PE_VF_ALLOW_CONTRADICT   (1u<<10)
 #define PE_VF_DELAY_TIMING       (1u<<11)
+#define PE_VF_VOICES_TOM_GUESSES (1u<<12)
 
 /* ---------- reserved baseline dialogue groups ---------- */
 #define PE_BL_GROUP_BASE       0x7000u
@@ -291,6 +294,10 @@ typedef struct {
     char cold_open_memory_templates[PE_COLD_OPEN_CASES]
                                    [PE_COLD_OPEN_VARIANTS]
                                    [PE_COLD_OPEN_LEN];
+    uint16_t suggestibility;             /* 0..1000: how readily ToM beliefs move */
+    uint16_t contagion_susceptibility;   /* 0..1000: affect contagion pull */
+    uint16_t forecast_horizon_weight;    /* 0..1000: past topic affect bias */
+    uint16_t expression_mask_threshold;  /* trust below this masks expression */
 } Identity;
 
 typedef struct {
@@ -684,6 +691,7 @@ struct Engine {
     pe_open_loops_t    open_loops;            /* V6 Phase 6: carried intentions */
     pe_speech_habits_t speech_habits;         /* V6 Phase 6: conversation rhythm habits */
     pe_learned_knowledge_t learned_knowledge; /* V6: durable learned claims + correction graph */
+    pe_tom_t             theory_of_mind;      /* V6: inferred active actor mind */
     uint8_t            current_recall_mode;   /* V6 Phase 5d: selected per-turn from state */
     SchemaState      schema;                /* V4: per-relation compressed beliefs */
 
@@ -779,7 +787,7 @@ struct Engine {
     uint8_t       private_thought_kind;       /* internal state, not renderer prose */
     uint8_t       expressed_thought_kind;     /* outward speech act/move */
     uint8_t       private_thought_withheld;
-    uint8_t       _pad_private_thought;
+    uint8_t       expression_policy;
     uint32_t      private_thought_hash;
     uint32_t      expressed_thought_hash;
 };

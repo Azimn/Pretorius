@@ -35,8 +35,12 @@ static void make_identity(Identity *id){
 
     id->voice_flags = PE_VF_METAPHOR | PE_VF_SELF_INTERRUPT
                     | PE_VF_ALLOW_BLEED | PE_VF_ALLOW_CALLBACK
-                    | PE_VF_ALLOW_CONTRADICT
+                    | PE_VF_ALLOW_CONTRADICT | PE_VF_VOICES_TOM_GUESSES
                     | (5u << 5); /* verbosity 5/7 */
+    id->suggestibility = 650;
+    id->contagion_susceptibility = 760;
+    id->forecast_horizon_weight = 420;
+    id->expression_mask_threshold = 300;
 
     uint16_t obs[] = {T_PHYSICS, T_ENTROPY, T_MEDIA_90S, T_FASHION,
                       T_PHILOSOPHY, T_FRIENDS, 0, 0};

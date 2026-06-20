@@ -95,6 +95,13 @@ enum {
     PE_AUDIT_HARD = 1
 };
 
+enum {
+    PE_EXPR_GENUINE = 0,
+    PE_EXPR_MASKED,
+    PE_EXPR_WITHHELD,
+    PE_EXPR_REDIRECTED
+};
+
 /* 48-byte packed speech event. Stored in a ring buffer.
  *
  * Field layout chosen for natural alignment and forward-compat reserved
@@ -121,7 +128,8 @@ typedef struct {
     uint8_t  audit_result;        /*  1: PE_AUDIT_* */
     uint8_t  withhold_reason;     /*  1: PE_WR_* — why we withheld */
     uint8_t  regret_marker;       /*  1: set later if dissonance grows */
-    uint8_t  _reserved[2];        /*  2: pad to 48 bytes */
+    uint8_t  expression_policy;   /*  1: PE_EXPR_* internal/expressed gap */
+    uint8_t  _reserved[1];        /*  1: pad to 48 bytes */
 } pe_speech_event_t;
 /* size check: 4+8+4+4+4+2+2+2+2+1*10+2 = 48 */
 
@@ -183,6 +191,7 @@ const char  *pe_speech_act_name(uint8_t sa);
  * state-JSON inspection. Returns "none" for PE_WR_NONE and "unknown"
  * for out-of-range values. */
 const char  *pe_withhold_reason_name(uint8_t reason);
+const char  *pe_expression_policy_name(uint8_t policy);
 
 /* Phase 5c: returns nonzero if the speech act is a refusal-class
  * output (the character chose not to say something). Used by the

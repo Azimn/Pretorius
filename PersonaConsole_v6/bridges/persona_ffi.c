@@ -333,6 +333,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"last_speech_act\":\"%s\","
         "\"last_withhold_reason\":\"%s\","
         "\"last_withheld_intent\":\"%s\","
+        "\"last_expression_policy\":\"%s\","
         "\"last_audit_result\":%u,"
         "\"last_audit_violation\":%u,"
         "\"last_audit_hardness\":%u,"
@@ -342,7 +343,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"cold_open_callback_exclusive\":%u,"
         "\"cold_open_callback_topic\":%u,"
         "\"cold_open_callback_memory_index\":%u,"
-        "\"private_thought\":{\"kind\":\"%s\",\"expressed\":\"%s\","
+        "\"private_thought\":{\"kind\":\"%s\",\"expressed\":\"%s\",\"expression\":\"%s\","
                   "\"topic\":%u,\"pressure\":%u,\"withheld\":%u,"
                   "\"internal_hash\":%u,\"expressed_hash\":%u},"
         "\"frame\":{\"actor_id\":%u,\"input_class\":%u,\"primary_topic\":%u,"
@@ -355,6 +356,9 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"relation_dims\":{\"trust\":%u,\"threat\":%u,\"intimacy\":%u,"
                           "\"resentment\":%u,\"dependency\":%u,\"obligation\":%u,"
                           "\"envy\":%u,\"admiration\":%u,\"embarrassment\":%u},"
+        "\"theory_of_mind\":{\"believed_valence\":%d,\"believed_arousal\":%d,"
+                          "\"believed_goal_topic\":%u,\"confidence\":%u,"
+                          "\"stale_turns\":%u,\"mismatch_count\":%u},"
         "\"dissonance\":{\"ideal_gap\":%u,\"ought_gap\":%u,\"feared_gap\":%u,"
                       "\"ideal_self_model\":%d,\"ought_self_model\":%d,"
                       "\"feared_self_model\":%d},"
@@ -407,6 +411,9 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         pe_speech_act_name(pe_speech_ledger_last(&eng->speech_ledger)
                            ? pe_speech_ledger_last(&eng->speech_ledger)->withheld_intent
                            : PE_SA_NONE),
+        pe_expression_policy_name(pe_speech_ledger_last(&eng->speech_ledger)
+                                  ? pe_speech_ledger_last(&eng->speech_ledger)->expression_policy
+                                  : PE_EXPR_GENUINE),
         (unsigned)eng->last_audit_result,
         (unsigned)eng->last_audit_violation,
         (unsigned)eng->last_audit_hardness,
@@ -418,6 +425,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         (unsigned)eng->cold_open_callback_memory_index,
         private_thought_name(eng->private_thought_kind),
         pe_speech_act_name(eng->expressed_thought_kind),
+        pe_expression_policy_name(eng->expression_policy),
         (unsigned)eng->private_thought_topic,
         (unsigned)eng->private_thought_pressure,
         (unsigned)eng->private_thought_withheld,
@@ -449,6 +457,12 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         (unsigned)eng->relation_dims.envy,
         (unsigned)eng->relation_dims.admiration,
         (unsigned)eng->relation_dims.embarrassment,
+        (int)eng->theory_of_mind.believed_valence,
+        (int)eng->theory_of_mind.believed_arousal,
+        (unsigned)eng->theory_of_mind.believed_goal_topic,
+        (unsigned)eng->theory_of_mind.confidence,
+        (unsigned)eng->theory_of_mind.stale_turns,
+        (unsigned)eng->theory_of_mind.mismatch_count,
         (unsigned)eng->dissonance.ideal_gap,
         (unsigned)eng->dissonance.ought_gap,
         (unsigned)eng->dissonance.feared_gap,

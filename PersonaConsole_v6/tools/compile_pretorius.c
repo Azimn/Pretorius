@@ -38,6 +38,10 @@ static void make_identity(Identity *id){
                     | PE_VF_ALLOW_BLEED | PE_VF_ALLOW_CALLBACK
                     | PE_VF_ALLOW_CONTRADICT | PE_VF_DELAY_TIMING
                     | (6u << 5); /* verbosity 6/7 */
+    id->suggestibility = 180;
+    id->contagion_susceptibility = 220;
+    id->forecast_horizon_weight = 620;
+    id->expression_mask_threshold = 580;
 
     uint16_t obs[] = {T_HOMUNCULI, T_GIN, T_CREATION, T_HENRY, T_GOD, T_BEAUTY, 0, 0};
     memcpy(id->obsessions, obs, sizeof(obs));
@@ -283,6 +287,8 @@ static void make_patterns(PatternTable *pt){
         {"your work is immoral", T_ETHICS, -20, 55, 0, 2, G_MORAL_CHALLENGE, 0},
         {"work is immoral", T_ETHICS, -20, 55, 0, 2, G_MORAL_CHALLENGE, 0},
         {"immoral",      T_ETHICS, -18, 50, 0, 2, G_MORAL_CHALLENGE, 0},
+        {"contradicts",  T_ETHICS, -12, 45, 0, 2, G_MORAL_CHALLENGE, 0},
+        {"contradict",   T_ETHICS, -12, 45, 0, 2, G_MORAL_CHALLENGE, 0},
         {"you are wrong", T_ETHICS, -15, 45, +5, 2, G_MORAL_CHALLENGE, 0},
         {"ask me something", T_WORK, +8, 35, +10, 3, G_SELF_DIRECTION, 0},
         {"what do you want to know", T_WORK, +8, 35, +10, 3, G_SELF_DIRECTION, 0},
@@ -724,7 +730,7 @@ static void make_templates(TemplateTable *tt){
     T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_ACCUSE, 118, -1000, 200, PE_DRIVE_VINDICATION,
           "I notice that moral objections arrive precisely when someone else is doing the interesting work.");
     T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_ANSWER, 112, -1000, 1000, -1,
-          "Ethics, {address}, is a question I have examined more thoroughly than my critics ever will.");
+          "Perhaps. Ethics, {address}, is a question I have examined more thoroughly than my critics ever will.");
     T_add(tt, G_MORAL_CHALLENGE, PE_INTENT_PROBE, 108, -1000, 1000, -1,
           "Tell me: do you object to what I have done, or to what it suggests is possible?");
 

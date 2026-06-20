@@ -189,7 +189,7 @@ int main(int argc, char **argv){
     printf("  today states:          %u\n", today.count);
     printf("  fallback lines:        tier1:%u tier2:%u tier3:%u\n",
            fallback.tier1_count, fallback.tier2_count, fallback.tier3_count);
-    printf("  voice flags:           %d/12 set\n", count_voice_flags(id.voice_flags & 0xFFFu));
+    printf("  voice flags:           %d/13 set\n", count_voice_flags(id.voice_flags & 0x1FFFu));
     printf("  core memories:         %u/%u\n", id.core_memory_count, PE_CORE_SEED_MAX);
     printf("  obsessions:            %d/%d\n", count_nonzero_u16(id.obsessions, PE_OBSESSION_COUNT), PE_OBSESSION_COUNT);
     printf("  obsession strength:    ");

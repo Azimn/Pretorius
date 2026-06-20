@@ -4,6 +4,7 @@
 #include "persona_internal.h"
 #include "engine_clock.h"
 #include "relation_dims.h"
+#include "theory_of_mind.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -78,6 +79,7 @@ int pe_load_relation(Engine *eng, const char *user_id){
      * actor that predates V6. */
     pe_relation_dims_load(&eng->relation_dims, eng->char_dir, h,
                           eng->relation.disposition);
+    pe_tom_load(&eng->theory_of_mind, eng->char_dir, h);
     return 0;
 }
 
@@ -97,5 +99,7 @@ int pe_save_relation(Engine *eng){
 
     /* V6 Phase 4: persist the multi-dim relational profile beside the
      * schema. Skipped silently when no actor is loaded. */
-    return pe_relation_dims_save(&eng->relation_dims, eng->char_dir);
+    rc = pe_relation_dims_save(&eng->relation_dims, eng->char_dir);
+    if (rc != 0) return rc;
+    return pe_tom_save(&eng->theory_of_mind, eng->char_dir);
 }

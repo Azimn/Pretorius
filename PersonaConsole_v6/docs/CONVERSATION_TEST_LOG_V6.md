@@ -898,6 +898,99 @@ Next action:
 - Tighten repeated reflection callback selection in long society probes.
 - Consider a shared test wipe helper so every Node continuity test clears the same V6 sidecar set.
 
+### 2026-06-20 - Long Template Hygiene, ToM, And Affect Dynamics
+
+Branch/commit:
+
+- `v6-phase5d-recall-modes`, pending commit.
+
+Renderer:
+
+- Template-only.
+
+Turns:
+
+- 48-turn Pretorius/Kiki society probe.
+
+JSON:
+
+- `C:\tmp\persona_society_probe\society_pair_probe.json`
+
+Metrics:
+
+| Metric | Result |
+|---|---:|
+| society replies | 48 |
+| society exactRepeats | 3 |
+| society openerRepeats | 4 |
+| society avgLen | 13 |
+| society questionRate | 40 |
+| society assistantTone | false |
+| society roughPunctuationOrTags | false |
+| society actorTags | 48 |
+| society speechEvents | 48 |
+| society openLoops | 2 |
+| society auditCounts | `{0:37,1:7,2:4}` |
+| Pretorius provider_fallbacks | 0 |
+| Kiki provider_fallbacks | 0 |
+| V6 believability battery | 91/100 |
+| requested believability floor | 91/100 |
+| transcript quality | 97/100 |
+| requested transcript floor | 94/100 |
+
+What changed:
+
+- Reflection callbacks now share the normal callback cooldown path. The direct question callback branch no longer bypasses reflection callback usage tracking.
+- Template composition now sanitizes unresolved slot tags, doubled terminal punctuation, leading punctuation glued to a word, and raw tag leaks before final output.
+- Added `v6_society_template_hygiene_run`, a 48-turn regression proving reflection callbacks fire at most once per run window and no raw slot/tag punctuation leaks.
+- Added compact per-actor Theory of Mind sidecars at `<char_dir>/relations/<hash>.tom`, with believed valence, arousal, goal topic, confidence, staleness, and mismatch count.
+- Added affect dynamics helpers for contagion pull, topic emotional forecast, and expression policy.
+- Speech ledger events now carry an expression policy, distinguishing genuine, masked, withheld, and redirected expression.
+- Pretorius gained explicit contradiction patterns for `contradict` and `contradicts`, keeping contradiction input out of the generic question path.
+
+What improved:
+
+- The 48-turn pair probe no longer reports rough punctuation or unresolved tag smell.
+- The visible `.what` fallback artifact is gone.
+- Reflection-style callbacks no longer repeat inside the 48-turn template-only probe.
+- Theory of Mind persists as a separate per-actor sidecar and detects when new input conflicts with the character's current guess about the actor.
+- Affect contagion now uses 64-bit intermediate math, avoiding overflow when high-trust/high-susceptibility pulls are large.
+- Formal scores meet the requested floors: believability 91/100 and transcript quality 97/100.
+
+What failed or felt fake:
+
+- Kiki still repeats one clarification line in the long society probe. This is ordinary template variety pressure, not the repeated-reflection bug.
+- Some Kiki lines still use authored dash-heavy 90s cadence. Transcript awkwardness remains green, but a future Kiki style pass should decide whether those dashes are acceptable character texture or prose smell.
+
+Engine-level implications:
+
+- Long-session polish should prefer compositor arbitration and cooldown fixes before adding more template lines.
+- Theory of Mind belongs in a sidecar because it models what the character thinks the other actor feels, not how the character feels about them.
+- Affective Dynamics belongs on existing affect and memory data. No new sidecar was needed.
+- Feigned expression belongs at the private-thought/expression boundary, not inside the internal affect computation itself.
+
+Cartridge/profile implications:
+
+- New identity knobs are `suggestibility`, `contagion_susceptibility`, `forecast_horizon_weight`, and `expression_mask_threshold`.
+- Pretorius explicitly sets guarded low-contagion values. Kiki sets more porous, high-contagion values and enables voiced ToM guesses.
+- Demo profiles can rely on engine defaults until Forge exposes these fields.
+
+Tests run:
+
+- `make host`
+- `make v6_society_template_hygiene_run`
+- `make v6_theory_of_mind_run`
+- `make v6_affect_dynamics_run`
+- `make v6_expression_policy_run`
+- `PE_SOCIETY_TURNS=48 make society_pair_probe`
+- `make v6_believability_battery_run`
+- `make v5_transcript_quality_run`
+
+Next action:
+
+- Run `make v6_gate_chunk_4` and then the full chunked gate before push.
+- Later dialogue-polish pass: reduce Kiki clarification repeats without flattening her voice.
+
 ## Future Test Entries Template
 
 Copy this block for each substantial run:

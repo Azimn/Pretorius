@@ -71,7 +71,9 @@ MEMORY_SRC := \
     memory/dissonance.c       \
     memory/open_loops.c       \
     memory/speech_habits.c    \
-    memory/learned_knowledge.c
+    memory/learned_knowledge.c \
+    memory/theory_of_mind.c    \
+    memory/affect_dynamics.c
 
 SCHEMA_SRC := \
     schema/schema_state.c
@@ -141,7 +143,8 @@ CORE_HEADERS := \
 MEMORY_HEADERS := \
     memory/aether.h memory/aether_internal.h memory/lsh_memory.h \
     memory/consolidate.h memory/reflection.h memory/recall_plasticity.h
-MEMORY_HEADERS += memory/speech_habits.h memory/learned_knowledge.h
+MEMORY_HEADERS += memory/speech_habits.h memory/learned_knowledge.h \
+                  memory/theory_of_mind.h memory/affect_dynamics.h
 RENDER_HEADERS := \
     render/templates/ngram_lm.h render/templates/mutator.h
 
@@ -159,6 +162,8 @@ RENDER_HEADERS := \
         v6_knowledge_bridge_run v6_knowledge_bridge_nonpretorius_run \
         v6_knowledge_write_path_run v6_knowledge_confirmation_escalation_run \
         v6_situation_overlay_run v6_typed_dissonance_run v6_private_thought_run \
+        v6_society_template_hygiene_run v6_theory_of_mind_run \
+        v6_affect_dynamics_run v6_expression_policy_run \
         v6_gate_chunk_1 v6_gate_chunk_2 v6_gate_chunk_3 v6_gate_chunk_4 v6_gate_chunked \
         v6_learned_knowledge_run \
         v7_api_run
@@ -633,6 +638,23 @@ society_pair_probe: build/persona_host profiles/pretorius/pretorius.cart profile
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/society_pair_probe.js
 
+v6_society_template_hygiene_run: build/persona_host profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/society_template_hygiene_test.js
+
+v6_theory_of_mind_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/replay/theory_of_mind_test.js
+
+build/affect_dynamics_test: tests/replay/affect_dynamics_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) tests/replay/affect_dynamics_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+v6_affect_dynamics_run: build/affect_dynamics_test
+	./build/affect_dynamics_test
+
+v6_expression_policy_run: v6_affect_dynamics_run
+	@echo "--- V6 expression policy: green ---"
+
 lint_test: build/cartridge_lint profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart $(DEMO_CARTS)
 	./build/cartridge_lint profiles/pretorius/pretorius.cart
 	./build/cartridge_lint profiles/kiki/kiki.cart
@@ -661,8 +683,11 @@ v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               web_presence_test v5_transcript_quality_run v5_believability_run \
               v5_clock_replay_run v5_actor_tagged_memory_run \
               v6_self_ledger_run v6_relation_dims_run \
-              v6_dissonance_run v6_withhold_logging_run v6_recall_modes_run \
-              v6_open_loops_run v6_speech_habits_run v4_firewall_run lint_test
+                v6_dissonance_run v6_withhold_logging_run v6_recall_modes_run \
+                v6_open_loops_run v6_speech_habits_run \
+                v6_society_template_hygiene_run v6_theory_of_mind_run \
+                v6_affect_dynamics_run v6_expression_policy_run \
+                v4_firewall_run lint_test
 	@echo "--- V4 tests: green ---"
 
 v6_gate_chunk_1:
@@ -693,6 +718,8 @@ v6_gate_chunk_4:
 	$(MAKE) v6_self_ledger_run v6_relation_dims_run
 	$(MAKE) v6_typed_dissonance_run v6_withhold_logging_run v6_private_thought_run
 	$(MAKE) v6_recall_modes_run v6_open_loops_run v6_speech_habits_run
+	$(MAKE) v6_society_template_hygiene_run v6_theory_of_mind_run
+	$(MAKE) v6_affect_dynamics_run v6_expression_policy_run
 	$(MAKE) v4_firewall_run lint_test
 	@echo "--- V6 gate chunk 4: green ---"
 

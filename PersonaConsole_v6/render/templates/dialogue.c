@@ -125,6 +125,43 @@ static void trim_terminal_punctuation(char *s){
         s[--len] = 0;
 }
 
+static void sanitize_template_output(char *s, size_t cap){
+    if (!s || !s[0]) return;
+    char out[PE_TEMPLATE_TEXT];
+    size_t w = 0;
+    int last_punct = 0;
+    for (size_t r = 0; s[r] && w + 1 < sizeof(out); ++r){
+        char c = s[r];
+        if (c == '{'){
+            const char *close = strchr(s + r, '}');
+            if (close){
+                r = (size_t)(close - s);
+                continue;
+            }
+        }
+        if ((c == '.' || c == '!' || c == '?') && last_punct){
+            if (out[w - 1] != c) out[w - 1] = c;
+            continue;
+        }
+        if (c == ' ' && w > 0 && out[w - 1] == ' ')
+            continue;
+        out[w++] = c;
+        last_punct = (c == '.' || c == '!' || c == '?');
+        if (c != '.' && c != '!' && c != '?'
+            && c != ' ' && c != '\t' && c != '\r' && c != '\n')
+            last_punct = 0;
+    }
+    while (w > 0 && isspace((unsigned char)out[w - 1])) --w;
+    out[w] = 0;
+    while ((out[0] == '.' || out[0] == '!' || out[0] == '?')
+           && isalnum((unsigned char)out[1])){
+        memmove(out, out + 1, strlen(out));
+        if (out[0] >= 'a' && out[0] <= 'z')
+            out[0] = (char)(out[0] - ('a' - 'A'));
+    }
+    if (cap > 0) snprintf(s, cap, "%s", out);
+}
+
 static const char *render_memory_summary(Engine *eng, const MemoryNode *m,
                                          char *buf, size_t n){
     if (!m) return "";
@@ -688,7 +725,7 @@ static int render_reflection_callback(Engine *eng, char *out, size_t n){
     /* Repeat-suppress on a callback-specific namespace, not the shared memory
      * namespace: ordinary recall of this reflection must not block its first
      * spoken surfacing. */
-    if (phrase_recently_used(eng, usage_id(PE_USAGE_CALLBACK, m->id), 10u))
+    if (phrase_recently_used(eng, usage_id(PE_USAGE_CALLBACK, m->id), PE_TEMPLATE_BLACKOUT_TURNS))
         return 0;
     char text[256];
     if (pe_reflection_render(eng, m, text, (int)sizeof(text)) <= 0) return 0;
@@ -699,6 +736,7 @@ static int render_reflection_callback(Engine *eng, char *out, size_t n){
         snprintf(out, n, "Ah. %s What do you make of that?", text);
     else
         snprintf(out, n, "Ah. %s", text);
+    sanitize_template_output(out, n);
     record_use(&eng->memory, usage_id(PE_USAGE_CALLBACK, m->id), eng->state.turn_count);
     record_use(&eng->memory, usage_id(PE_USAGE_MEMORY, m->id), eng->state.turn_count);
     record_use(&eng->memory, text_id, eng->state.turn_count);
@@ -738,18 +776,6 @@ static int render_direct_callback_question(Engine *eng, const char *input,
         return 1;
     }
 
-    if (asks_pattern && eng->reflections.count > 0) {
-        char text[256];
-        const MemoryNode *m = &eng->reflections.memories[0];
-        if (pe_reflection_render(eng, m, text, (int)sizeof(text)) > 0) {
-            if (eng->frame.speech_act == PE_SA_QUESTION)
-                snprintf(out, n, "Ah. %s What do you make of that?", text);
-            else
-                snprintf(out, n, "Ah. %s", text);
-            record_use(&eng->memory, usage_id(PE_USAGE_MEMORY, m->id), eng->state.turn_count);
-            return 1;
-        }
-    }
     if (asks_pattern && render_reflection_callback(eng, out, n))
         return 1;
 
@@ -971,6 +997,7 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
         const char *line = fallback_line(eng);
         uint32_t line_id = usage_id(PE_USAGE_FALLBACK, persona_hash(line));
         fill_text_slots(eng, line, line_id, out, n);
+        sanitize_template_output(out, n);
         eng->last_template_intent = eng->state.current_intent;
         /* still record repetition usage so fallbacks vary */
         record_use(&eng->memory, line_id, eng->state.turn_count);
@@ -1100,6 +1127,7 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
     }
 
     snprintf(out, n, "%s", buf);
+    sanitize_template_output(out, n);
     record_use(&eng->memory, usage_id(PE_USAGE_TEMPLATE, chosen->id), eng->state.turn_count);
     return 0;
 }

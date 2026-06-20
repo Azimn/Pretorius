@@ -150,7 +150,7 @@ function scoreTranscript(lines, states){
   const avgLen = lengths.length ? lengths.reduce((a,b)=>a+b,0) / lengths.length : 0;
   const questions = replies.filter(r => /\?/.test(r)).length;
   const assistant = /as an ai|language model|how can i help|let me know if|happy to help/.test(all);
-  const rough = /\s\.\s|\. \.|undefined|null|\{address\}|\[[a-z_]+]/i.test(replies.join(' '));
+  const rough = /\s\.\s|\. \.|(^|\s)[.!?][A-Za-z]|undefined|null|\{address\}|\[[a-z_]+]/i.test(replies.join(' '));
   const actorTags = states.reduce((n, s) => n + (s.actor_tagged_memories || 0), 0);
   const speechEvents = states.reduce((n, s) => n + (s.speech_event_count || 0), 0);
   const openLoops = states.reduce((n, s) => n + (s.open_loop_count || 0), 0);

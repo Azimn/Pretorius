@@ -14,6 +14,7 @@
 #include "../render/prompt_compiler.h"  /* v6 packet experiment */
 #include "../memory/affect_curve.h"     /* v4: nonlinear affect */
 #include "../memory/reflection.h"       /* v5: reflective consolidation */
+#include "../memory/affect_dynamics.h"
 #include "../memory/recall_plasticity.h" /* v5: recall-coupled plasticity */
 #include "../instrumentation/state_trace.h"  /* v4: observability */
 #include <stdio.h>
@@ -50,6 +51,7 @@ static int load_identity_section(const char *root, int is_cart, Identity *out){
     size_t sz = 0;
     size_t v4_size = offsetof(Identity, current_preoccupations);
     size_t v6_pre_cold_open_size = offsetof(Identity, cold_open_memory_templates);
+    size_t v6_pre_mind_size = offsetof(Identity, suggestibility);
     int rc;
     if (!out) return -1;
     memset(out, 0, sizeof(*out));
@@ -77,7 +79,8 @@ static int load_identity_section(const char *root, int is_cart, Identity *out){
         fclose(f);
         sz = (size_t)n;
     }
-    if (sz == sizeof(Identity) || sz == v6_pre_cold_open_size || sz == v4_size){
+    if (sz == sizeof(Identity) || sz == v6_pre_mind_size
+        || sz == v6_pre_cold_open_size || sz == v4_size){
         memcpy(out, buf, sz);
         free(buf);
         return 0;
@@ -523,6 +526,22 @@ static void pe_seed_typed_self_model(Engine *eng){
                   pe_trait_to_self_axis(eng->identity.agreeableness)) / 2);
 }
 
+static void pe_default_mind_affect_knobs(Engine *eng){
+    if (!eng) return;
+    if (eng->identity.suggestibility == 0)
+        eng->identity.suggestibility =
+            (uint16_t)(250u + ((uint32_t)eng->identity.agreeableness * 350u / 65535u));
+    if (eng->identity.contagion_susceptibility == 0)
+        eng->identity.contagion_susceptibility =
+            (uint16_t)(180u + ((uint32_t)eng->identity.agreeableness * 360u / 65535u));
+    if (eng->identity.forecast_horizon_weight == 0)
+        eng->identity.forecast_horizon_weight =
+            (uint16_t)(260u + ((uint32_t)eng->identity.neuroticism * 420u / 65535u));
+    if (eng->identity.expression_mask_threshold == 0)
+        eng->identity.expression_mask_threshold =
+            (uint16_t)(360u + ((uint32_t)(65535u - eng->identity.agreeableness) * 220u / 65535u));
+}
+
 static void pe_update_private_thought_frame(Engine *eng){
     if (!eng) return;
     uint16_t pressure = 100u;
@@ -562,6 +581,10 @@ static void pe_update_private_thought_frame(Engine *eng){
     eng->private_thought_kind = kind;
     eng->expressed_thought_kind = eng->frame.speech_act;
     eng->private_thought_withheld = pe_speech_act_is_withhold(eng->frame.speech_act) ? 1u : 0u;
+    eng->expression_policy =
+        expression_policy_decide(eng->state.mood, &eng->relation_dims,
+                                 eng->identity.expression_mask_threshold,
+                                 eng->private_thought_withheld ? PE_WR_PRIVACY : PE_WR_NONE);
     eng->private_thought_hash =
         persona_hash(pe_private_thought_kind_name(kind)) ^ ((uint32_t)pressure << 7) ^
         ((uint32_t)eng->frame.primary_topic << 17);
@@ -1889,6 +1912,7 @@ int persona_open(Engine *eng, const char *character_dir){
     if (load_static_section(character_dir, is_cart, "dialogue/goals.bin",     &eng->goals,     sizeof(GoalTable)) != 0)     return -8;
     pe_merge_baseline_patterns(&eng->patterns);
     pe_merge_baseline_templates(&eng->templates);
+    pe_default_mind_affect_knobs(eng);
 
     /* mutable state */
     int had_state = load_or_zero(eng->char_dir, "state.bin",  &eng->state,  sizeof(NPCState));
@@ -2215,6 +2239,11 @@ int persona_process_input(Engine *eng,
         pe_relation_dims_update_from_input(&eng->relation_dims,
                                            (uint8_t)eng->input_class,
                                            ev.arousal);
+        pe_tom_update_from_input(&eng->theory_of_mind,
+                                 (uint8_t)eng->input_class,
+                                 ev.arousal, ev.valence,
+                                 eng->primary_topic,
+                                 (int8_t)(eng->identity.suggestibility / 10u));
     }
 
     /* 3b. v3.0: predictive coding — compare last turn's prediction to
@@ -2240,6 +2269,11 @@ int persona_process_input(Engine *eng,
 
     /* 6. mood */
     pe_compute_mood(eng);
+    eng->state.mood = affect_contagion_pull(eng->state.mood,
+                                            (uint8_t)eng->input_class,
+                                            ev.arousal, ev.valence,
+                                            &eng->relation_dims,
+                                            eng->identity.contagion_susceptibility);
 
     /* 6a. v2: embodiment + layered affect (modulates mood, sets acute spike, etc.) */
     pe_update_embodiment(eng, delta);
@@ -2702,6 +2736,11 @@ post_render:;
             sev.withheld_intent = PE_SA_NONE;
             sev.withhold_reason = PE_WR_NONE;
         }
+        sev.expression_policy =
+            expression_policy_decide(eng->state.mood, &eng->relation_dims,
+                                     eng->identity.expression_mask_threshold,
+                                     sev.withhold_reason);
+        eng->expression_policy = sev.expression_policy;
         eng->frame.withhold_reason = sev.withhold_reason;
 
         pe_speech_ledger_record(&eng->speech_ledger, &sev);
