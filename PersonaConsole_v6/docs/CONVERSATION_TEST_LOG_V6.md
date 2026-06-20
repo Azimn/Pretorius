@@ -991,6 +991,59 @@ Next action:
 - Run `make v6_gate_chunk_4` and then the full chunked gate before push.
 - Later dialogue-polish pass: reduce Kiki clarification repeats without flattening her voice.
 
+### 2026-06-20 - Explicit Society Repeat Ceiling
+
+Branch/commit:
+
+- `v6-phase5d-recall-modes`, pending commit after `b897146`.
+
+Renderer:
+
+- Template-only.
+
+Turns:
+
+- 48-turn Pretorius/Kiki society probe.
+
+Metrics:
+
+| Metric | Result |
+|---|---:|
+| society replies | 48 |
+| society exactRepeats | 0 |
+| society openerRepeats | 0 |
+| society avgLen | 12 |
+| society questionRate | 19 |
+| society assistantTone | false |
+| society roughPunctuationOrTags | false |
+| society actorTags | 48 |
+| society speechEvents | 48 |
+| society openLoops | 2 |
+| society auditCounts | `{0:43,1:1,2:4}` |
+| V6 believability battery | 91/100 |
+| transcript quality | 97/100 |
+
+What changed:
+
+- `society_template_hygiene_test.js` now asserts explicit probe-level ceilings for exact repeats and opener repeats, not only the previously observed reflection callback strings.
+- The ceiling is documented in the test: exact repeats must be zero in this deterministic 48-turn run; opener repeats must be two or fewer.
+- Failure output now prints the repeated full lines or repeated five-word openers.
+- Kiki's high-traffic question and fallback pools were expanded so the selector has enough short alternatives during long character-to-character runs.
+
+Sanity check:
+
+- `PE_SOCIETY_MAX_OPENER_REPEATS=-1 make v6_society_template_hygiene_run` failed as expected, proving the repeat assertion is not vacuous.
+
+What improved:
+
+- The prior run's Kiki repeats were identified as fallback/question pool exhaustion, not the reflection-callback compositor bug.
+- The current 48-turn run has zero exact repeats and zero opener repeats.
+- Believability and transcript quality stayed at 91/100 and 97/100.
+
+Remaining polish issues:
+
+- The transcript still has a few Kiki lines with dash-heavy cadence because that is currently authored into her style banks. This is separate from repeat hygiene.
+
 ## Future Test Entries Template
 
 Copy this block for each substantial run:

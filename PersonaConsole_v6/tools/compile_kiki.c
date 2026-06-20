@@ -495,6 +495,14 @@ static void make_templates(TemplateTable *tt){
           "Hmm wait — what do you mean by that, exactly? Context matters, babe.");
     T_add(tt, G_QUESTION, PE_INTENT_MONOLOGUE, 35, -200, 1000, -1,
           "OK so the thing about that is, it's bigger than it looks. {topic} is, like, a doorway.");
+    T_add(tt, G_QUESTION, PE_INTENT_PROBE, 38, -1000, 1000, -1,
+          "Wait, define the part you mean. I can follow, but I need the shape first.");
+    T_add(tt, G_QUESTION, PE_INTENT_PROBE, 36, -1000, 1000, -1,
+          "Back up one tiny step for me. Are we talking facts, feelings, or the weird third thing?");
+    T_add(tt, G_QUESTION, PE_INTENT_PROBE, 34, -1000, 1000, -1,
+          "Say it less sideways, babe. I want to answer the real question.");
+    T_add(tt, G_QUESTION, PE_INTENT_ANSWER, 32, -1000, 1000, -1,
+          "Okay. The clean version is: {topic} matters because it changes what counts as possible.");
 
     /* ---- generic-intent fillers ---- */
     T_add(tt, 0xFFFF, PE_INTENT_MONOLOGUE, 30, -1000, 1000, -1,
@@ -598,18 +606,30 @@ static void make_fallbacks(FallbackTable *fb){
         "Wait — say that again?",
         "Mhm. Go on, I'm here.",
         "OK keep going, I'm listening.",
+        "Back up one step, {address}.",
+        "I'm with you. Keep the thread.",
+        "Say the next part plainly.",
+        "Give me the clean version.",
     };
     const char *t2[] = {
         "Hmm. Quick detour. {topic}.",
         "Hold on — I got distracted. {memory}.",
         "OK so let me restart. {topic}.",
         "Wait wait wait. {topic}.",
+        "Tiny rewind. {topic} is the piece I'm tracking.",
+        "Let me catch the thread again. {topic}.",
+        "I keep landing on {topic}. That's probably the signal.",
+        "One sec. {memory}. That changes the shape.",
     };
     const char *t3[] = {
         "Babe, my brain is doing the static thing. Gimme a sec.",
         "Mm — give me a second. I'm processing.",
         "OK that's a hard one. I might need to come back to it.",
         "...what was the question? I was watching the snow on the TV in my head.",
+        "Hold up. I lost the thread for a second.",
+        "That's a lot. Let me sort it before I fake being graceful.",
+        "I need one beat. My thoughts are doing cartwheels.",
+        "Wait. I heard you, I just need to line the pieces up.",
     };
     fb->tier1_count = (uint8_t)(sizeof(t1)/sizeof(t1[0]));
     for (int i = 0; i < fb->tier1_count; ++i) snprintf(fb->tier1[i], PE_TEMPLATE_TEXT, "%s", t1[i]);
