@@ -164,6 +164,7 @@ RENDER_HEADERS := \
         v6_situation_overlay_run v6_typed_dissonance_run v6_private_thought_run \
         v6_society_template_hygiene_run v6_theory_of_mind_run \
         v6_affect_dynamics_run v6_expression_policy_run \
+        v6_long_gap_decay_run \
         v6_gate_chunk_1 v6_gate_chunk_2 v6_gate_chunk_3 v6_gate_chunk_4 v6_gate_chunked \
         v6_learned_knowledge_run \
         v7_api_run
@@ -655,6 +656,14 @@ v6_affect_dynamics_run: build/affect_dynamics_test
 v6_expression_policy_run: v6_affect_dynamics_run
 	@echo "--- V6 expression policy: green ---"
 
+build/long_gap_decay_test: tests/replay/long_gap_decay_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) tests/replay/long_gap_decay_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+v6_long_gap_decay_run: build/persona_host profiles/pretorius/pretorius.cart build/long_gap_decay_test
+	./build/long_gap_decay_test
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 1; }
+	node tests/continuity/long_gap_decay_test.js
+
 lint_test: build/cartridge_lint profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart $(DEMO_CARTS)
 	./build/cartridge_lint profiles/pretorius/pretorius.cart
 	./build/cartridge_lint profiles/kiki/kiki.cart
@@ -687,6 +696,7 @@ v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
                 v6_open_loops_run v6_speech_habits_run \
                 v6_society_template_hygiene_run v6_theory_of_mind_run \
                 v6_affect_dynamics_run v6_expression_policy_run \
+                v6_long_gap_decay_run \
                 v4_firewall_run lint_test
 	@echo "--- V4 tests: green ---"
 
@@ -720,6 +730,7 @@ v6_gate_chunk_4:
 	$(MAKE) v6_recall_modes_run v6_open_loops_run v6_speech_habits_run
 	$(MAKE) v6_society_template_hygiene_run v6_theory_of_mind_run
 	$(MAKE) v6_affect_dynamics_run v6_expression_policy_run
+	$(MAKE) v6_long_gap_decay_run
 	$(MAKE) v4_firewall_run lint_test
 	@echo "--- V6 gate chunk 4: green ---"
 

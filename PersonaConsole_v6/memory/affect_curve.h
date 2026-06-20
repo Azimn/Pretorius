@@ -47,6 +47,12 @@ typedef struct {
  * input is already at zero. */
 int16_t affect_decay(int16_t current, int16_t salience, int base_rate_per_mille);
 
+/* Closed-form application of affect_decay over many identical ticks.
+ * Equivalent to repeated affect_decay when salience and base rate are
+ * constant for the interval. */
+int16_t affect_decay_steps(int16_t current, int16_t salience,
+                           int base_rate_per_mille, uint32_t ticks);
+
 /* ----- Hysteresis -----
  * Apply a delta to a hysteretic accumulator.  Reversing direction
  * (signs of current and delta differ) attenuates the delta.  Same-sign

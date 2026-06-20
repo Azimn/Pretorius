@@ -292,8 +292,19 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
     if (!s || !out_buf || out_buf_size <= 0) return -1;
     const Engine *eng = &s->eng;
     const char *today_label = "";
+    uint32_t lk_count = eng->learned_knowledge.header.entry_count;
+    uint16_t lk_max_confidence = 0;
+    uint8_t lk_best_status = 0;
     if (eng->state.today_index < eng->todays.count)
         today_label = eng->todays.entries[eng->state.today_index].label;
+    for (uint32_t i = 0; i < lk_count && i < PE_LK_RECORD_CAP; ++i){
+        const pe_lk_record_t *r = &eng->learned_knowledge.records[i];
+        if (!r->record_id) continue;
+        if (r->confidence >= lk_max_confidence){
+            lk_max_confidence = r->confidence;
+            lk_best_status = r->status;
+        }
+    }
 
     int n = snprintf(out_buf, (size_t)out_buf_size,
         "{\"name\":\"%s\","
@@ -326,6 +337,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"habit_turns_observed\":%u,"
         "\"habit_no_question_streak\":%u,"
         "\"want_ages\":[%u,%u,%u],"
+        "\"drive_values\":[%d,%d,%d,%d,%d,%d,%d,%d],"
         "\"disposition\":%d,"
         "\"user_id\":\"%s\","
         "\"actor_tagged_memories\":%u,"
@@ -356,6 +368,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"relation_dims\":{\"trust\":%u,\"threat\":%u,\"intimacy\":%u,"
                           "\"resentment\":%u,\"dependency\":%u,\"obligation\":%u,"
                           "\"envy\":%u,\"admiration\":%u,\"embarrassment\":%u},"
+        "\"learned_knowledge\":{\"count\":%u,\"max_confidence\":%u,\"best_status\":%u},"
         "\"theory_of_mind\":{\"believed_valence\":%d,\"believed_arousal\":%d,"
                           "\"believed_goal_topic\":%u,\"confidence\":%u,"
                           "\"stale_turns\":%u,\"mismatch_count\":%u},"
@@ -398,6 +411,14 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         (unsigned)eng->state.want_turns_since_engaged[0],
         (unsigned)eng->state.want_turns_since_engaged[1],
         (unsigned)eng->state.want_turns_since_engaged[2],
+        (int)eng->state.drive_values[0],
+        (int)eng->state.drive_values[1],
+        (int)eng->state.drive_values[2],
+        (int)eng->state.drive_values[3],
+        (int)eng->state.drive_values[4],
+        (int)eng->state.drive_values[5],
+        (int)eng->state.drive_values[6],
+        (int)eng->state.drive_values[7],
         eng->relation.disposition,
         s->user_id,
         (unsigned)pe_actor_index_count(&eng->actor_index),
@@ -457,6 +478,9 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         (unsigned)eng->relation_dims.envy,
         (unsigned)eng->relation_dims.admiration,
         (unsigned)eng->relation_dims.embarrassment,
+        (unsigned)lk_count,
+        (unsigned)lk_max_confidence,
+        (unsigned)lk_best_status,
         (int)eng->theory_of_mind.believed_valence,
         (int)eng->theory_of_mind.believed_arousal,
         (unsigned)eng->theory_of_mind.believed_goal_topic,

@@ -1603,7 +1603,10 @@ void pe_decay_drives(Engine *eng, uint32_t delta_ms){
     /* decay = delta_ms * decay_per_minute / 60000, tugged toward baseline */
     for (int i = 0; i < PE_DRIVE_COUNT; ++i){
         const DriveDef *d = &eng->drives.drives[i];
-        int32_t step = ((int32_t)delta_ms * d->decay_per_minute) / 60000;
+        int64_t step64 = ((int64_t)delta_ms * d->decay_per_minute) / 60000;
+        int32_t step = step64 > 1000000 ? 1000000
+                     : step64 < -1000000 ? -1000000
+                     : (int32_t)step64;
         /* trait acceleration: neuroticism speeds repose, extraversion stimulation, etc. */
         int32_t traits[5] = {
             eng->identity.openness,        eng->identity.conscientiousness,
@@ -1627,7 +1630,7 @@ void pe_decay_drives(Engine *eng, uint32_t delta_ms){
             int salience = abs_delta;            /* 0..1000 */
             /* rate is the linear step expressed as per-mille of full
              * range — affect_decay's domain expects 0..1000 base rate */
-            int base_rate = (int)((step * 1000) / 1000);
+            int base_rate = step < 0 ? -step : step;
             if (base_rate < 1) base_rate = 1;
             if (base_rate > 1000) base_rate = 1000;
             int16_t new_delta = affect_decay((int16_t)delta,
@@ -1641,6 +1644,16 @@ void pe_decay_drives(Engine *eng, uint32_t delta_ms){
     int32_t f = eng->state.fatigue + (int32_t)(delta_ms / 30000);
     f -= eng->state.drive_values[PE_DRIVE_REPOSE] / 100;
     eng->state.fatigue = pe_clamp16(f, 0, 1000);
+}
+
+static void pe_decay_drives_for_gap(Engine *eng, uint32_t real_gap_seconds){
+    if (!eng || real_gap_seconds == 0) return;
+    uint32_t hours = real_gap_seconds / 3600u;
+    uint32_t rem_s = real_gap_seconds % 3600u;
+    for (uint32_t i = 0; i < hours; ++i)
+        pe_decay_drives(eng, 3600u * 1000u);
+    if (rem_s > 0)
+        pe_decay_drives(eng, rem_s * 1000u);
 }
 
 /* ---------- mood (saturating fixed-point) ---------- */
@@ -2157,22 +2170,16 @@ int persona_process_input(Engine *eng,
     /* 2. time delta + decay */
     uint32_t now = persona_now_ms();
     uint32_t delta = now - eng->state.last_update_time;
-    uint32_t cap_ms = first_turn_of_session
-                    ? (uint32_t)(30u * 86400u * 1000u)
-                    : (uint32_t)(3600u * 1000u);
+    uint32_t cap_ms = (uint32_t)(3600u * 1000u);
     if (delta > cap_ms) delta = cap_ms;
-    if (first_turn_of_session && real_gap_seconds > 3600u){
-        uint64_t gap_ms_64 = (uint64_t)real_gap_seconds * 1000u;
-        uint32_t gap_ms = (gap_ms_64 < cap_ms) ? (uint32_t)gap_ms_64 : cap_ms;
-        if (gap_ms > delta) delta = gap_ms;
-    }
-    pe_decay_drives(eng, delta);
+    if (first_turn_of_session && real_gap_seconds > 3600u)
+        pe_decay_drives_for_gap(eng, real_gap_seconds);
+    else
+        pe_decay_drives(eng, delta);
     pe_decay_episodic(eng);
     pe_repetition_decay(eng);
     if (first_turn_of_session && real_gap_seconds > 3600u){
-        int extra_ticks = (int)(real_gap_seconds / 3600u);
-        if (extra_ticks > 240) extra_ticks = 240;
-        for (int i = 0; i < extra_ticks; ++i) schema_tick(&eng->schema);
+        schema_tick_many(&eng->schema, real_gap_seconds / 3600u);
     }
 
     /* fold turn count + today seed into rng — guarantees deterministic replay */

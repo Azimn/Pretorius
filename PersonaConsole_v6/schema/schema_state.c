@@ -84,6 +84,26 @@ void schema_tick(SchemaState *s){
     s->last_update_turn += 1;
 }
 
+void schema_tick_many(SchemaState *s, uint32_t ticks){
+    if (!s || ticks == 0) return;
+    for (int i = 0; i < SCHEMA_SLOT_COUNT; ++i){
+        int sal = s->evidence[i] > 1000 ? 1000 : s->evidence[i];
+        int base_rate = (i == SCHEMA_SELF_DIGNITY) ? 25 : 8;
+        s->slot[i] = affect_decay_steps(s->slot[i], (int16_t)sal,
+                                        base_rate, ticks);
+    }
+    for (int i = 0; i < SCHEMA_EVT_COUNT; ++i){
+        uint64_t next = (uint64_t)s->turns_since_event[i] + ticks;
+        s->turns_since_event[i] = next > 0xFFFFFFFFu
+                                ? 0xFFFFFFFFu : (uint32_t)next;
+    }
+    {
+        uint64_t next = (uint64_t)s->last_update_turn + ticks;
+        s->last_update_turn = next > 0xFFFFFFFFu
+                            ? 0xFFFFFFFFu : (uint32_t)next;
+    }
+}
+
 int schema_get(const SchemaState *s, SchemaSlot slot){
     if (!s) return 0;
     if (slot < 0 || slot >= SCHEMA_SLOT_COUNT) return 0;

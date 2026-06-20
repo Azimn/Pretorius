@@ -84,6 +84,11 @@ void schema_apply_event(SchemaState *s, SchemaEvent evt, int magnitude,
  * faster than relational slots; trust-class slots are sticky. */
 void schema_tick(SchemaState *s);
 
+/* Fast-forward schema decay over many idle ticks. Uses closed-form decay
+ * because each slot's evidence and base rate remain constant during an
+ * absence window. */
+void schema_tick_many(SchemaState *s, uint32_t ticks);
+
 /* Read accessors — renderers consume these via RenderContext. */
 int  schema_get(const SchemaState *s, SchemaSlot slot);
 int  schema_evidence(const SchemaState *s, SchemaSlot slot);
