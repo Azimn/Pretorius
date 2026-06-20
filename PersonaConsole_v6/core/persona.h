@@ -774,6 +774,14 @@ struct Engine {
     uint8_t       _pad_cold_open_dbg;
     uint16_t      cold_open_callback_topic;
     uint16_t      cold_open_callback_memory_index;
+    uint16_t      private_thought_topic;
+    uint16_t      private_thought_pressure;
+    uint8_t       private_thought_kind;       /* internal state, not renderer prose */
+    uint8_t       expressed_thought_kind;     /* outward speech act/move */
+    uint8_t       private_thought_withheld;
+    uint8_t       _pad_private_thought;
+    uint32_t      private_thought_hash;
+    uint32_t      expressed_thought_hash;
 };
 
 /* ---------- public API ---------- */

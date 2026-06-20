@@ -101,11 +101,16 @@ const WITHHOLD_ACTS = new Set([
   ok(sNeutral, 'state returned');
   ok(sNeutral && typeof sNeutral.last_withhold_reason === 'string',
      'state JSON exposes last_withhold_reason');
+  ok(sNeutral && typeof sNeutral.last_withheld_intent === 'string',
+     'state JSON exposes last_withheld_intent');
   ok(sNeutral && VALID_REASONS.has(sNeutral.last_withhold_reason),
      `last_withhold_reason is a valid PE_WR_* name (got "${sNeutral && sNeutral.last_withhold_reason}")`);
-  if (sNeutral && !WITHHOLD_ACTS.has(sNeutral.last_speech_act))
+  if (sNeutral && !WITHHOLD_ACTS.has(sNeutral.last_speech_act)){
     ok(sNeutral.last_withhold_reason === 'none',
        `non-withhold speech act yields withhold_reason "none" (got speech_act="${sNeutral.last_speech_act}", reason="${sNeutral.last_withhold_reason}")`);
+    ok(sNeutral.last_withheld_intent === 'none',
+       `non-withhold speech act yields withheld_intent "none" (got "${sNeutral.last_withheld_intent}")`);
+  }
 
   /* 2. Drive a long hostile sequence to push the character into a
    *    refusal-class output (withdrawal, evasion). Pretorius's pattern
@@ -158,6 +163,8 @@ const WITHHOLD_ACTS = new Set([
      `exhausted character produces a withhold-class speech act (got "${sF && sF.last_speech_act}")`);
   ok(sF && sF.last_withhold_reason === 'fatigue',
      `exhaustion-driven withhold tagged as "fatigue" (got "${sF && sF.last_withhold_reason}")`);
+  ok(sF && sF.last_withheld_intent !== 'none',
+     `exhaustion-driven withhold records the withheld speech act (got "${sF && sF.last_withheld_intent}")`);
 
   /* 4. Pinned-replay determinism: same script ⇒ same final
    *    (speech_act, withhold_reason). */
@@ -167,6 +174,8 @@ const WITHHOLD_ACTS = new Set([
   ok(sR && sF && sR.last_withhold_reason === sF.last_withhold_reason
        && sR.last_speech_act === sF.last_speech_act,
      `pinned replay reproduces (speech_act,withhold_reason) — got (${sR && sR.last_speech_act},${sR && sR.last_withhold_reason})`);
+  ok(sR && sF && sR.last_withheld_intent === sF.last_withheld_intent,
+     `pinned replay reproduces withheld_intent (${sF && sF.last_withheld_intent} -> ${sR && sR.last_withheld_intent})`);
 
   wipe();
   if (process.exitCode) process.exit(process.exitCode);

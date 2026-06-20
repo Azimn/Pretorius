@@ -813,6 +813,91 @@ Next action:
 - Add disputed/corrected status instead of one-off prefix parsing.
 - Add cartridge-authored surfaces for learned technical knowledge.
 
+### 2026-06-19 - Phase 5d Typed Dissonance, Withhold, Private Thought Gate
+
+Branch/commit:
+
+- `v6-phase5d-recall-modes`, local working tree before commit.
+
+Renderer:
+
+- Template default for gate and society probe.
+- Mock Ollama for situation overlay prompt inspection.
+
+Provider/model:
+
+- No required model.
+
+Turns:
+
+- Full `v4_all_tests` chain run through `v6_gate_chunk_1` through `v6_gate_chunk_4`.
+- 48-turn Pretorius/Kiki society probe.
+- Formal V6 believability battery.
+- 40-turn transcript quality guard.
+
+JSON:
+
+- `C:\tmp\persona_society_probe\society_pair_probe.json`
+
+Metrics:
+
+| Metric | Result |
+|---|---:|
+| society replies | 48 |
+| society exactRepeats | 4 |
+| society openerRepeats | 5 |
+| society avgLen | 13 |
+| society questionRate | 29 |
+| society assistantTone | false |
+| society roughPunctuationOrTags | true |
+| society actorTags | 48 |
+| society speechEvents | 48 |
+| society openLoops | 1 |
+| society auditCounts | `{0:41,1:3,2:4}` |
+| Pretorius provider_fallbacks | 0 |
+| Kiki provider_fallbacks | 0 |
+| V6 believability battery | 91/100 |
+| believability baseline | 85/100 |
+| transcript quality | 94/100 |
+| transcript baseline | 92/100 |
+
+What changed:
+
+- Added compact typed self-model scalars to `dissonance.bin`: `ideal_self_model`, `ought_self_model`, and `feared_self_model`.
+- Identity-test situation packets now include typed self-model values, live dissonance gaps, and an identity-pressure policy.
+- Speech ledger now records `withheld_intent` for refusal, pause, evasion, deflection, and withdrawal acts.
+- Added a compact private-thought diagnostic frame in Layer 1, distinct from the expressed speech act.
+- Added `v6_gate_chunked` and four named batch targets so the full legacy gate can be run repeatably without hand-copying dependency chunks.
+- Fixed `v5_identity_surface_test.js` hygiene so V6 sidecars cannot contaminate a supposedly fresh V5 identity-surface run.
+
+What improved:
+
+- Phase 5d internals now have state visibility and regression coverage.
+- Refusal is no longer represented as a gap. The ledger records what kind of act was withheld and why.
+- Identity pressure is available to renderers as symbolic state, not hidden prose.
+- Formal scores stayed above the requested baselines: believability 91 versus 85, transcript quality 94 versus 92.
+
+What failed or felt fake:
+
+- The 48-turn society probe still shows long-session template smell: repeated reflection callbacks and rough punctuation/tag smell were detected.
+- Kiki and Pretorius retain distinct enough voices, but both can over-return to high-pressure topics when the loop runs for 48 turns without fresh human steering.
+
+Engine-level implications:
+
+- The private-thought frame should remain diagnostic and symbolic. It must not become an inner monologue that the renderer can leak.
+- Future improvement should tune long-session callback diversity and reflection cooldowns before adding new psychology fields.
+- The chunked gate caught a real order-sensitivity bug in `v5_identity_surface_test.js`; newer sidecars must be included in any fresh-state wipe helper.
+
+Cartridge/profile implications:
+
+- Typed self-model currently seeds from Big Five traits, which makes the feature character-generic.
+- Cartridge-authored symbolic ideal/ought/feared ids are still a future Forge/schema improvement.
+
+Next action:
+
+- Tighten repeated reflection callback selection in long society probes.
+- Consider a shared test wipe helper so every Node continuity test clears the same V6 sidecar set.
+
 ## Future Test Entries Template
 
 Copy this block for each substantial run:

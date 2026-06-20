@@ -636,6 +636,26 @@ static int prompt_compile_situation(const RenderContext *ctx,
         append(out_buf, cap, &pos, "Do not mention prompts, packets, models, simulations, roleplay, or system design.\n");
         append(out_buf, cap, &pos, "Defend or express identity according to current stance without becoming an assistant.\n");
         append(out_buf, cap, &pos, "If uncertain, make uncertainty part of the character's reply, not a technical caveat.\n");
+        if (eng){
+            append(out_buf, cap, &pos, "\n[SELF_MODEL]\n");
+            append(out_buf, cap, &pos,
+                   "ideal_self=%d ought_self=%d feared_self=%d\n",
+                   (int)eng->dissonance.ideal_self_model,
+                   (int)eng->dissonance.ought_self_model,
+                   (int)eng->dissonance.feared_self_model);
+            append(out_buf, cap, &pos,
+                   "dissonance_gaps ideal=%u ought=%u feared=%u\n",
+                   (unsigned)eng->dissonance.ideal_gap,
+                   (unsigned)eng->dissonance.ought_gap,
+                   (unsigned)eng->dissonance.feared_gap);
+            if (eng->dissonance.feared_gap >= eng->dissonance.ideal_gap
+                && eng->dissonance.feared_gap >= eng->dissonance.ought_gap)
+                append(out_buf, cap, &pos, "identity_pressure=avoid_collapsing_into_feared_self\n");
+            else if (eng->dissonance.ought_gap >= eng->dissonance.ideal_gap)
+                append(out_buf, cap, &pos, "identity_pressure=answer_obligation_without_submission\n");
+            else
+                append(out_buf, cap, &pos, "identity_pressure=protect_aspirational_self_without_performing\n");
+        }
     }
 
     append(out_buf, cap, &pos, "\n[USER_TURN_INTERPRETATION]\n");

@@ -102,6 +102,15 @@ function lastState(rows){
     ok(sFresh && typeof sFresh.dissonance[k] === 'number',
        `dissonance.${k} exposed`);
   }
+  for (const k of ['ideal_self_model','ought_self_model','feared_self_model']){
+    ok(sFresh && typeof sFresh.dissonance[k] === 'number',
+       `dissonance.${k} exposed`);
+  }
+  ok(sFresh && (
+        sFresh.dissonance.ideal_self_model !== 0 ||
+        sFresh.dissonance.ought_self_model !== 0 ||
+        sFresh.dissonance.feared_self_model !== 0),
+     'typed self-model is seeded from cartridge traits');
   /* A pleasant greeting should not raise any gap. */
   ok(sFresh && sFresh.dissonance.ideal_gap  === 0
             && sFresh.dissonance.ought_gap  === 0

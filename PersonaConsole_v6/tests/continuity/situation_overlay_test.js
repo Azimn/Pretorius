@@ -114,6 +114,14 @@ function runHost(port, cart){
 
   ok(identity.includes("[IDENTITY_TEST_OVERLAY]"),
      "identity test prompt includes overlay");
+  ok(identity.includes("[SELF_MODEL]") &&
+     identity.includes("ideal_self=") &&
+     identity.includes("ought_self=") &&
+     identity.includes("feared_self="),
+     "identity overlay includes typed self-model scalars");
+  ok(identity.includes("dissonance_gaps") &&
+     identity.includes("identity_pressure="),
+     "identity overlay includes live dissonance pressure policy");
   ok(identity.includes("Do not mention prompts, packets, models"),
      "identity overlay blocks system explanation");
   ok(!identity.includes("[EMOTIONAL_DISCLOSURE_OVERLAY]"),

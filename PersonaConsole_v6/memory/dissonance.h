@@ -44,7 +44,11 @@ typedef struct {
     uint16_t feared_gap;              /* 0..1000 — proximity to feared self */
     uint16_t _pad;                    /* alignment */
     uint32_t last_decay_turn;         /* turn count at last decay tick */
-    uint32_t _reserved[6];            /* zero today; future fields */
+    int16_t  ideal_self_model;        /* -1000..1000 cartridge/trait aspiration axis */
+    int16_t  ought_self_model;        /* -1000..1000 obligation/duty axis */
+    int16_t  feared_self_model;       /* -1000..1000 feared-collapse axis */
+    uint16_t _pad2;
+    uint32_t _reserved[4];            /* zero today; future fields */
 } pe_dissonance_t;
 
 #ifdef __cplusplus

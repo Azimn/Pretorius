@@ -643,10 +643,10 @@ Current status against the Phase 5d planner-layer plan:
 | Item | Status | Evidence / next work |
 | --- | --- | --- |
 | Attention budget | Missing | Doctrine defines `attention_slots[4]`, but no canonical engine struct, state JSON exposure, or tests exist yet. Current situation packet has lightweight `user_act`, `pressure`, and `attend_before_open_loops`, but this is not the full bounded attention budget. |
-| Typed dissonance | Implemented | `dissonance.bin`, `pe_dissonance_t`, state JSON exposure, decay, persistence, and replay coverage exist. Current implementation still uses speech-act proxies rather than full cartridge-authored symbolic self ids. |
+| Typed dissonance | Implemented | `dissonance.bin`, `pe_dissonance_t`, state JSON exposure, decay, persistence, replay coverage, and identity-test overlay reads exist. The sidecar now carries compact signed `ideal_self_model`, `ought_self_model`, and `feared_self_model` scalars seeded deterministically from cartridge traits until full cartridge-authored symbolic self ids land. |
 | Impression management | Stubbed | Relation dimensions and prompt/stance pressure can express social posture, but no canonical `desired_impression` field or tested impression-management planner read exists yet. |
-| Refusal / withhold logging | Implemented | Speech ledger records `withhold_reason`; state JSON exposes `last_withhold_reason`; `withhold_logging_test.js` covers neutral, hostile, fatigue, and replay cases. `withheld_intent` remains mostly reserved and usually `PE_SA_NONE`. |
-| Private-thought frame | Stubbed | The web UI derives a visible current-thought string from engine state and open loops can bookmark half-spoken thoughts, but there is no canonical private-thought frame in Layer 1 yet. |
+| Refusal / withhold logging | Implemented | Speech ledger records both `withhold_reason` and `withheld_intent`; state JSON exposes `last_withhold_reason` and `last_withheld_intent`; `withhold_logging_test.js` covers neutral, hostile, fatigue, withheld-intent persistence, and replay cases. |
+| Private-thought frame | Implemented | Engine tracks a compact private-thought diagnostic frame (`private_thought_kind`, topic, pressure, withhold flag, internal hash) distinct from the expressed speech act. State JSON exposes it for tests; renderer output does not receive or leak the private diagnostic frame. |
 
 Practice (Git workflow, build, test gates, cartridge artifacts, line
 endings, pre-push checklist) lives in `DEV_WORKFLOW.md` and is shared

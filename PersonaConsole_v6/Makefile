@@ -158,7 +158,9 @@ RENDER_HEADERS := \
         v6_wrong_addressee_repair_run v6_lore_act_fallback_run \
         v6_knowledge_bridge_run v6_knowledge_bridge_nonpretorius_run \
         v6_knowledge_write_path_run v6_knowledge_confirmation_escalation_run \
-        v6_situation_overlay_run v6_learned_knowledge_run \
+        v6_situation_overlay_run v6_typed_dissonance_run v6_private_thought_run \
+        v6_gate_chunk_1 v6_gate_chunk_2 v6_gate_chunk_3 v6_gate_chunk_4 v6_gate_chunked \
+        v6_learned_knowledge_run \
         v7_api_run
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
@@ -610,6 +612,13 @@ v6_situation_overlay_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/situation_overlay_test.js
 
+v6_typed_dissonance_run: v6_dissonance_run v6_situation_overlay_run
+	@echo "--- V6 typed dissonance overlays: green ---"
+
+v6_private_thought_run: build/persona_host profiles/pretorius/pretorius.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/replay/private_thought_test.js
+
 build/learned_knowledge_test: tests/replay/learned_knowledge_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
 	$(CC) $(CFLAGS) tests/replay/learned_knowledge_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
 
@@ -656,12 +665,50 @@ v4_all_tests: v4_modules_run v4_replay_run v4_ollama_run v4_schema_run \
               v6_open_loops_run v6_speech_habits_run v4_firewall_run lint_test
 	@echo "--- V4 tests: green ---"
 
+v6_gate_chunk_1:
+	$(MAKE) v4_modules_run v4_replay_run v4_ollama_run v4_schema_run
+	$(MAKE) v4_instr_run v4_continuity_run v4_idle_probe_run
+	$(MAKE) v4_baseline_inheritance_run v4_background_time_run
+	$(MAKE) v4_proactive_intents_run v4_time_of_day_run
+	$(MAKE) v4_strategic_pause_run v4_unresolved_thread_run
+	@echo "--- V6 gate chunk 1: green ---"
+
+v6_gate_chunk_2:
+	$(MAKE) v5_identity_surface_run v5_resumption_lines_run v5_want_pull_run cartridge_stats
+	$(MAKE) v4_drift_run v4_reflection_run v5_reflection_surface_run
+	$(MAKE) v5_conversation_rhythm_run v6_greeting_status_routing_run
+	$(MAKE) v6_cold_open_memory_realism_run v6_cold_open_memory_surface_templates_run
+	$(MAKE) v5_offscreen_autonomy_run v5_relationships_roster_run
+	@echo "--- V6 gate chunk 2: green ---"
+
+v6_gate_chunk_3:
+	$(MAKE) v5_offscreen_memory_render_run v5_milestone_catchup_run
+	$(MAKE) v5_legacy_identity_migration_run v4_adversarial_arcs
+	$(MAKE) v4_recall_plasticity_run inspector_test web_presence_test
+	$(MAKE) v5_transcript_quality_run v5_believability_run
+	$(MAKE) v5_clock_replay_run v5_actor_tagged_memory_run
+	@echo "--- V6 gate chunk 3: green ---"
+
+v6_gate_chunk_4:
+	$(MAKE) v6_self_ledger_run v6_relation_dims_run
+	$(MAKE) v6_typed_dissonance_run v6_withhold_logging_run v6_private_thought_run
+	$(MAKE) v6_recall_modes_run v6_open_loops_run v6_speech_habits_run
+	$(MAKE) v4_firewall_run lint_test
+	@echo "--- V6 gate chunk 4: green ---"
+
+v6_gate_chunked:
+	$(MAKE) v6_gate_chunk_1
+	$(MAKE) v6_gate_chunk_2
+	$(MAKE) v6_gate_chunk_3
+	$(MAKE) v6_gate_chunk_4
+	@echo "--- V6 chunked runtime gate: green ---"
+
 # Preferred V5 aliases for the pre-push gate. Same dep list as v4_all_tests so
 # there is no flag day; the rename is purely conceptual (the gate now also
 # covers V5 believability, transcript quality, milestone catch-up, and the
 # clock-pinned determinism test).
-runtime_gate: v4_all_tests
-v5_gate: v4_all_tests
+runtime_gate: v6_gate_chunked
+v5_gate: v6_gate_chunked
 
 strict_check:
 	@test "$(STRICT_TESTS)" = "1" || { echo "Set STRICT_TESTS=1 for strict gate"; exit 2; }

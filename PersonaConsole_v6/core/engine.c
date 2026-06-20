@@ -476,6 +476,103 @@ static void pe_build_turn_frame(Engine *eng){
         f->selected_memories[f->selected_memory_count++] = eng->active_memories[i];
 }
 
+enum {
+    PE_PRIVATE_THOUGHT_NONE = 0,
+    PE_PRIVATE_THOUGHT_ATTEND_USER = 1,
+    PE_PRIVATE_THOUGHT_OPEN_LOOP = 2,
+    PE_PRIVATE_THOUGHT_DISSONANCE = 3,
+    PE_PRIVATE_THOUGHT_OBSESSION = 4,
+    PE_PRIVATE_THOUGHT_FATIGUE = 5,
+    PE_PRIVATE_THOUGHT_WITHHOLD = 6
+};
+
+static const char *pe_private_thought_kind_name(uint8_t kind){
+    static const char *names[] = {
+        "none", "attend_user", "open_loop", "dissonance",
+        "obsession", "fatigue", "withhold"
+    };
+    if (kind < (sizeof(names) / sizeof(names[0]))) return names[kind];
+    return "unknown";
+}
+
+static int16_t pe_trait_to_self_axis(uint16_t q16){
+    int32_t v = ((int32_t)q16 * 2000) / 65535 - 1000;
+    if (v < -1000) v = -1000;
+    if (v >  1000) v =  1000;
+    return (int16_t)v;
+}
+
+static void pe_seed_typed_self_model(Engine *eng){
+    if (!eng) return;
+    if (eng->dissonance.ideal_self_model != 0
+        || eng->dissonance.ought_self_model != 0
+        || eng->dissonance.feared_self_model != 0)
+        return;
+
+    /* Compact, cartridge-neutral defaults derived from authored Big Five.
+     * Cartridge-authored symbolic self fields can replace this later, but
+     * every profile gets a deterministic self-model now. */
+    eng->dissonance.ideal_self_model =
+        (int16_t)((pe_trait_to_self_axis(eng->identity.openness) +
+                  pe_trait_to_self_axis(eng->identity.extraversion)) / 2);
+    eng->dissonance.ought_self_model =
+        (int16_t)((pe_trait_to_self_axis(eng->identity.conscientiousness) +
+                  pe_trait_to_self_axis(eng->identity.agreeableness)) / 2);
+    eng->dissonance.feared_self_model =
+        (int16_t)((pe_trait_to_self_axis(eng->identity.neuroticism) -
+                  pe_trait_to_self_axis(eng->identity.agreeableness)) / 2);
+}
+
+static void pe_update_private_thought_frame(Engine *eng){
+    if (!eng) return;
+    uint16_t pressure = 100u;
+    uint8_t kind = PE_PRIVATE_THOUGHT_ATTEND_USER;
+
+    if (eng->frame.open_loop_pressure > pressure){
+        pressure = eng->frame.open_loop_pressure;
+        kind = PE_PRIVATE_THOUGHT_OPEN_LOOP;
+    }
+    if (eng->frame.ideal_gap > pressure){
+        pressure = eng->frame.ideal_gap;
+        kind = PE_PRIVATE_THOUGHT_DISSONANCE;
+    }
+    if (eng->frame.ought_gap > pressure){
+        pressure = eng->frame.ought_gap;
+        kind = PE_PRIVATE_THOUGHT_DISSONANCE;
+    }
+    if (eng->frame.feared_gap > pressure){
+        pressure = eng->frame.feared_gap;
+        kind = PE_PRIVATE_THOUGHT_DISSONANCE;
+    }
+    if (eng->state.obsession_pressure > pressure){
+        pressure = eng->state.obsession_pressure;
+        kind = PE_PRIVATE_THOUGHT_OBSESSION;
+    }
+    if (eng->state.exhaustion > pressure){
+        pressure = eng->state.exhaustion;
+        kind = PE_PRIVATE_THOUGHT_FATIGUE;
+    }
+    if (pe_speech_act_is_withhold(eng->frame.speech_act)){
+        kind = PE_PRIVATE_THOUGHT_WITHHOLD;
+        if (pressure < 520u) pressure = 520u;
+    }
+
+    eng->private_thought_topic = eng->frame.primary_topic;
+    eng->private_thought_pressure = pressure;
+    eng->private_thought_kind = kind;
+    eng->expressed_thought_kind = eng->frame.speech_act;
+    eng->private_thought_withheld = pe_speech_act_is_withhold(eng->frame.speech_act) ? 1u : 0u;
+    eng->private_thought_hash =
+        persona_hash(pe_private_thought_kind_name(kind)) ^ ((uint32_t)pressure << 7) ^
+        ((uint32_t)eng->frame.primary_topic << 17);
+    eng->expressed_thought_hash =
+        persona_hash(pe_speech_act_name(eng->frame.speech_act)) ^
+        ((uint32_t)eng->frame.rhetorical_mode << 9) ^
+        ((uint32_t)eng->frame.selected_intent << 19);
+    if (eng->private_thought_hash == eng->expressed_thought_hash)
+        eng->expressed_thought_hash ^= 0x51A7u;
+}
+
 static uint8_t pe_withhold_reason_from_frame(const Engine *eng,
                                              const CanonicalTurnFrame *f){
     if      (eng->state.exhaustion   > 600) return PE_WR_FATIGUE;
@@ -1808,6 +1905,7 @@ int persona_open(Engine *eng, const char *character_dir){
     else         pe_speech_ledger_init(&eng->speech_ledger);
     /* V6 Phase 5b: typed dissonance accumulators sidecar. */
     pe_dissonance_load(&eng->dissonance, eng->char_dir);
+    pe_seed_typed_self_model(eng);
     /* V6 Phase 6: carried intentions / open loops sidecar. */
     pe_open_loops_load(&eng->open_loops, eng->char_dir);
     /* V6 Phase 6: lightweight rhythm habits sidecar. */
@@ -2295,6 +2393,7 @@ int persona_process_input(Engine *eng,
     /* 9a. v2: build rhetorical plan before realization */
     pe_build_plan(eng);
     pe_build_turn_frame(eng);
+    pe_update_private_thought_frame(eng);
     eng->last_audit_result = PE_AUDIT_PASS;
     eng->last_audit_violation = PE_AUDIT_V_NONE;
     eng->last_audit_hardness = PE_AUDIT_SOFT;
@@ -2574,7 +2673,7 @@ post_render:;
         sev.defense_mode        = 0;                   /* Phase 5 */
         sev.repair_mode         = 0;                   /* Phase 5 */
         sev.audit_result        = eng->last_audit_result;
-        sev.withheld_intent     = PE_SA_NONE;          /* Phase 5d */
+        sev.withheld_intent     = PE_SA_NONE;
         sev.regret_marker       = 0;                   /* set later */
 
         /* V6 Phase 5c: refusal/withhold reason. When the character's own
@@ -2593,8 +2692,14 @@ post_render:;
          *   PRIVACY  — default catchall for refusals without a stronger
          *              triggering signal.  */
         if (pe_speech_act_is_withhold(sev.speech_act)){
+            sev.withheld_intent =
+                (eng->input_class == 2) ? PE_SA_QUESTION :
+                (eng->input_class == 3) ? PE_SA_ASSERTION :
+                (eng->input_class == 4) ? PE_SA_DISCLOSURE :
+                                          PE_SA_ASSERTION;
             sev.withhold_reason = pe_withhold_reason_from_frame(eng, &eng->frame);
         } else {
+            sev.withheld_intent = PE_SA_NONE;
             sev.withhold_reason = PE_WR_NONE;
         }
         eng->frame.withhold_reason = sev.withhold_reason;

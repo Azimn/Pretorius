@@ -40,6 +40,15 @@ static const char *rhet_name(uint16_t r){
     return "unknown";
 }
 
+static const char *private_thought_name(uint8_t k){
+    static const char *NAMES[] = {
+        "none","attend_user","open_loop","dissonance",
+        "obsession","fatigue","withhold"
+    };
+    if (k < (sizeof(NAMES)/sizeof(NAMES[0]))) return NAMES[k];
+    return "unknown";
+}
+
 PersonaSession* ps_open(const char *cartridge_path){
     if (!cartridge_path) return NULL;
     PersonaSession *s = (PersonaSession*)calloc(1, sizeof(PersonaSession));
@@ -323,6 +332,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"speech_event_count\":%u,"
         "\"last_speech_act\":\"%s\","
         "\"last_withhold_reason\":\"%s\","
+        "\"last_withheld_intent\":\"%s\","
         "\"last_audit_result\":%u,"
         "\"last_audit_violation\":%u,"
         "\"last_audit_hardness\":%u,"
@@ -332,6 +342,9 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"cold_open_callback_exclusive\":%u,"
         "\"cold_open_callback_topic\":%u,"
         "\"cold_open_callback_memory_index\":%u,"
+        "\"private_thought\":{\"kind\":\"%s\",\"expressed\":\"%s\","
+                  "\"topic\":%u,\"pressure\":%u,\"withheld\":%u,"
+                  "\"internal_hash\":%u,\"expressed_hash\":%u},"
         "\"frame\":{\"actor_id\":%u,\"input_class\":%u,\"primary_topic\":%u,"
                   "\"selected_goal\":%u,\"selected_intent\":\"%s\","
                   "\"speech_act\":\"%s\",\"stance\":%u,\"rhetorical_mode\":\"%s\","
@@ -342,7 +355,9 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"relation_dims\":{\"trust\":%u,\"threat\":%u,\"intimacy\":%u,"
                           "\"resentment\":%u,\"dependency\":%u,\"obligation\":%u,"
                           "\"envy\":%u,\"admiration\":%u,\"embarrassment\":%u},"
-        "\"dissonance\":{\"ideal_gap\":%u,\"ought_gap\":%u,\"feared_gap\":%u},"
+        "\"dissonance\":{\"ideal_gap\":%u,\"ought_gap\":%u,\"feared_gap\":%u,"
+                      "\"ideal_self_model\":%d,\"ought_self_model\":%d,"
+                      "\"feared_self_model\":%d},"
         "\"recall_mode\":\"%s\","
         "\"schema\":{\"trustworthy\":%d,\"hostile\":%d,\"intimate\":%d,"
                     "\"competent\":%d,\"deceptive\":%d,\"owed\":%d,"
@@ -389,6 +404,9 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         pe_withhold_reason_name(pe_speech_ledger_last(&eng->speech_ledger)
                                 ? pe_speech_ledger_last(&eng->speech_ledger)->withhold_reason
                                 : PE_WR_NONE),
+        pe_speech_act_name(pe_speech_ledger_last(&eng->speech_ledger)
+                           ? pe_speech_ledger_last(&eng->speech_ledger)->withheld_intent
+                           : PE_SA_NONE),
         (unsigned)eng->last_audit_result,
         (unsigned)eng->last_audit_violation,
         (unsigned)eng->last_audit_hardness,
@@ -398,6 +416,13 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         (unsigned)eng->cold_open_callback_exclusive,
         (unsigned)eng->cold_open_callback_topic,
         (unsigned)eng->cold_open_callback_memory_index,
+        private_thought_name(eng->private_thought_kind),
+        pe_speech_act_name(eng->expressed_thought_kind),
+        (unsigned)eng->private_thought_topic,
+        (unsigned)eng->private_thought_pressure,
+        (unsigned)eng->private_thought_withheld,
+        (unsigned)eng->private_thought_hash,
+        (unsigned)eng->expressed_thought_hash,
         (unsigned)eng->frame.actor_id,
         (unsigned)eng->frame.input_class,
         (unsigned)eng->frame.primary_topic,
@@ -427,6 +452,9 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         (unsigned)eng->dissonance.ideal_gap,
         (unsigned)eng->dissonance.ought_gap,
         (unsigned)eng->dissonance.feared_gap,
+        (int)eng->dissonance.ideal_self_model,
+        (int)eng->dissonance.ought_self_model,
+        (int)eng->dissonance.feared_self_model,
         pe_recall_mode_name(eng->current_recall_mode),
         (int)eng->schema.slot[SCHEMA_USER_TRUSTWORTHY],
         (int)eng->schema.slot[SCHEMA_USER_HOSTILE],

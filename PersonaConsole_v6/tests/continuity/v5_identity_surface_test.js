@@ -10,10 +10,13 @@ const CART = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretoriu
 const CHDIR = path.dirname(CART);
 
 function wipeState(){
-  for (const f of ['state.bin', 'memory.bin', 'chapters.bin']){
+  for (const f of ['state.bin', 'memory.bin', 'chapters.bin',
+                   'reflections.bin', 'actor_index.bin', 'speech_events.bin',
+                   'dissonance.bin', 'open_loops.bin', 'speech_habits.bin',
+                   'learned_knowledge.bin']){
     try { fs.unlinkSync(path.join(CHDIR, f)); } catch {}
   }
-  for (const d of ['relations', 'aether']){
+  for (const d of ['relations', 'aether', 'learned_knowledge']){
     try { fs.rmSync(path.join(CHDIR, d), { recursive: true, force: true }); } catch {}
   }
 }
