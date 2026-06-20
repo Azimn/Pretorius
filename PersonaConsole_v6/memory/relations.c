@@ -31,6 +31,7 @@ int pe_load_relation(Engine *eng, const char *user_id){
     if (!user_id || !*user_id || !strcmp(user_id, "anon")) user_id = "Someone";
     uint32_t h = persona_hash(user_id);
     char path[512];
+    uint32_t real_gap_seconds = 0;
     relation_path(eng, h, path, sizeof(path));
 
     if (eng->state.user_id_hash == h && eng->relation.user_hash == h)
@@ -54,8 +55,11 @@ int pe_load_relation(Engine *eng, const char *user_id){
     } else {
         /* disposition decays 1 pt per real day of no contact */
         uint32_t now_s = pe_clock_now_s();
-        uint32_t days = (now_s > eng->relation.last_contact)
-                      ? (now_s - eng->relation.last_contact) / 86400u : 0;
+        uint32_t days = 0;
+        if (now_s > eng->relation.last_contact){
+            real_gap_seconds = now_s - eng->relation.last_contact;
+            days = real_gap_seconds / 86400u;
+        }
         int v = eng->relation.disposition - (int)days;
         eng->relation.disposition = pe_clamp16(v, 0, 1000);
     }
@@ -79,6 +83,7 @@ int pe_load_relation(Engine *eng, const char *user_id){
      * actor that predates V6. */
     pe_relation_dims_load(&eng->relation_dims, eng->char_dir, h,
                           eng->relation.disposition);
+    pe_relation_dims_soften_for_gap(&eng->relation_dims, real_gap_seconds);
     pe_tom_load(&eng->theory_of_mind, eng->char_dir, h);
     return 0;
 }

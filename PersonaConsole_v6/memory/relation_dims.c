@@ -2,6 +2,7 @@
 #include "persona.h"
 #include "persona_internal.h"
 #include "relation_dims.h"
+#include "affect_curve.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -151,4 +152,36 @@ void pe_relation_dims_update_from_input(pe_relation_dims_t *dims,
          * intent / response classes for finer-grained signals. */
         break;
     }
+}
+
+static uint16_t soften_dim_toward(uint16_t value, uint16_t baseline,
+                                  uint32_t days, int base_rate){
+    int delta = (int)value - (int)baseline;
+    if (delta == 0 || days == 0) return value;
+    int salience = delta < 0 ? -delta : delta;
+    salience *= 2;
+    if (salience > 950) salience = 950;
+    {
+        int16_t next_delta = affect_decay_steps((int16_t)delta,
+                                                (int16_t)salience,
+                                                base_rate, days);
+        return dim_add(baseline, next_delta);
+    }
+}
+
+void pe_relation_dims_soften_for_gap(pe_relation_dims_t *dims,
+                                     uint32_t real_gap_seconds){
+    if (!dims || real_gap_seconds < 30u * 86400u) return;
+    uint32_t days = real_gap_seconds / 86400u;
+    if (days == 0) return;
+
+    /* Trust, intimacy, admiration, obligation, and dependency are treated
+     * as relationship posture, not hot affect. They persist unless changed
+     * by events. Threat has a neutral floor at 500, while grievance-like
+     * dimensions cool toward zero unless their magnitude itself makes them
+     * highly salient. */
+    dims->threat        = soften_dim_toward(dims->threat,        500, days, 4);
+    dims->resentment    = soften_dim_toward(dims->resentment,      0, days, 8);
+    dims->envy          = soften_dim_toward(dims->envy,            0, days, 6);
+    dims->embarrassment = soften_dim_toward(dims->embarrassment,   0, days, 6);
 }

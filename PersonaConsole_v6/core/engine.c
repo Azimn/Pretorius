@@ -1648,12 +1648,37 @@ void pe_decay_drives(Engine *eng, uint32_t delta_ms){
 
 static void pe_decay_drives_for_gap(Engine *eng, uint32_t real_gap_seconds){
     if (!eng || real_gap_seconds == 0) return;
-    uint32_t hours = real_gap_seconds / 3600u;
-    uint32_t rem_s = real_gap_seconds % 3600u;
-    for (uint32_t i = 0; i < hours; ++i)
-        pe_decay_drives(eng, 3600u * 1000u);
-    if (rem_s > 0)
-        pe_decay_drives(eng, rem_s * 1000u);
+    uint32_t days = real_gap_seconds / 86400u;
+    if (days == 0) days = 1;
+    for (int i = 0; i < PE_DRIVE_COUNT; ++i){
+        const DriveDef *d = &eng->drives.drives[i];
+        int32_t traits[5] = {
+            eng->identity.openness,        eng->identity.conscientiousness,
+            eng->identity.extraversion,    eng->identity.agreeableness,
+            eng->identity.neuroticism
+        };
+        int32_t accel = 0;
+        int base_rate = d->decay_per_minute < 0
+                      ? -d->decay_per_minute : d->decay_per_minute;
+        for (int k = 0; k < 5; ++k)
+            accel += (traits[k] * d->personality_weight[k]) >> 16;
+        base_rate += (base_rate * accel) / 0x1000;
+        if (base_rate < 1) base_rate = 1;
+        if (base_rate > 1000) base_rate = 1000;
+
+        int32_t delta = (int32_t)eng->state.drive_values[i] - d->baseline;
+        if (delta != 0){
+            int salience = delta < 0 ? -delta : delta;
+            int16_t new_delta = affect_decay_steps((int16_t)delta,
+                                                   (int16_t)salience,
+                                                   base_rate, days);
+            eng->state.drive_values[i] =
+                pe_clamp16((int32_t)d->baseline + new_delta, 0, 1000);
+        }
+    }
+    eng->state.fatigue =
+        (uint16_t)affect_decay_steps((int16_t)eng->state.fatigue,
+                                     0, 12, days);
 }
 
 /* ---------- mood (saturating fixed-point) ---------- */

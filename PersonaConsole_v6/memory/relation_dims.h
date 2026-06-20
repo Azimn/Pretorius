@@ -89,6 +89,13 @@ void pe_relation_dims_update_from_input(pe_relation_dims_t *dims,
                                         uint8_t input_class,
                                         int8_t arousal_pct);
 
+/* V6 long-run softening. Bond-like dimensions are intentionally durable;
+ * transient threat/resentment/envy/embarrassment spikes soften toward their
+ * neutral floor over month-scale gaps using the shared salience-weighted
+ * affect decay shape. */
+void pe_relation_dims_soften_for_gap(pe_relation_dims_t *dims,
+                                     uint32_t real_gap_seconds);
+
 #ifdef __cplusplus
 }
 #endif

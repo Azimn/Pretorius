@@ -28,40 +28,38 @@ int16_t affect_decay(int16_t current, int16_t salience, int base_rate_per_mille)
     return (int16_t)clampi(next, -1000, 1000);
 }
 
-static uint32_t pow_per_mille(uint32_t base, uint32_t ticks){
-    uint64_t result = 1000u;
-    uint64_t b = base;
-    while (ticks > 0){
-        if (ticks & 1u) result = (result * b) / 1000u;
-        ticks >>= 1u;
-        if (ticks) b = (b * b) / 1000u;
-        if (result == 0 || b == 0) return 0;
-    }
-    return (uint32_t)result;
-}
-
 int16_t affect_decay_steps(int16_t current, int16_t salience,
                            int base_rate_per_mille, uint32_t ticks){
     int abs_current = current < 0 ? -current : current;
     if (abs_current == 0 || ticks == 0) return current;
-    if (ticks <= 10000u){
-        int16_t v = current;
-        for (uint32_t i = 0; i < ticks; ++i)
-            v = affect_decay(v, salience, base_rate_per_mille);
-        return v;
-    }
 
     int inv_sal = 1000 - clampi(salience, 0, 1000);
-    int sq = (inv_sal * inv_sal) / 1000;
-    int decay = (clampi(base_rate_per_mille, 0, 1000) * sq) / 1000;
-    uint32_t keep = (uint32_t)(1000 - decay);
-    if (keep >= 1000u) return current;
-    if (keep == 0u) return 0;
+    int rate = clampi(base_rate_per_mille, 0, 1000);
+    if (rate == 0) return current;
 
-    uint32_t factor = pow_per_mille(keep, ticks);
-    int64_t next = ((int64_t)current * (int64_t)factor) / 1000;
-    if (next > -2 && next < 2) next = 0;
-    return (int16_t)clampi((int)next, -1000, 1000);
+    /* Closed-form, uncapped-but-bounded multi-tick decay.
+     *
+     * The one-tick affect_decay path intentionally uses integer per-mille
+     * arithmetic. Repeating that for long absences either costs a loop over
+     * every hour or freezes high-salience values when the per-tick integer
+     * decay rounds to zero. This path keeps the same squared inverse-salience
+     * shape, but accumulates elapsed time in a wider pressure term:
+     *
+     *   keep = SCALE / (SCALE + rate * ticks * inv_salience^2)
+     *
+     * High-salience memories therefore resist movement without becoming
+     * immortal, and long gaps keep producing measurable differences without
+     * iterating over months or years. */
+    if (inv_sal == 0) inv_sal = 1;
+    {
+        const uint64_t scale = 1000000000ull;
+        uint64_t sq = (uint64_t)inv_sal * (uint64_t)inv_sal; /* 1..1,000,000 */
+        uint64_t pressure = (uint64_t)rate * (uint64_t)ticks * sq;
+        uint64_t denom = scale + pressure;
+        int64_t next = ((int64_t)current * (int64_t)scale) / (int64_t)denom;
+        if (next > -2 && next < 2) next = 0;
+        return (int16_t)clampi((int)next, -1000, 1000);
+    }
 }
 
 int16_t affect_hysteresis_apply(int16_t current, int delta){

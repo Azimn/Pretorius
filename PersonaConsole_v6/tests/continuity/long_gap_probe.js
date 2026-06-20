@@ -113,6 +113,7 @@ function establish(){
     { method: "chat", text: "I think your work is immoral sometimes, but I cannot stop thinking about it." },
     { method: "chat", text: "Actually, your electricity answer is not quite right. In metal wires, moving charges are electrons; voltage is electric potential difference and resistance impedes flow." },
     { method: "chat", text: "Tell me you will remember that correction." },
+    { method: "chat", text: "That last answer was cruel, Doctor. You sounded like a fool." },
     { method: "state" },
     { method: "close" },
   );
@@ -173,7 +174,7 @@ function markdown(results){
   const lines = [];
   lines.push("# V6 Long Gap Probe");
   lines.push("");
-  lines.push("Observation harness for long absence decay. The harness establishes a Pretorius/Kiki relationship in a temp copy, seeds relation dimensions, schema pressure, high-salience memories, and one confirmed learned-knowledge correction, then backdates the relation file to simulate long gaps.");
+  lines.push("Observation harness for long absence decay. The harness establishes a Pretorius/Kiki relationship in a temp copy, seeds relation dimensions, schema pressure, high-salience memories, one confirmed learned-knowledge correction, and one late single-event grievance spike, then backdates the relation file to simulate long gaps.");
   lines.push("");
   lines.push("This probe is template-only and uses no model, cloud, database, embeddings, or network access.");
   lines.push("");
@@ -187,8 +188,8 @@ function markdown(results){
   lines.push("- `Drive values` are the eight engine drives in order: recognition, stimulation, provocation, communion, autonomy, continuity, vindication, repose.");
   lines.push("- Learned knowledge confidence is expected to remain stable across absence. Absence should decay availability/affect, not rewrite confirmed knowledge.");
   lines.push("- One-year and three-year gaps should not collapse to identical schema or drive state after the long-gap decay fix.");
-  lines.push("- Current observation: schema pressure and drive perturbations settle by the one-month row, while relationship disposition continues to distinguish one year from three years. That may be acceptable for hot affect, but long-lived relationship posture should probably live in relation dimensions, open loops, milestones, and learned/episodic memory rather than raw schema heat.");
-  lines.push("- Future tuning candidate: add explicit half-life policy per schema slot if we want intimacy/hostility schemas to leave a residual after months without making every old wound permanent.");
+  lines.push("- Relation dimensions are intentionally asymmetric: trust/intimacy/admirational posture resists absence, while low-salience threat or resentment spikes soften toward their floor over month-scale gaps.");
+  lines.push("- Future tuning candidate: add explicit half-life policy per schema slot if we want intimacy/hostility schemas to leave a stronger residual after months without making every old wound permanent.");
   lines.push("");
   lines.push("Harness:");
   lines.push("");

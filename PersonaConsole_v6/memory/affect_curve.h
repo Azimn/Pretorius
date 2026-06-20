@@ -47,9 +47,10 @@ typedef struct {
  * input is already at zero. */
 int16_t affect_decay(int16_t current, int16_t salience, int base_rate_per_mille);
 
-/* Closed-form application of affect_decay over many identical ticks.
- * Equivalent to repeated affect_decay when salience and base rate are
- * constant for the interval. */
+/* Closed-form application of salience-weighted decay over many identical
+ * ticks. Uses the same squared inverse-salience shape as affect_decay, but
+ * accumulates elapsed time in a wide bounded term so long gaps scale with
+ * real elapsed time without hourly iteration or high-salience freeze points. */
 int16_t affect_decay_steps(int16_t current, int16_t salience,
                            int base_rate_per_mille, uint32_t ticks);
 

@@ -36,10 +36,23 @@ const rows = text.split(/\r?\n/)
   .map(l => l.split("|").slice(1, -1).map(x => x.trim()));
 
 const byGap = new Map(rows.map(r => [r[0], r]));
+const month = byGap.get("1 month");
 const one = byGap.get("1 year");
 const three = byGap.get("3 years");
 
-ok(one && three, "probe produced 1-year and 3-year rows");
+ok(month && one && three, "probe produced 1-month, 1-year, and 3-year rows");
+if (month && one){
+  const monthMood = Number(month[7]);
+  const oneMood = Number(one[7]);
+  const monthSchema = [10, 11, 12, 13].map(i => Number(month[i])).join("/");
+  const oneSchema = [10, 11, 12, 13].map(i => Number(one[i])).join("/");
+  ok(monthMood !== oneMood || monthSchema !== oneSchema,
+     `30-day and 365-day schema/mood state remains differentiated (${monthSchema}/${monthMood} vs ${oneSchema}/${oneMood})`);
+  ok(Number(month[3]) === Number(one[3]) && Number(month[5]) === Number(one[5]),
+     "bond-like trust and intimacy dimensions resist long-gap softening");
+  ok(Number(one[6]) < Number(month[6]) && Number(one[4]) <= Number(month[4]),
+     `single-event resentment/threat soften over months (${month[6]}/${month[4]} -> ${one[6]}/${one[4]})`);
+}
 if (one && three){
   const oneDisposition = Number(one[2]);
   const threeDisposition = Number(three[2]);
