@@ -113,7 +113,7 @@ function runMode(mode){
     });
     proc.stdin.write(commands);
     proc.stdin.end();
-    setTimeout(() => proc.kill("SIGKILL"), 120000);
+    setTimeout(() => proc.kill("SIGKILL"), 120000).unref();
   });
 }
 

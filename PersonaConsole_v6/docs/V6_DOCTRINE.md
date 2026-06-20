@@ -636,6 +636,29 @@ for any character, not a Pretorius-specific runtime.
 
 ## Part VI — Pointer to practice
 
+## Gate Chunk Timing Baseline
+
+Measured on 2026-06-20 after the V6 chunked gate cleanup:
+
+| Target | Wall time | Result |
+| --- | ---: | --- |
+| `make v6_gate_chunk_1` | 11.3s | Pass |
+| `make v6_gate_chunk_2` | 14.2s | Pass |
+| `make v6_gate_chunk_3` | 18.0s | Pass |
+| `make v6_gate_chunk_4` | 39.1s | Pass |
+
+The slow-gate failure was not primarily target-count imbalance. The main
+cause was Node watchdog timers that kept successful harnesses alive until
+their 15s to 30s timeout expired. Long-running Node harness watchdogs
+should call `.unref()` after `setTimeout(...)` so the process can exit as
+soon as the test has passed. Tests that copy profile state should use the
+user temp directory on Windows/Cygwin, not `C:\cygwin64\tmp`, because that
+path can reject cleanup during elevated Cygwin runs.
+
+All chunks are now below the 200s budget, so no target rebalance is needed
+at this baseline. Future rebalancing should use measured wall time, not
+target count.
+
 ## Phase 5d Implementation Status
 
 Current status against the Phase 5d planner-layer plan:

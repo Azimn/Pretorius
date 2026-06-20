@@ -20,14 +20,22 @@
 const path = require('path');
 const { resolveHost } = require('../host_path');
 const fs   = require('fs');
+const os   = require('os');
 const { spawn } = require('child_process');
 
-const HOST  = resolveHost(path.join(__dirname, '..', '..'));
-const CART  = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretorius.cart');
-const CHDIR = path.dirname(CART);
+const ROOT  = path.join(__dirname, '..', '..');
+const HOST  = resolveHost(ROOT);
+const SRC   = path.join(ROOT, 'profiles', 'pretorius');
+const CHDIR = path.join(os.tmpdir(), 'persona-reflection-profile');
+const CART  = path.join(CHDIR, 'pretorius.cart');
+
+function resetProfile(){
+  fs.rmSync(CHDIR, { recursive: true, force: true });
+  fs.cpSync(SRC, CHDIR, { recursive: true });
+}
 
 if (!fs.existsSync(HOST)){ console.error('persona_host not built'); process.exit(2); }
-if (!fs.existsSync(CART)){ console.error('cart not found:', CART); process.exit(2); }
+if (!fs.existsSync(path.join(SRC, 'pretorius.cart'))){ console.error('cart not found:', path.join(SRC, 'pretorius.cart')); process.exit(2); }
 
 function wipeState(){
   for (const f of ['state.bin', 'memory.bin', 'chapters.bin', 'reflections.bin','open_loops.bin','speech_habits.bin']){
@@ -56,7 +64,7 @@ function run(commands, opts={}){
     });
     proc.stdin.write(stdin);
     proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 30000);
+    setTimeout(() => proc.kill('SIGKILL'), 30000).unref();
   });
 }
 
@@ -106,6 +114,7 @@ async function driveFocused(seed){
 
 (async function main(){
   console.log('--- reflection test (Park et al. 2023 adaptation) ---');
+  resetProfile();
 
   /* Run 1: drive 25 focused turns, expect at least one reflection.
    * Output order: N chats + reflections + state + close.  Pick by name. */
@@ -154,6 +163,9 @@ async function driveFocused(seed){
   ok(refl3.count === refl1.count,
      `reflections persisted across host restart (${refl3.count})`);
 
-  if (failed === 0) console.log('PASSED -- reflective consolidation intact');
+  if (failed === 0) {
+    fs.rmSync(CHDIR, { recursive: true, force: true });
+    console.log('PASSED -- reflective consolidation intact');
+  }
   else { console.error(`FAILED -- ${failed} assertions failed`); process.exit(1); }
 })().catch(e => { console.error(e); process.exit(2); });

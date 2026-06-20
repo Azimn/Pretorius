@@ -75,7 +75,7 @@ function chatRows(commands){
     });
     proc.stdin.write(stdin);
     proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 45000);
+    setTimeout(() => proc.kill('SIGKILL'), 45000).unref();
   });
 }
 

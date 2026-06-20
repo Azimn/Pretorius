@@ -14,13 +14,21 @@
 const path = require('path');
 const { resolveHost } = require('../host_path');
 const fs   = require('fs');
+const os   = require('os');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 
-const HOST  = resolveHost(path.join(__dirname, '..', '..'));
-const CART  = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretorius.cart');
-const CHDIR = path.dirname(CART);
+const ROOT  = path.join(__dirname, '..', '..');
+const HOST  = resolveHost(ROOT);
+const SRC   = path.join(ROOT, 'profiles', 'pretorius');
+const CHDIR = path.join(os.tmpdir(), 'persona-relation-dims-profile');
+const CART  = path.join(CHDIR, 'pretorius.cart');
 const RDIR  = path.join(CHDIR, 'relations');
+
+function resetProfile(){
+  fs.rmSync(CHDIR, { recursive: true, force: true });
+  fs.cpSync(SRC, CHDIR, { recursive: true });
+}
 
 function wipe(){
   for (const f of ['state.bin','memory.bin','chapters.bin','reflections.bin',
@@ -64,7 +72,7 @@ function runSession(commands){
     const stdin = commands.map(c => JSON.stringify(c)).join('\n')
                 + '\n{"method":"close"}\n';
     proc.stdin.write(stdin); proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 30000);
+    setTimeout(() => proc.kill('SIGKILL'), 30000).unref();
   });
 }
 
@@ -82,6 +90,7 @@ function lastState(rows){
 
 (async function main(){
   console.log('--- V6 Phase 4 multi-dim relation ---');
+  resetProfile();
 
   /* 1. Fresh session with actor "henry" — dims should appear in state. */
   wipe();
@@ -233,7 +242,7 @@ function lastState(rows){
   ok(afterPraise && afterPraise.relation_dims.trust === beforePraise.relation_dims.trust,
      `praise in suspicion branch does NOT lift trust (before=${beforePraise && beforePraise.relation_dims.trust}, after=${afterPraise && afterPraise.relation_dims.trust})`);
 
-  wipe();
+  fs.rmSync(CHDIR, { recursive: true, force: true });
   if (process.exitCode) process.exit(process.exitCode);
   console.log('PASSED -- V6 multi-dim relation: dims exposed, defaulted, persisted, per-actor, deterministic, event-driven, and asymmetric');
 })().catch(e => { console.error(e); process.exit(2); });

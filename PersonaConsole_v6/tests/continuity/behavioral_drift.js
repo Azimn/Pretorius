@@ -84,7 +84,7 @@ function runHost(env){
     proc.on('close', code => resolve({ stdout, stderr, status: code }));
     proc.stdin.write(stdin);
     proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 30000);
+    setTimeout(() => proc.kill('SIGKILL'), 30000).unref();
   });
 }
 

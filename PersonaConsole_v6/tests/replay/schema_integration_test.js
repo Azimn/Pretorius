@@ -37,7 +37,7 @@ function runHost(scriptLines){
     proc.on('close', code => resolve({ stdout, stderr, status: code }));
     proc.stdin.write(scriptLines.join('\n') + '\n');
     proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 10000);
+    setTimeout(() => proc.kill('SIGKILL'), 10000).unref();
   });
 }
 

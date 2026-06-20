@@ -108,7 +108,7 @@ function runHost(port){
       '{"method":"close"}',
       ''
     ].join('\n'));
-    setTimeout(() => proc.kill('SIGKILL'), 15000);
+    setTimeout(() => proc.kill('SIGKILL'), 15000).unref();
   });
 }
 

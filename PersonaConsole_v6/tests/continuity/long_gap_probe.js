@@ -17,7 +17,11 @@ const { resolveHost } = require("../host_path");
 const ROOT = path.join(__dirname, "..", "..");
 const HOST = resolveHost(ROOT);
 const SRC = path.join(ROOT, "profiles", "pretorius");
-const TMP = path.join(os.tmpdir(), "persona-long-gap-probe");
+const TEMP_ROOT = process.env.PE_LONG_GAP_TMP ||
+  (process.env.USERPROFILE
+    ? path.join(process.env.USERPROFILE, "AppData", "Local", "Temp")
+    : os.tmpdir());
+const TMP = path.join(TEMP_ROOT, "persona-long-gap-probe");
 const ACTOR = "Kiki";
 const BASE_CLOCK = 1700000000000;
 

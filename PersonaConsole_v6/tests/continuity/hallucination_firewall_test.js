@@ -116,7 +116,7 @@ function runHost(port){
     ].join('\n') + '\n';
     proc.stdin.write(stdin);
     proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 15000);
+    setTimeout(() => proc.kill('SIGKILL'), 15000).unref();
   });
 }
 

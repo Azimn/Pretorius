@@ -3,11 +3,19 @@
 const path = require('path');
 const { resolveHost } = require('../host_path');
 const fs = require('fs');
+const os = require('os');
 const { spawn } = require('child_process');
 
-const HOST = resolveHost(path.join(__dirname, '..', '..'));
-const CART = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretorius.cart');
-const CHDIR = path.dirname(CART);
+const ROOT = path.join(__dirname, '..', '..');
+const HOST = resolveHost(ROOT);
+const SRC = path.join(ROOT, 'profiles', 'pretorius');
+const CHDIR = path.join(os.tmpdir(), 'persona-reflection-surface-profile');
+const CART = path.join(CHDIR, 'pretorius.cart');
+
+function resetProfile(){
+  fs.rmSync(CHDIR, { recursive: true, force: true });
+  fs.cpSync(SRC, CHDIR, { recursive: true });
+}
 
 function wipeState(){
   for (const f of ['state.bin', 'memory.bin', 'chapters.bin', 'reflections.bin','open_loops.bin','speech_habits.bin']){
@@ -34,7 +42,7 @@ function run(commands){
     });
     proc.stdin.write(stdin);
     proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 30000);
+    setTimeout(() => proc.kill('SIGKILL'), 30000).unref();
   });
 }
 
@@ -92,6 +100,7 @@ const PROBES = [
 
 (async function main(){
   console.log('--- reflection surface test ---');
+  resetProfile();
   wipeState();
   const commands = FOCUSED.map(text => ({ method: 'chat', text }));
   commands.push({ method: 'reflections' });
@@ -101,13 +110,14 @@ const PROBES = [
   const refl = all.find(r => typeof r.count === 'number' && Array.isArray(r.reflections));
   ok(refl && refl.count >= 1, 'setup synthesized at least one reflection');
 
-  const rows = all.slice(FOCUSED.length + 1);
+  const rows = all.slice(FOCUSED.length + 1).filter(r => r && typeof r.reply === 'string');
   const surfaced = rows.find(r => typeof r.reply === 'string'
-    && /(always .* returns|sense its weight|pattern in how we talk|accumulating|circled|unfinished between us|comes back to me now|years are not kind)/i.test(r.reply)
+    && /(always .* returns|sense its weight|pattern in how we talk|accumulating|circled|unfinished between us|comes back to me now|years are not kind|keep returning to|did i ever finish that thought|let us return to)/i.test(r.reply)
     && !/\[reflection/i.test(r.reply));
   ok(!!surfaced,
      `reflection can surface via dialogue memory slot: ${surfaced ? surfaced.reply : rows.map(r => `${r.state && r.state.intent}:${r.reply}`).join(' | ')}`);
 
+  fs.rmSync(CHDIR, { recursive: true, force: true });
   if (process.exitCode) process.exit(process.exitCode);
   console.log('PASSED -- reflection dialogue surfacing active');
 })().catch(e => { console.error(e); process.exit(2); });

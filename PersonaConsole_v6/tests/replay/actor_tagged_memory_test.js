@@ -57,7 +57,7 @@ function runSession(commands){
     const stdin = commands.map(c => JSON.stringify(c)).join('\n')
                 + '\n{"method":"close"}\n';
     proc.stdin.write(stdin); proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 30000);
+    setTimeout(() => proc.kill('SIGKILL'), 30000).unref();
   });
 }
 

@@ -7,13 +7,18 @@
  * survive a longer exchange. Real profile memories are never touched.
  */
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
 const { resolveHost } = require('../host_path');
 
 const ROOT = path.join(__dirname, '..', '..');
 const HOST = resolveHost(ROOT);
-const TMP_ROOT = process.env.PE_SOCIETY_TMP || 'C:/tmp/persona_society_probe';
+const DEFAULT_TMP_ROOT = process.env.USERPROFILE
+  ? path.join(process.env.USERPROFILE, 'AppData', 'Local', 'Temp')
+  : os.tmpdir();
+const TMP_ROOT = process.env.PE_SOCIETY_TMP ||
+  path.join(DEFAULT_TMP_ROOT, 'persona_society_probe');
 
 const cfg = {
   turns: parseInt(process.env.PE_SOCIETY_TURNS || '24', 10),
@@ -124,6 +129,7 @@ class Host {
   send(obj, timeoutMs=90000){
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error(`${this.profile.name} timeout on ${obj.method}`)), timeoutMs);
+      timer.unref();
       this.queue.push(r => { clearTimeout(timer); resolve(r); });
       this.proc.stdin.write(`${JSON.stringify(obj)}\n`);
     });

@@ -121,7 +121,7 @@ function runHost(port, scriptLines){
     proc.stdin.write(scriptLines.join('\n') + '\n');
     proc.stdin.end();
     /* hard timeout */
-    setTimeout(() => proc.kill('SIGKILL'), 15000);
+    setTimeout(() => proc.kill('SIGKILL'), 15000).unref();
   });
 }
 

@@ -21,12 +21,20 @@
 const path = require('path');
 const { resolveHost } = require('../host_path');
 const fs   = require('fs');
+const os   = require('os');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 
-const HOST  = resolveHost(path.join(__dirname, '..', '..'));
-const CART  = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretorius.cart');
-const CHDIR = path.dirname(CART);
+const ROOT  = path.join(__dirname, '..', '..');
+const HOST  = resolveHost(ROOT);
+const SRC   = path.join(ROOT, 'profiles', 'pretorius');
+const CHDIR = path.join(os.tmpdir(), 'persona-dissonance-profile');
+const CART  = path.join(CHDIR, 'pretorius.cart');
+
+function resetProfile(){
+  fs.rmSync(CHDIR, { recursive: true, force: true });
+  fs.cpSync(SRC, CHDIR, { recursive: true });
+}
 
 function wipe(){
   for (const f of ['state.bin','memory.bin','chapters.bin','reflections.bin',
@@ -70,7 +78,7 @@ function runSession(commands){
     const stdin = commands.map(c => JSON.stringify(c)).join('\n')
                 + '\n{"method":"close"}\n';
     proc.stdin.write(stdin); proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 30000);
+    setTimeout(() => proc.kill('SIGKILL'), 30000).unref();
   });
 }
 
@@ -88,6 +96,7 @@ function lastState(rows){
 
 (async function main(){
   console.log('--- V6 Phase 5b typed dissonance ---');
+  resetProfile();
 
   /* 1. Fresh state: all three gaps at 0. */
   wipe();
@@ -177,7 +186,7 @@ function lastState(rows){
   ok(dimsHash1 && dimsHash2 && dimsHash1 === dimsHash2,
      `pinned replay produces byte-identical dissonance.bin (${dimsHash1} vs ${dimsHash2})`);
 
-  wipe();
+  fs.rmSync(CHDIR, { recursive: true, force: true });
   if (process.exitCode) process.exit(process.exitCode);
   console.log('PASSED -- V6 typed dissonance: exposed, decays, persists, deterministic');
 })().catch(e => { console.error(e); process.exit(2); });

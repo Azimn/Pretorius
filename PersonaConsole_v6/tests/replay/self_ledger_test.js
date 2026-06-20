@@ -17,12 +17,20 @@
 const path = require('path');
 const { resolveHost } = require('../host_path');
 const fs   = require('fs');
+const os   = require('os');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 
-const HOST  = resolveHost(path.join(__dirname, '..', '..'));
-const CART  = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretorius.cart');
-const CHDIR = path.dirname(CART);
+const ROOT  = path.join(__dirname, '..', '..');
+const HOST  = resolveHost(ROOT);
+const SRC   = path.join(ROOT, 'profiles', 'pretorius');
+const CHDIR = path.join(os.tmpdir(), 'persona-self-ledger-profile');
+const CART  = path.join(CHDIR, 'pretorius.cart');
+
+function resetProfile(){
+  fs.rmSync(CHDIR, { recursive: true, force: true });
+  fs.cpSync(SRC, CHDIR, { recursive: true });
+}
 
 function wipe(){
   for (const f of ['state.bin','memory.bin','chapters.bin','reflections.bin',
@@ -64,7 +72,7 @@ function runSession(commands, clockMs){
     const stdin = commands.map(c => JSON.stringify(c)).join('\n')
                 + '\n{"method":"close"}\n';
     proc.stdin.write(stdin); proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 30000);
+    setTimeout(() => proc.kill('SIGKILL'), 30000).unref();
   });
 }
 
@@ -91,6 +99,7 @@ const SCRIPT = [
 
 (async function main(){
   console.log('--- V6 Phase 3 self-ledger (engine-authored speech events) ---');
+  resetProfile();
 
   /* 1. Fresh session — speech events should accumulate per turn. */
   wipe();
@@ -133,7 +142,7 @@ const SCRIPT = [
      `advancing clock by 8 days changes sidecar (clock_ms is consulted)`);
 
   /* Clean up so subsequent tests start fresh. */
-  wipe();
+  fs.rmSync(CHDIR, { recursive: true, force: true });
 
   if (process.exitCode) process.exit(process.exitCode);
   console.log('PASSED -- V6 self-ledger records, persists, replays, and observes the clock');

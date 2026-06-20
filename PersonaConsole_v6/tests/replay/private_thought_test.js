@@ -53,7 +53,7 @@ function runSession(commands){
     });
     proc.stdin.write(commands.map(c => JSON.stringify(c)).join("\n") + "\n");
     proc.stdin.end();
-    setTimeout(() => proc.kill("SIGKILL"), 30000);
+    setTimeout(() => proc.kill("SIGKILL"), 30000).unref();
   });
 }
 

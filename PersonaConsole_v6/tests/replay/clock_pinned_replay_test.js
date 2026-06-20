@@ -47,7 +47,7 @@ function runOnce(envOverride, inputs){
     lines.push(JSON.stringify({ method: 'close' }));
     proc.stdin.write(lines.join('\n') + '\n');
     proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 30000);
+    setTimeout(() => proc.kill('SIGKILL'), 30000).unref();
   });
 }
 

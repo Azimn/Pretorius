@@ -3,12 +3,20 @@
 const path = require('path');
 const { resolveHost } = require('../host_path');
 const fs = require('fs');
+const os = require('os');
 const { spawn } = require('child_process');
 
-const HOST = resolveHost(path.join(__dirname, '..', '..'));
-const CART = path.join(__dirname, '..', '..', 'profiles', 'pretorius', 'pretorius.cart');
-const CHDIR = path.dirname(CART);
+const ROOT = path.join(__dirname, '..', '..');
+const HOST = resolveHost(ROOT);
+const SRC = path.join(ROOT, 'profiles', 'pretorius');
+const CHDIR = path.join(os.tmpdir(), 'persona-resumption-lines-profile');
+const CART = path.join(CHDIR, 'pretorius.cart');
 const RELDIR = path.join(CHDIR, 'relations');
+
+function resetProfile(){
+  fs.rmSync(CHDIR, { recursive: true, force: true });
+  fs.cpSync(SRC, CHDIR, { recursive: true });
+}
 
 function wipeState(){
   for (const f of [
@@ -40,7 +48,7 @@ function run(text){
     });
     proc.stdin.write(stdin);
     proc.stdin.end();
-    setTimeout(() => proc.kill('SIGKILL'), 30000);
+    setTimeout(() => proc.kill('SIGKILL'), 30000).unref();
   });
 }
 
@@ -65,6 +73,7 @@ function ok(cond, msg){
 
 (async function main(){
   console.log('--- V5 resumption lines test ---');
+  resetProfile();
   wipeState();
   await run('Good evening, doctor.');
   backdateRelation(3);
@@ -73,6 +82,7 @@ function ok(cond, msg){
   ok(/Back so soon|A day, was it|productive|prodigal returns|arrested|candles/i.test(row.reply),
      `post-gap reply prepends authored resumption line: ${row && row.reply}`);
 
+  fs.rmSync(CHDIR, { recursive: true, force: true });
   if (process.exitCode) process.exit(process.exitCode);
   console.log('PASSED -- V5 resumption lines active');
 })().catch(e => { console.error(e); process.exit(2); });

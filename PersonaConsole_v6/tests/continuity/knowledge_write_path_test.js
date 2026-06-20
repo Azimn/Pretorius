@@ -81,7 +81,7 @@ function runHost(cart, env, lines){
     proc.on("close", status => resolve({ status, stdout, stderr }));
     proc.stdin.write(lines.map(JSON.stringify).join("\n") + "\n");
     proc.stdin.end();
-    setTimeout(() => proc.kill("SIGKILL"), 20000);
+    setTimeout(() => proc.kill("SIGKILL"), 20000).unref();
   });
 }
 

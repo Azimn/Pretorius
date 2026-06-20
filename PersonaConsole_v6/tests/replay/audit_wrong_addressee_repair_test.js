@@ -81,7 +81,7 @@ function runHost(port, cart){
       JSON.stringify({ method: "close" }),
     ].join("\n") + "\n");
     proc.stdin.end();
-    setTimeout(() => proc.kill("SIGKILL"), 15000);
+    setTimeout(() => proc.kill("SIGKILL"), 15000).unref();
   });
 }
 

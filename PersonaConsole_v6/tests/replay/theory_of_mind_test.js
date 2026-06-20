@@ -3,14 +3,21 @@
 "use strict";
 
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { spawn } = require("child_process");
 const { resolveHost } = require("../host_path");
 
 const ROOT = path.join(__dirname, "..", "..");
 const HOST = resolveHost(ROOT);
-const CART = path.join(ROOT, "profiles", "pretorius", "pretorius.cart");
-const CHDIR = path.dirname(CART);
+const SRC = path.join(ROOT, "profiles", "pretorius");
+const CHDIR = path.join(os.tmpdir(), "persona-theory-of-mind-profile");
+const CART = path.join(CHDIR, "pretorius.cart");
+
+function resetProfile(){
+  fs.rmSync(CHDIR, { recursive: true, force: true });
+  fs.cpSync(SRC, CHDIR, { recursive: true });
+}
 
 function wipe(){
   for (const f of ["state.bin","memory.bin","chapters.bin","reflections.bin",
@@ -40,7 +47,7 @@ function run(commands){
     });
     proc.stdin.write(commands.map(c => JSON.stringify(c)).join("\n") + "\n");
     proc.stdin.end();
-    setTimeout(() => proc.kill("SIGKILL"), 30000);
+    setTimeout(() => proc.kill("SIGKILL"), 30000).unref();
   });
 }
 
@@ -57,6 +64,7 @@ function ok(cond, msg){
 
 (async function main(){
   console.log("--- V6 theory of mind ---");
+  resetProfile();
   wipe();
   const praise = [];
   for (let i = 0; i < 8; ++i) praise.push({ method: "chat", text: "Your work is brilliant." });
@@ -80,7 +88,7 @@ function ok(cond, msg){
     ? fs.readdirSync(path.join(CHDIR, "relations")).filter(f => f.endsWith(".tom"))
     : [];
   ok(tomFiles.length >= 1, "per-actor .tom sidecar persisted");
-  wipe();
+  fs.rmSync(CHDIR, { recursive: true, force: true });
   if (process.exitCode) process.exit(process.exitCode);
   console.log("PASSED -- V6 ToM belief state diverges and mismatch is detected");
 })().catch(e => { console.error(e && e.stack ? e.stack : String(e)); process.exit(2); });
