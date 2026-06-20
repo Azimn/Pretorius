@@ -163,6 +163,7 @@ static const char *pe_audit_violation_name(uint8_t v){
     case PE_AUDIT_V_COPY:         return "copied_user_text";
     case PE_AUDIT_V_OUTPUT_LABEL: return "memory_label";
     case PE_AUDIT_V_ADDRESSEE:    return "wrong_addressee";
+    case PE_AUDIT_V_PRIVATE_LEAK: return "private_state_leak";
     default:                      return "none";
     }
 }
@@ -706,6 +707,7 @@ static int pe_output_label_audit_pass(const char *out);
 static int pe_self_repeat_audit_pass(const char *out);
 static int pe_fatigue_audit_pass(const CanonicalTurnFrame *f, const char *out);
 static int pe_addressee_audit_pass(const Engine *eng, const char *out);
+static int pe_private_state_audit_pass(const Engine *eng, const char *out);
 static int pe_text_mentions_electricity(const char *text);
 
 static uint8_t pe_render_audit_violation(const CanonicalTurnFrame *f, const char *out){
@@ -769,6 +771,7 @@ static uint8_t pe_audit_evaluate(const Engine *eng,
     if (renderer_output && !pe_copy_audit_pass(input, out)) return PE_AUDIT_V_COPY;
     if (renderer_output && !pe_output_label_audit_pass(out)) return PE_AUDIT_V_OUTPUT_LABEL;
     if (renderer_output && !pe_addressee_audit_pass(eng, out)) return PE_AUDIT_V_ADDRESSEE;
+    if (renderer_output && !pe_private_state_audit_pass(eng, out)) return PE_AUDIT_V_PRIVATE_LEAK;
     if (v != PE_AUDIT_V_NONE) return v;
     if (renderer_output && !pe_self_repeat_audit_pass(out)) return PE_AUDIT_V_SELF_REPEAT;
     if (renderer_output && !pe_fatigue_audit_pass(&eng->frame, out)) return PE_AUDIT_V_FATIGUE;
@@ -788,6 +791,8 @@ static const char *pe_repair_instruction_for(uint8_t violation,
         return "Replace overused terms with fresher wording. Preserve the same conversational move.";
     case PE_AUDIT_V_LORE:
         return "Make the same conversational move, but remove any fact, name, place, date, or relationship not present in identity, world, user input, or selected memory.";
+    case PE_AUDIT_V_PRIVATE_LEAK:
+        return "Make the same conversational move, but do not reveal private thought, internal valence, hidden mood, masking, or withholding mechanics.";
     default:
         break;
     }
@@ -1105,6 +1110,23 @@ static int pe_addressee_audit_pass(const Engine *eng, const char *out){
     return 1;
 }
 
+static int pe_private_state_audit_pass(const Engine *eng, const char *out){
+    char low[PE_RENDER_MAX_TEXT];
+    static const char *leaks[] = {
+        "internal valence", "private thought", "expression policy",
+        "my raw mood", "my real mood", "hidden mood", "internal mood",
+        "i am masking", "i'm masking", "i am withholding", "i'm withholding",
+        "actually feel", "really feel", "valence:", "mood:",
+        NULL
+    };
+    if (!eng || !out || !out[0]) return 1;
+    if (eng->expression_policy == PE_EXPR_GENUINE) return 1;
+    lowercase_copy(low, sizeof(low), out);
+    for (int i = 0; leaks[i]; ++i)
+        if (strstr(low, leaks[i])) return 0;
+    return 1;
+}
+
 static void pe_act_aware_audit_fallback(const V6UserTurnInterpretation *it,
                                         uint8_t violation,
                                         char *out,
@@ -1112,7 +1134,14 @@ static void pe_act_aware_audit_fallback(const V6UserTurnInterpretation *it,
     const char *act = it && it->user_act ? it->user_act : "";
     const char *line = "Let me answer without inventing more than I know.";
     if (!out || n == 0) return;
-    if (violation == PE_AUDIT_V_LORE){
+    if (violation == PE_AUDIT_V_PRIVATE_LEAK){
+        if (!strcmp(act, "emotional_disclosure"))
+            line = "I hear you. Let us keep to what you actually said.";
+        else if (!strcmp(act, "identity_test"))
+            line = "Test me by what I choose to say, not by what I keep private.";
+        else
+            line = "I will keep that much to myself. Continue.";
+    } else if (violation == PE_AUDIT_V_LORE){
         if (!strcmp(act, "memory_probe")){
             line = "That thread is not surfacing cleanly. Give me the anchor again.";
         } else if (!strcmp(act, "emotional_disclosure")){

@@ -642,10 +642,10 @@ Measured on 2026-06-20 after the V6 chunked gate cleanup:
 
 | Target | Wall time | Result |
 | --- | ---: | --- |
-| `make v6_gate_chunk_1` | 11.3s | Pass |
-| `make v6_gate_chunk_2` | 14.2s | Pass |
-| `make v6_gate_chunk_3` | 18.0s | Pass |
-| `make v6_gate_chunk_4` | 39.1s | Pass |
+| `make v6_gate_chunk_1` | 14.3s | Pass |
+| `make v6_gate_chunk_2` | 13.0s | Pass |
+| `make v6_gate_chunk_3` | 17.9s | Pass |
+| `make v6_gate_chunk_4` | 42.2s | Pass |
 
 The slow-gate failure was not primarily target-count imbalance. The main
 cause was Node watchdog timers that kept successful harnesses alive until

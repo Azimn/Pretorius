@@ -76,6 +76,7 @@ static const char *audit_violation_token(uint8_t v){
     case PE_AUDIT_V_COPY:         return "copied_user_text";
     case PE_AUDIT_V_OUTPUT_LABEL: return "memory_label";
     case PE_AUDIT_V_ADDRESSEE:    return "wrong_addressee";
+    case PE_AUDIT_V_PRIVATE_LEAK: return "private_state_leak";
     default:                      return "none";
     }
 }
@@ -250,6 +251,13 @@ void v6_interpret_user_turn(const RenderContext *ctx,
         !out->attend_before_open_loops){
         out->pressure = "unfinished business";
         out->response_move = "continue the prior open loop briefly";
+    }
+    if (ctx && ctx->npc && ctx->npc->theory_of_mind.mismatch_count >= 2u &&
+        strcmp(out->user_act, "memory_probe") &&
+        strcmp(out->user_act, "correction")){
+        out->pressure = "uncertain user read";
+        out->response_move = "check your read of the user before pressing the prior agenda";
+        out->attend_before_open_loops = 1u;
     }
 }
 
@@ -520,6 +528,76 @@ static const char *relation_tone(int v){
     return "neutral";
 }
 
+static const char *valence_tone(int v){
+    if (v >= 600) return "strong_positive";
+    if (v >= 180) return "positive";
+    if (v <= -600) return "strong_negative";
+    if (v <= -180) return "negative";
+    return "steady";
+}
+
+static const char *arousal_tone(int v){
+    if (v >= 700) return "high";
+    if (v >= 250) return "raised";
+    if (v <= -250) return "subdued";
+    return "steady";
+}
+
+static int expression_policy_hides_internal(uint8_t policy){
+    return policy == PE_EXPR_MASKED || policy == PE_EXPR_WITHHELD ||
+           policy == PE_EXPR_REDIRECTED;
+}
+
+static void append_psychology_block(const RenderContext *ctx,
+                                    char *out_buf,
+                                    int cap,
+                                    int *pos){
+    const Engine *eng = ctx ? ctx->npc : NULL;
+    if (!eng) return;
+    {
+        const pe_tom_t *tom = &eng->theory_of_mind;
+        const char *goal = topic_name_lookup(eng, tom->believed_goal_topic);
+        uint8_t policy = eng->expression_policy;
+        int hide_internal = expression_policy_hides_internal(policy);
+
+        append(out_buf, cap, pos, "\n[PSYCHOLOGY]\n");
+        append(out_buf, cap, pos,
+               "theory_of_mind=belief_not_fact believed_user_valence=%d(%s) believed_user_arousal=%d(%s) believed_goal_topic=%s confidence=%u mismatch_count=%u\n",
+               (int)tom->believed_valence, valence_tone(tom->believed_valence),
+               (int)tom->believed_arousal, arousal_tone(tom->believed_arousal),
+               (goal && goal[0]) ? goal : "unknown",
+               (unsigned)tom->confidence,
+               (unsigned)tom->mismatch_count);
+        append(out_buf, cap, pos,
+               "tom_policy=This is the character's fallible read on the user, not ground truth. If mismatch_count is high, check the read before pressing.\n");
+        if (hide_internal){
+            append(out_buf, cap, pos,
+                   "contagion_adjusted_affect=post_contagion:%s baseline_disposition=%d raw_internal_valence=private\n",
+                   valence_tone(eng->state.mood), (int)eng->relation.disposition);
+        } else {
+            append(out_buf, cap, pos,
+                   "contagion_adjusted_affect=post_contagion_mood:%d(%s) baseline_disposition=%d\n",
+                   (int)eng->state.mood, valence_tone(eng->state.mood),
+                   (int)eng->relation.disposition);
+        }
+        append(out_buf, cap, pos, "expression_policy=%s\n",
+               pe_expression_policy_name(policy));
+        if (policy == PE_EXPR_MASKED){
+            append(out_buf, cap, pos,
+                   "expression_guidance=Perform guarded composure. Do not state hidden mood, raw valence, private thought, or that you are masking.\n");
+        } else if (policy == PE_EXPR_WITHHELD){
+            append(out_buf, cap, pos,
+                   "expression_guidance=Perform deliberate withholding. Do not explain the withheld internal state or quote private thought.\n");
+        } else if (policy == PE_EXPR_REDIRECTED){
+            append(out_buf, cap, pos,
+                   "expression_guidance=Redirect pressure without naming the private internal feeling.\n");
+        } else {
+            append(out_buf, cap, pos,
+                   "expression_guidance=Expression may align with current affect, still without naming engine state.\n");
+        }
+    }
+}
+
 static int prompt_compile_situation(const RenderContext *ctx,
                                     const PromptCompilerConfig *cfg,
                                     const char *user_input,
@@ -561,12 +639,20 @@ static int prompt_compile_situation(const RenderContext *ctx,
 
     append(out_buf, cap, &pos, "\n[LIVE_STATE]\n");
     if (eng){
-        append(out_buf, cap, &pos,
-               "affect=mood:%s(%d) arousal:%d exhaustion:%s(%d) obsession_pressure:%s(%d)\n",
-               affect_word(eng->state.mood), eng->state.mood,
-               eng->state.last_input_emotion.arousal,
-               affect_word(eng->state.exhaustion), eng->state.exhaustion,
-               affect_word(eng->state.obsession_pressure), eng->state.obsession_pressure);
+        if (expression_policy_hides_internal(eng->expression_policy)){
+            append(out_buf, cap, &pos,
+                   "affect=mood:private_due_to_expression_policy arousal:%d exhaustion:%s(%d) obsession_pressure:%s(%d)\n",
+                   eng->state.last_input_emotion.arousal,
+                   affect_word(eng->state.exhaustion), eng->state.exhaustion,
+                   affect_word(eng->state.obsession_pressure), eng->state.obsession_pressure);
+        } else {
+            append(out_buf, cap, &pos,
+                   "affect=mood:%s(%d) arousal:%d exhaustion:%s(%d) obsession_pressure:%s(%d)\n",
+                   affect_word(eng->state.mood), eng->state.mood,
+                   eng->state.last_input_emotion.arousal,
+                   affect_word(eng->state.exhaustion), eng->state.exhaustion,
+                   affect_word(eng->state.obsession_pressure), eng->state.obsession_pressure);
+        }
         append(out_buf, cap, &pos,
                "relation=trust:%s threat:%s intimacy:%s resentment:%s admiration:%s\n",
                relation_tone(eng->relation_dims.trust),
@@ -579,6 +665,7 @@ static int prompt_compile_situation(const RenderContext *ctx,
                eng->state.turn_count, eng->state.last_reply_had_question,
                eng->state.turns_since_question);
     }
+    append_psychology_block(ctx, out_buf, cap, &pos);
     if (ctx->frame){
         append(out_buf, cap, &pos,
                "canonical_frame=intent:%s speech_act:%s stance:%u mode:%s open_loop_pressure:%u\n",
