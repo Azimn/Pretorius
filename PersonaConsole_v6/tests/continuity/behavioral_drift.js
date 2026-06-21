@@ -54,7 +54,12 @@ for (let i = 0; i < args.length; ++i){
 if (!fs.existsSync(HOST)){ console.error('persona_host not built'); process.exit(2); }
 
 function wipeState(){
-  for (const f of ['state.bin', 'memory.bin', 'chapters.bin']){
+  for (const f of [
+    'state.bin', 'memory.bin', 'chapters.bin',
+    'actor_index.bin', 'dissonance.bin', 'learned_knowledge.bin',
+    'long_arc_drift.bin', 'open_loops.bin', 'speech_events.bin',
+    'speech_habits.bin',
+  ]){
     try { fs.unlinkSync(path.join(CHDIR, f)); } catch {}
   }
   for (const d of ['relations', 'aether']){

@@ -52,6 +52,7 @@ static int load_identity_section(const char *root, int is_cart, Identity *out){
     size_t v4_size = offsetof(Identity, current_preoccupations);
     size_t v6_pre_cold_open_size = offsetof(Identity, cold_open_memory_templates);
     size_t v6_pre_mind_size = offsetof(Identity, suggestibility);
+    size_t v6_pre_drift_size = offsetof(Identity, drift_malleability);
     int rc;
     if (!out) return -1;
     memset(out, 0, sizeof(*out));
@@ -79,9 +80,11 @@ static int load_identity_section(const char *root, int is_cart, Identity *out){
         fclose(f);
         sz = (size_t)n;
     }
-    if (sz == sizeof(Identity) || sz == v6_pre_mind_size
+    if (sz == sizeof(Identity) || sz == v6_pre_drift_size || sz == v6_pre_mind_size
         || sz == v6_pre_cold_open_size || sz == v4_size){
         memcpy(out, buf, sz);
+        if (sz <= v6_pre_drift_size)
+            out->drift_malleability = 80;
         free(buf);
         return 0;
     }
@@ -1863,7 +1866,8 @@ void pe_update_layered_affect(Engine *eng){
     s->baseline_temperament = pe_clamp16(
         ((int32_t)eng->identity.extraversion  / 128)
       - ((int32_t)eng->identity.neuroticism   / 128)
-      - ((int32_t)eng->identity.agreeableness / 256),
+      - ((int32_t)eng->identity.agreeableness / 256)
+      + eng->long_arc_drift.baseline_offset,
         -1000, 1000);
 
     /* acute_spike: respond to current input emotion (valence * arousal),
@@ -1997,6 +2001,7 @@ int persona_open(Engine *eng, const char *character_dir){
     /* V6 Phase 5b: typed dissonance accumulators sidecar. */
     pe_dissonance_load(&eng->dissonance, eng->char_dir);
     pe_seed_typed_self_model(eng);
+    pe_long_arc_drift_load(&eng->long_arc_drift, eng->char_dir);
     /* V6 Phase 6: carried intentions / open loops sidecar. */
     pe_open_loops_load(&eng->open_loops, eng->char_dir);
     /* V6 Phase 6: lightweight rhythm habits sidecar. */
@@ -2146,6 +2151,7 @@ int persona_save(Engine *eng){
     pe_actor_index_save(&eng->actor_index, eng->char_dir);
     pe_speech_ledger_save(&eng->speech_ledger, eng->char_dir);
     pe_dissonance_save(&eng->dissonance, eng->char_dir);
+    pe_long_arc_drift_save(&eng->long_arc_drift, eng->char_dir);
     pe_open_loops_save(&eng->open_loops, eng->char_dir);
     pe_speech_habits_save(&eng->speech_habits, eng->char_dir);
     pe_lk_save(&eng->learned_knowledge, eng->char_dir);
@@ -2716,6 +2722,13 @@ post_render:;
         if (eng->relation.disposition < 200) {
             eng->relation.tags |= PE_TAG_BENEATH_CONTEMPT;
         }
+    }
+    if ((eng->state.turn_count & 15u) == 0u){
+        pe_long_arc_drift_apply_history(&eng->long_arc_drift,
+                                        &eng->dissonance,
+                                        &eng->relation_dims,
+                                        eng->identity.drift_malleability,
+                                        1u);
     }
 
     /* v3.2: opportunistic AETHER consolidation.  Every 16 turns, if the

@@ -73,7 +73,8 @@ MEMORY_SRC := \
     memory/speech_habits.c    \
     memory/learned_knowledge.c \
     memory/theory_of_mind.c    \
-    memory/affect_dynamics.c
+    memory/affect_dynamics.c   \
+    memory/long_arc_drift.c
 
 SCHEMA_SRC := \
     schema/schema_state.c
@@ -144,7 +145,8 @@ MEMORY_HEADERS := \
     memory/aether.h memory/aether_internal.h memory/lsh_memory.h \
     memory/consolidate.h memory/reflection.h memory/recall_plasticity.h
 MEMORY_HEADERS += memory/speech_habits.h memory/learned_knowledge.h \
-                  memory/theory_of_mind.h memory/affect_dynamics.h
+                  memory/theory_of_mind.h memory/affect_dynamics.h \
+                  memory/long_arc_drift.h
 RENDER_HEADERS := \
     render/templates/ngram_lm.h render/templates/mutator.h
 
@@ -164,7 +166,7 @@ RENDER_HEADERS := \
         v6_situation_overlay_run v6_typed_dissonance_run v6_private_thought_run \
         v6_society_template_hygiene_run v6_theory_of_mind_run \
         v6_affect_dynamics_run v6_expression_policy_run v6_packet_psychology_run \
-        v6_long_gap_decay_run v6_relation_dims_long_run_softening_run \
+        v6_long_gap_decay_run v6_relation_dims_long_run_softening_run v6_long_arc_drift_run \
         v6_gate_chunk_1 v6_gate_chunk_2 v6_gate_chunk_3 v6_gate_chunk_4 v6_gate_chunked \
         v6_learned_knowledge_run \
         v7_api_run
@@ -676,6 +678,13 @@ build/relation_dims_long_run_softening_test: tests/replay/relation_dims_long_run
 v6_relation_dims_long_run_softening_run: build/relation_dims_long_run_softening_test
 	./build/relation_dims_long_run_softening_test
 
+build/long_arc_drift_test: tests/replay/long_arc_drift_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) tests/replay/long_arc_drift_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+v6_long_arc_drift_run: build/persona_host profiles/pretorius/pretorius.cart build/long_arc_drift_test
+	./build/long_arc_drift_test
+	node tests/continuity/behavioral_drift.js
+
 lint_test: build/cartridge_lint profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart $(DEMO_CARTS)
 	./build/cartridge_lint profiles/pretorius/pretorius.cart
 	./build/cartridge_lint profiles/kiki/kiki.cart
@@ -742,7 +751,7 @@ v6_gate_chunk_4:
 	$(MAKE) v6_recall_modes_run v6_open_loops_run v6_speech_habits_run
 	$(MAKE) v6_society_template_hygiene_run v6_theory_of_mind_run
 	$(MAKE) v6_affect_dynamics_run v6_expression_policy_run v6_packet_psychology_run
-	$(MAKE) v6_long_gap_decay_run v6_relation_dims_long_run_softening_run
+	$(MAKE) v6_long_gap_decay_run v6_relation_dims_long_run_softening_run v6_long_arc_drift_run
 	$(MAKE) v4_firewall_run lint_test
 	@echo "--- V6 gate chunk 4: green ---"
 

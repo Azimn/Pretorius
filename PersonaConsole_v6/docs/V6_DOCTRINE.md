@@ -638,14 +638,15 @@ for any character, not a Pretorius-specific runtime.
 
 ## Gate Chunk Timing Baseline
 
-Measured on 2026-06-20 after the V6 chunked gate cleanup:
+Measured on 2026-06-21 after adding V6 long-arc drift:
 
 | Target | Wall time | Result |
 | --- | ---: | --- |
-| `make v6_gate_chunk_1` | 14.3s | Pass |
-| `make v6_gate_chunk_2` | 13.0s | Pass |
-| `make v6_gate_chunk_3` | 17.9s | Pass |
-| `make v6_gate_chunk_4` | 42.2s | Pass |
+| `make v6_gate_chunk_1` | 11.2s | Pass |
+| `make v6_gate_chunk_2` | 12.8s | Pass |
+| `make v6_gate_chunk_3` | 17.8s | Pass |
+| `make v6_gate_chunk_4` | 44.7s | Pass |
+| `make v6_gate_chunked` | 88.2s | Pass |
 
 The slow-gate failure was not primarily target-count imbalance. The main
 cause was Node watchdog timers that kept successful harnesses alive until
@@ -656,8 +657,15 @@ user temp directory on Windows/Cygwin, not `C:\cygwin64\tmp`, because that
 path can reject cleanup during elevated Cygwin runs.
 
 All chunks are now below the 200s budget, so no target rebalance is needed
-at this baseline. Future rebalancing should use measured wall time, not
-target count.
+at this baseline. Chunk 4 includes long-gap decay, relation long-run
+softening, long-arc drift, hallucination firewall, and cartridge lint, and is
+still comfortably below budget. Future rebalancing should use measured wall
+time, not target count.
+
+Behavioral drift tests wipe runtime-only sidecars before comparing render
+paths. Persistent systems such as open loops, speech habits, learned knowledge,
+and long-arc drift are character behavior, so stability tests must isolate
+them from residue left by earlier manual probes.
 
 ## Phase 5d Implementation Status
 

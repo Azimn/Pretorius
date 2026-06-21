@@ -41,6 +41,7 @@ static void make_identity(Identity *id){
     id->contagion_susceptibility = 760;
     id->forecast_horizon_weight = 420;
     id->expression_mask_threshold = 300;
+    id->drift_malleability = 180;
 
     uint16_t obs[] = {T_PHYSICS, T_ENTROPY, T_MEDIA_90S, T_FASHION,
                       T_PHILOSOPHY, T_FRIENDS, 0, 0};

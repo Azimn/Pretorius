@@ -42,6 +42,7 @@ static void make_identity(Identity *id){
     id->contagion_susceptibility = 220;
     id->forecast_horizon_weight = 620;
     id->expression_mask_threshold = 580;
+    id->drift_malleability = 70;
 
     uint16_t obs[] = {T_HOMUNCULI, T_GIN, T_CREATION, T_HENRY, T_GOD, T_BEAUTY, 0, 0};
     memcpy(id->obsessions, obs, sizeof(obs));

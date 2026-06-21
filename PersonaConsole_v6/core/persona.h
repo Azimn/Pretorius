@@ -103,6 +103,8 @@ extern "C" {
 #include "learned_knowledge.h"
 /* V6: inferred actor mind model. */
 #include "theory_of_mind.h"
+/* V6: slow earned baseline drift. */
+#include "long_arc_drift.h"
 
 /* V6 Phase 5d: recall modes — per V6_DOCTRINE §16, the same memory
  * store supports many retrieval intents; the planner selects one based
@@ -298,6 +300,8 @@ typedef struct {
     uint16_t contagion_susceptibility;   /* 0..1000: affect contagion pull */
     uint16_t forecast_horizon_weight;    /* 0..1000: past topic affect bias */
     uint16_t expression_mask_threshold;  /* trust below this masks expression */
+    uint16_t drift_malleability;         /* 0..1000: earned long-arc baseline drift bound */
+    uint16_t _pad_mind2;
 } Identity;
 
 typedef struct {
@@ -688,6 +692,7 @@ struct Engine {
     Relation           relation;              /* current interlocutor */
     pe_relation_dims_t relation_dims;         /* V6 Phase 4: multi-dim relational profile for current actor */
     pe_dissonance_t    dissonance;            /* V6 Phase 5b: ideal/ought/feared accumulators */
+    pe_long_arc_drift_t long_arc_drift;        /* V6: earned month-scale baseline drift */
     pe_open_loops_t    open_loops;            /* V6 Phase 6: carried intentions */
     pe_speech_habits_t speech_habits;         /* V6 Phase 6: conversation rhythm habits */
     pe_learned_knowledge_t learned_knowledge; /* V6: durable learned claims + correction graph */
