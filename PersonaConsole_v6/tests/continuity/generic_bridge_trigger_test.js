@@ -1,12 +1,9 @@
 #!/usr/bin/env node
-/* knowledge_write_path_test.js -- V6 SLM-to-candidate learned write path.
+/* generic_bridge_trigger_test.js -- learned bridge is topic-data driven.
  *
- * Proves:
- *   1. A model explanation becomes a low-authority candidate, not confirmed
- *      knowledge.
- *   2. A user correction confirms knowledge through Layer 1.
- *   3. A later conflicting SLM claim cannot silently overwrite the confirmed
- *      entry, and the prompt packet surfaces the existing evidence graph.
+ * Uses the cartridge-authored Pretorius "homunculi" topic to prove the
+ * recognize -> candidate -> correction -> offline surface path is not tied to
+ * the old electricity probe.
  */
 "use strict";
 
@@ -33,7 +30,7 @@ function copyDir(src, dst){
 }
 
 function makeTempCart(){
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "persona-knowledge-write-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "persona-generic-bridge-"));
   const profile = path.join(dir, "pretorius");
   copyDir(path.dirname(SRC_CART), profile);
   return path.join(profile, "pretorius.cart");
@@ -41,7 +38,6 @@ function makeTempCart(){
 
 function makeMock(){
   let count = 0;
-  const prompts = [];
   const server = net.createServer(sock => {
     let chunks = [], total = 0;
     sock.on("data", d => {
@@ -56,9 +52,10 @@ function makeMock(){
       const len = parseInt(m[1], 10);
       if (body.length < len) return;
       const req = JSON.parse(body.slice(0, len).toString("utf8"));
-      prompts.push(req.prompt || "");
       count++;
-      const response = "electricity is the flow of positive charge through a wire. voltage pushes it and resistance slows it.";
+      const response = count === 1
+        ? "homunculi are clockwork dolls in little jars, wound by hidden springs."
+        : "correction accepted. homunculi are tiny living people in glass jars, not clockwork dolls.";
       const respBody = JSON.stringify({ model: req.model, response, done: true });
       sock.write(
         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n" +
@@ -68,7 +65,7 @@ function makeMock(){
       sock.end();
     });
   });
-  return { server, prompts, count: () => count };
+  return { server, count: () => count };
 }
 
 function runHost(cart, env, lines){
@@ -110,96 +107,49 @@ function lastReply(run){
   if (!fs.existsSync(HOST)) { console.error("persona_host not built"); process.exit(2); }
   const cart = makeTempCart();
   const profileDir = path.dirname(cart);
-
   const mock = makeMock();
   await new Promise(r => mock.server.listen(0, "127.0.0.1", r));
   const port = mock.server.address().port;
 
-  const slm1 = await runHost(cart, {
+  const slm = await runHost(cart, {
     PE_RENDER_BACKEND: "slm",
     PE_SLM_PROVIDER: "ollama",
     PE_SLM_MODEL: "qwen3:8b",
     PE_OLLAMA_HOST: "127.0.0.1",
     PE_OLLAMA_PORT: String(port),
     PE_OLLAMA_TIMEOUT_MS: "3000",
-    PE_TODAY_SEED: "921",
+    PE_TODAY_SEED: "1441",
     V6_PACKET_MODE: "situation",
   }, [
     { method: "set_user", user_id: "Kiki" },
-    { method: "chat", text: "Can you explain how electricity works in a wire, technically?" },
-    { method: "close" },
-  ]);
-  ok(slm1.status === 0, "candidate SLM phase exits cleanly");
-  ok(/positive charge/i.test(firstReply(slm1)),
-     `candidate model answer accepted as speech: ${firstReply(slm1)}`);
-
-  const offlineCandidate = await runHost(cart, {
-    PE_RENDER_BACKEND: "template",
-    PE_TODAY_SEED: "921",
-  }, [
-    { method: "set_user", user_id: "Kiki" },
-    { method: "chat", text: "Good evening." },
-    { method: "chat", text: "Can you tell me how electricity works in a wire again?" },
-    { method: "close" },
-  ]);
-  const candidateReply = lastReply(offlineCandidate);
-  ok(/provisional/i.test(candidateReply),
-     `model-only learned claim remains candidate/provisional offline: ${candidateReply}`);
-  ok(!/better account|kiki corrected/i.test(candidateReply),
-     "candidate is not treated as confirmed user-taught knowledge");
-
-  const corrected = await runHost(cart, {
-    PE_RENDER_BACKEND: "template",
-    PE_TODAY_SEED: "921",
-  }, [
-    { method: "set_user", user_id: "Kiki" },
-    { method: "chat", text: "Actually, in metal wires the moving charges are electrons drifting through the conductor. Voltage is electric potential difference, not a fluid pressure." },
-    { method: "close" },
-  ]);
-  ok(corrected.status === 0, "user correction phase exits cleanly");
-
-  const beforePromptCount = mock.prompts.length;
-  const slmConflict = await runHost(cart, {
-    PE_RENDER_BACKEND: "slm",
-    PE_SLM_PROVIDER: "ollama",
-    PE_SLM_MODEL: "qwen3:8b",
-    PE_OLLAMA_HOST: "127.0.0.1",
-    PE_OLLAMA_PORT: String(port),
-    PE_OLLAMA_TIMEOUT_MS: "3000",
-    PE_TODAY_SEED: "922",
-    V6_PACKET_MODE: "situation",
-  }, [
-    { method: "set_user", user_id: "Kiki" },
-    { method: "chat", text: "Good evening." },
-    { method: "chat", text: "Explain electricity in a wire one more time." },
+    { method: "chat", text: "Can you explain the homunculi in the jars, technically?" },
+    { method: "chat", text: "Actually, homunculi are tiny living people in glass jars, not clockwork dolls." },
     { method: "close" },
   ]);
   mock.server.close();
-  ok(slmConflict.status === 0, "conflicting SLM phase exits cleanly");
+  ok(slm.status === 0, "SLM/correction phase exits cleanly");
+  ok(mock.count() >= 1, `mock model was used for the first topic answer (${mock.count()})`);
+  ok(/clockwork dolls/i.test(firstReply(slm)),
+     `first SLM answer carried the provisional wrong claim: ${firstReply(slm)}`);
 
-  const conflictPrompts = mock.prompts.slice(beforePromptCount).join("\n");
-  ok(/\[LEARNED_KNOWLEDGE\]/.test(conflictPrompts) &&
-     /status=confirmed/.test(conflictPrompts) &&
-     /edge_\d+/.test(conflictPrompts),
-     "conflict prompt surfaces confirmed learned knowledge and evidence graph before audit");
-
-  const offlineFinal = await runHost(cart, {
+  const offline = await runHost(cart, {
     PE_RENDER_BACKEND: "template",
-    PE_TODAY_SEED: "923",
+    PE_TODAY_SEED: "1441",
   }, [
     { method: "set_user", user_id: "Kiki" },
     { method: "chat", text: "Good evening." },
-    { method: "chat", text: "Can you tell me how electricity works in a wire again?" },
+    { method: "chat", text: "Can you tell me about the homunculi again?" },
     { method: "close" },
   ]);
-  const finalReply = lastReply(offlineFinal);
-  ok(/electrons/i.test(finalReply) && /potential difference/i.test(finalReply),
-     `confirmed correction remains winner after conflicting SLM answer: ${finalReply}`);
-  ok(!/positive charge flow/i.test(finalReply),
-     "conflicting SLM claim did not overwrite confirmed learned knowledge");
+  ok(offline.status === 0, "offline phase exits cleanly");
+  const reply = lastReply(offline);
+  ok(/tiny living people/i.test(reply) && /glass jars/i.test(reply),
+     `offline reply surfaces corrected non-electricity knowledge: ${reply}`);
+  ok(!/are clockwork dolls|clockwork dolls in little jars|wound by hidden springs/i.test(reply),
+     `offline reply does not repeat provisional wrong claim: ${reply}`);
   ok(fs.existsSync(path.join(profileDir, "learned_knowledge.bin")),
-     "learned sidecar exists after write-path test");
+     "learned_knowledge.bin sidecar was written");
 
   if (fail) process.exit(1);
-  console.log("PASSED -- SLM candidate write path requires confirmation and preserves authority");
+  console.log("PASSED -- generic learned bridge trigger uses cartridge topic data");
 })().catch(e => { console.error(e && e.stack ? e.stack : String(e)); process.exit(2); });

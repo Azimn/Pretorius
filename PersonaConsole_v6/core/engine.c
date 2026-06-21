@@ -711,7 +711,9 @@ static int pe_self_repeat_audit_pass(const char *out);
 static int pe_fatigue_audit_pass(const CanonicalTurnFrame *f, const char *out);
 static int pe_addressee_audit_pass(const Engine *eng, const char *out);
 static int pe_private_state_audit_pass(const Engine *eng, const char *out);
-static int pe_text_mentions_electricity(const char *text);
+static int pe_lk_topic_key_for_input(const Engine *eng, const char *text,
+                                     char *topic_key, size_t topic_cap,
+                                     uint16_t *topic_id);
 
 static uint8_t pe_render_audit_violation(const CanonicalTurnFrame *f, const char *out){
     char low[PE_RENDER_MAX_TEXT];
@@ -761,16 +763,24 @@ static uint8_t pe_audit_evaluate(const Engine *eng,
     uint8_t v = pe_render_audit_violation(&eng->frame, out);
     if (v == PE_AUDIT_V_META) return v;
     if (renderer_output && !pe_lore_audit_pass(eng, input, out)) return PE_AUDIT_V_LORE;
-    if (renderer_output && pe_text_mentions_electricity(input)
+    {
+        char topic_key[PE_LK_TOPIC_LEN];
+        uint16_t topic_id = 0xFFFFu;
+        int topic_hit = pe_lk_topic_key_for_input(eng, input,
+                                                  topic_key, sizeof(topic_key),
+                                                  &topic_id);
+        (void)topic_id;
+        if (renderer_output && topic_hit
         && pe_lk_output_repeats_corrected_claim(&eng->learned_knowledge,
-                                                out, "electricity"))
-        return PE_AUDIT_V_LORE;
-    if (renderer_output && pe_text_mentions_electricity(input)
+                                                out, topic_key))
+            return PE_AUDIT_V_LORE;
+        if (renderer_output && topic_hit
         && pe_lk_output_conflicts_authority(&eng->learned_knowledge,
-                                            out, "electricity",
+                                            out, topic_key,
                                             PE_LK_SCOPE_REAL_WORLD,
                                             eng->relation.user_hash))
-        return PE_AUDIT_V_LORE;
+            return PE_AUDIT_V_LORE;
+    }
     if (renderer_output && !pe_copy_audit_pass(input, out)) return PE_AUDIT_V_COPY;
     if (renderer_output && !pe_output_label_audit_pass(out)) return PE_AUDIT_V_OUTPUT_LABEL;
     if (renderer_output && !pe_addressee_audit_pass(eng, out)) return PE_AUDIT_V_ADDRESSEE;
@@ -1262,32 +1272,115 @@ static void pe_memory_probe_recall_boost(Engine *eng, const char *input){
     if (eng->active_count < PE_ACTIVE_MAX) eng->active_count++;
 }
 
-static int pe_text_mentions_electricity(const char *text){
-    char low[512];
-    if (!text || !text[0]) return 0;
-    lowercase_copy(low, sizeof(low), text);
-    return strstr(low, "electricity")
-        || strstr(low, "electric ")
-        || strstr(low, "electron")
-        || strstr(low, "voltage")
-        || strstr(low, "current")
-        || strstr(low, "resistance")
-        || strstr(low, "circuit");
+static int pe_lk_word_char(unsigned char c){
+    return isalnum(c) || c == '_';
 }
 
-static int pe_text_teaches_electricity(const char *text){
+static int pe_lk_pattern_boundary_ok(const char *lower, const char *m,
+                                     const Pattern *p){
+    unsigned char first, last;
+    if (!lower || !m || !p || !p->kw_len) return 0;
+    first = (unsigned char)p->keyword[0];
+    last = (unsigned char)p->keyword[p->kw_len - 1u];
+    if (pe_lk_word_char(first) && m > lower
+        && pe_lk_word_char((unsigned char)m[-1]))
+        return 0;
+    if (pe_lk_word_char(last)
+        && pe_lk_word_char((unsigned char)m[p->kw_len]))
+        return 0;
+    return 1;
+}
+
+static int pe_lk_pattern_matches(const char *lower, const Pattern *p){
+    const char *m;
+    if (!lower || !p || !p->kw_len || p->topic_id == 0xFFFFu) return 0;
+    m = lower;
+    while ((m = strstr(m, p->keyword)) != NULL){
+        if (pe_lk_pattern_boundary_ok(lower, m, p)) return 1;
+        ++m;
+    }
+    return 0;
+}
+
+static int pe_lk_topic_key_for_id(const Engine *eng, uint16_t topic_id,
+                                  char *topic_key, size_t topic_cap){
+    const char *name;
+    if (!eng || topic_id == 0xFFFFu || !topic_key || topic_cap == 0) return 0;
+    name = topic_name_by_id(eng, topic_id);
+    if (!name || !name[0]) return 0;
+    snprintf(topic_key, topic_cap, "%s", name);
+    return topic_key[0] != 0;
+}
+
+static int pe_lk_topic_key_for_input(const Engine *eng, const char *text,
+                                     char *topic_key, size_t topic_cap,
+                                     uint16_t *topic_id){
+    char low[512];
+    uint16_t best_topic = 0xFFFFu;
+    uint8_t best_len = 0;
+    if (topic_key && topic_cap) topic_key[0] = 0;
+    if (topic_id) *topic_id = 0xFFFFu;
+    if (!eng || !text || !text[0]) return 0;
+    lowercase_copy(low, sizeof(low), text);
+    for (uint32_t i = 0; i < eng->patterns.count; ++i){
+        const Pattern *p = &eng->patterns.entries[i];
+        if (!p->kw_len || p->topic_id == 0xFFFFu) continue;
+        if (p->kw_len < best_len) continue;
+        if (!pe_lk_pattern_matches(low, p)) continue;
+        best_topic = p->topic_id;
+        best_len = p->kw_len;
+    }
+    if (best_topic == 0xFFFFu && eng->primary_topic != 0xFFFFu)
+        best_topic = eng->primary_topic;
+    if (!pe_lk_topic_key_for_id(eng, best_topic, topic_key, topic_cap))
+        return 0;
+    if (topic_id) *topic_id = best_topic;
+    return 1;
+}
+
+static int pe_text_teaches_topic(const Engine *eng, const char *text,
+                                 char *topic_key, size_t topic_cap,
+                                 uint16_t *topic_id){
     char low[512];
     if (!text || !text[0]) return 0;
     lowercase_copy(low, sizeof(low), text);
-    if (!pe_text_mentions_electricity(low)) return 0;
+    if (!pe_lk_topic_key_for_input(eng, text, topic_key, topic_cap, topic_id))
+        return 0;
     return strstr(low, "actually")
         || strstr(low, "correction")
         || strstr(low, "not quite")
         || strstr(low, "that's wrong")
         || strstr(low, "that is wrong")
         || strstr(low, "you missed")
-        || strstr(low, "in metal wires")
-        || strstr(low, "moving charges are electrons");
+        || strstr(low, "not really")
+        || strstr(low, "more precisely")
+        || strstr(low, "the better account")
+        || strstr(low, "what i mean is")
+        || strstr(low, "to be precise");
+}
+
+static int pe_ascii_ncasecmp(const char *a, const char *b, size_t n){
+    for (size_t i = 0; i < n; ++i){
+        unsigned char ca = (unsigned char)a[i];
+        unsigned char cb = (unsigned char)b[i];
+        if (!ca || !cb) return (int)tolower(ca) - (int)tolower(cb);
+        ca = (unsigned char)tolower(ca);
+        cb = (unsigned char)tolower(cb);
+        if (ca != cb) return (int)ca - (int)cb;
+    }
+    return 0;
+}
+
+static void pe_clean_learned_claim(const char *src, char *dst, size_t cap){
+    const char *p = src ? src : "";
+    if (!dst || cap == 0) return;
+    while (*p && isspace((unsigned char)*p)) ++p;
+    if (!pe_ascii_ncasecmp(p, "actually,", 9)) p += 9;
+    else if (!pe_ascii_ncasecmp(p, "actually", 8)) p += 8;
+    else if (!pe_ascii_ncasecmp(p, "correction:", 11)) p += 11;
+    else if (!pe_ascii_ncasecmp(p, "more precisely,", 15)) p += 15;
+    while (*p && isspace((unsigned char)*p)) ++p;
+    snprintf(dst, cap, "%s", p);
 }
 
 static uint32_t pe_lk_latest_record_for_topic(const Engine *eng,
@@ -1313,17 +1406,21 @@ static void pe_maybe_commit_learned_knowledge(Engine *eng,
     const char *speaker;
     pe_lk_write_t w;
     uint32_t old_id = 0;
+    char topic_key[PE_LK_TOPIC_LEN];
+    char claim[PE_LK_CLAIM_LEN];
+    uint16_t topic_id = 0xFFFFu;
     if (!eng || !input) return;
     speaker = eng->relation.known_as[0] ? eng->relation.known_as : "the user";
-    if (pe_text_teaches_electricity(input)){
-        old_id = pe_lk_latest_record_for_topic(eng, "electricity",
+    if (pe_text_teaches_topic(eng, input, topic_key, sizeof(topic_key), &topic_id)){
+        old_id = pe_lk_latest_record_for_topic(eng, topic_key,
                                                PE_LK_STATUS_CANDIDATE);
         if (!old_id)
-            old_id = pe_lk_latest_record_for_topic(eng, "electricity",
+            old_id = pe_lk_latest_record_for_topic(eng, topic_key,
                                                PE_LK_STATUS_PROVISIONAL);
+        pe_clean_learned_claim(input, claim, sizeof(claim));
         memset(&w, 0, sizeof(w));
-        w.topic_key = "electricity";
-        w.claim_text = "In metal wires, current is mostly electrons drifting through a conductor; voltage is electric potential difference; resistance impedes flow.";
+        w.topic_key = topic_key;
+        w.claim_text = claim;
         w.scope = PE_LK_SCOPE_REAL_WORLD;
         w.source_type = PE_LK_SRC_USER;
         w.source_tier = PE_LK_TIER_OFFLINE;
@@ -1335,20 +1432,23 @@ static void pe_maybe_commit_learned_knowledge(Engine *eng,
         w.correction_of_record_id = old_id;
         pe_lk_upsert(&eng->learned_knowledge, &w, pe_clock_now_s());
         pe_lk_record_edge(&eng->learned_knowledge,
-                          pe_lk_latest_record_for_topic(eng, "electricity",
+                          pe_lk_latest_record_for_topic(eng, topic_key,
                                                         PE_LK_STATUS_CONFIRMED),
                           PE_LK_EDGE_TAUGHT_BY,
                           eng->relation.user_hash ? eng->relation.user_hash : 1u,
                           700, 200, pe_clock_now_s());
-        pe_commit_memory(eng, "Kiki corrected the electricity explanation.",
-                         ev ? ev : &kev, 0xFFFFu, 90, 0);
+        snprintf(claim, sizeof(claim), "%s corrected %s.",
+                 speaker, topic_key);
+        pe_commit_memory(eng, claim, ev ? ev : &kev, topic_id, 90, 0);
         return;
     }
-    if (!renderer_output || !final_output || !pe_text_mentions_electricity(input))
+    if (!renderer_output || !final_output || !pe_lk_topic_key_for_input(eng, input, topic_key, sizeof(topic_key), &topic_id))
         return;
-    if (pe_lk_latest_record_for_topic(eng, "electricity", 0)) return;
+    if (eng->input_class != 3 && !strchr(input, '?')) return;
+    if (pe_lk_latest_record_for_topic(eng, topic_key, 0)) return;
+    pe_clean_learned_claim(final_output, claim, sizeof(claim));
     memset(&w, 0, sizeof(w));
-    w.topic_key = "electricity";
+    w.topic_key = topic_key;
     w.scope = PE_LK_SCOPE_REAL_WORLD;
     w.source_type = PE_LK_SRC_MODEL;
     w.source_tier = PE_LK_TIER_SLM;
@@ -1357,13 +1457,7 @@ static void pe_maybe_commit_learned_knowledge(Engine *eng,
     w.confidence = 420;
     w.source_actor_id = 0;
     w.source_actor_name = "renderer";
-    if (strstr(final_output, "positive charge")){
-        w.claim_text = "Model claimed electricity is positive charge flow through a wire; voltage pushes it; resistance slows it.";
-    } else if (pe_text_mentions_electricity(final_output)){
-        w.claim_text = "Model claimed electricity is charge motion; voltage drives current; resistance opposes flow.";
-    } else {
-        return;
-    }
+    w.claim_text = claim;
     pe_lk_upsert(&eng->learned_knowledge, &w, pe_clock_now_s());
 }
 
@@ -1373,29 +1467,34 @@ static int pe_try_learned_knowledge_answer(Engine *eng,
                                            size_t n){
     const pe_lk_record_t *r;
     int ambiguous = 0;
+    char topic_key[PE_LK_TOPIC_LEN];
+    uint16_t topic_id = 0xFFFFu;
     if (!eng || !input || !out || n == 0) return 0;
-    if (!pe_text_mentions_electricity(input)) return 0;
+    if (pe_text_teaches_topic(eng, input, topic_key, sizeof(topic_key), &topic_id))
+        return 0;
+    if (!pe_lk_topic_key_for_input(eng, input, topic_key, sizeof(topic_key), &topic_id))
+        return 0;
     if (eng->input_class != 3 && !strchr(input, '?')) return 0;
-    r = pe_lk_resolve(&eng->learned_knowledge, "electricity",
+    r = pe_lk_resolve(&eng->learned_knowledge, topic_key,
                       PE_LK_SCOPE_REAL_WORLD, eng->relation.user_hash,
                       &ambiguous);
     if (!r) return 0;
     pe_lk_mark_used(&eng->learned_knowledge, r->record_id, pe_clock_now_s());
     if (ambiguous || r->status == PE_LK_STATUS_DISPUTED || r->confidence < 350u){
         snprintf(out, n,
-                 "I have a disputed note on electricity, not certainty. The useful question is which part you mean: charge, voltage, current, or resistance?");
+                 "I have a disputed note on %s, not certainty. Ask the narrower version.", topic_key);
     } else if (r->source_type == PE_LK_SRC_USER ||
                r->status == PE_LK_STATUS_CONFIRMED ||
                r->status == PE_LK_STATUS_WORLD_AUTHORED ||
                r->status == PE_LK_STATUS_CARTRIDGE_AUTHORED){
         snprintf(out, n,
-                 "What Kiki corrected is the better account: in a metal wire, current is mostly electrons drifting through a conductor. Voltage is electric potential difference; resistance impedes the flow.");
-    } else if (strstr(r->claim_text, "positive charge")){
-        snprintf(out, n,
-                 "The provisional note says electricity is positive charge flow, with voltage pushing and resistance slowing it. I would not call that settled.");
+                 "What %s corrected is the firmer account: %s",
+                 r->source_actor_name[0] ? r->source_actor_name : "you",
+                 r->claim_text);
     } else {
         snprintf(out, n,
-                 "The provisional account is this: electricity is charge in motion. Voltage drives current; resistance opposes the flow.");
+                 "The provisional note on %s says: %s I would not call that settled.",
+                 topic_key, r->claim_text);
     }
     return 1;
 }

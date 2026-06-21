@@ -343,15 +343,60 @@ int pe_lk_output_repeats_corrected_claim(const pe_learned_knowledge_t *lk,
                                          const char *out,
                                          const char *topic_key){
     char low[512];
+    char claim[PE_LK_CLAIM_LEN];
     if (!lk || !out || !topic_key) return 0;
     lower_copy(low, sizeof(low), out);
+    for (uint32_t i = 0; i < lk->header.entry_count && i < PE_LK_RECORD_CAP; ++i){
+        const pe_lk_record_t *r = &lk->records[i];
+        int overlap = 0;
+        char *tok;
+        if (!r->record_id || strcmp(r->topic_key, topic_key)) continue;
+        if (r->status != PE_LK_STATUS_CORRECTED &&
+            r->status != PE_LK_STATUS_DEPRECATED) continue;
+        lower_copy(claim, sizeof(claim), r->claim_text);
+        for (tok = strtok(claim, " ,.;:!?()[]\"'"); tok; tok = strtok(NULL, " ,.;:!?()[]\"'")){
+            size_t tl = strlen(tok);
+            if (tl < 5) continue;
+            if (!strcmp(tok, "model") || !strcmp(tok, "claimed") ||
+                !strcmp(tok, "claim") || !strcmp(tok, "topic") ||
+                !strcmp(tok, "about")) continue;
+            if (strstr(low, tok) && ++overlap >= 2)
+                return 1;
+        }
+    }
+    return 0;
+}
+
+static int distinctive_overlap(const char *a, const char *b){
+    char tmp[PE_LK_CLAIM_LEN];
+    char lowb[512];
+    char *tok;
+    int overlap = 0;
+    if (!a || !b) return 0;
+    lower_copy(tmp, sizeof(tmp), a);
+    lower_copy(lowb, sizeof(lowb), b);
+    for (tok = strtok(tmp, " ,.;:!?()[]\"'"); tok; tok = strtok(NULL, " ,.;:!?()[]\"'")){
+        size_t tl = strlen(tok);
+        if (tl < 5) continue;
+        if (!strcmp(tok, "model") || !strcmp(tok, "claimed") ||
+            !strcmp(tok, "actually") || !strcmp(tok, "correction") ||
+            !strcmp(tok, "through") || !strcmp(tok, "about")) continue;
+        if (strstr(lowb, tok))
+            ++overlap;
+    }
+    return overlap;
+}
+
+static int has_lower_authority_corrected_overlap(const pe_learned_knowledge_t *lk,
+                                                 const char *topic_key,
+                                                 const char *out){
+    if (!lk || !topic_key || !out) return 0;
     for (uint32_t i = 0; i < lk->header.entry_count && i < PE_LK_RECORD_CAP; ++i){
         const pe_lk_record_t *r = &lk->records[i];
         if (!r->record_id || strcmp(r->topic_key, topic_key)) continue;
         if (r->status != PE_LK_STATUS_CORRECTED &&
             r->status != PE_LK_STATUS_DEPRECATED) continue;
-        if (strstr(r->claim_text, "positive charge") &&
-            strstr(low, "positive charge"))
+        if (distinctive_overlap(r->claim_text, out) >= 2)
             return 1;
     }
     return 0;
@@ -376,12 +421,9 @@ int pe_lk_output_conflicts_authority(const pe_learned_knowledge_t *lk,
         best->authority_rank < 60u)
         return 0;
     lower_copy(low, sizeof(low), out);
-    if (!strcmp(topic_key, "electricity")){
-        if ((strstr(best->claim_text, "electron") ||
-             strstr(best->claim_text, "potential difference")) &&
-            strstr(low, "positive charge"))
-            return 1;
-    }
+    if (has_lower_authority_corrected_overlap(lk, topic_key, out) &&
+        distinctive_overlap(best->claim_text, out) < 2)
+        return 1;
     return 0;
 }
 

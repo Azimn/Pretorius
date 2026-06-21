@@ -37,6 +37,7 @@ function wipeState(){
   for (const f of ['state.bin', 'memory.bin', 'chapters.bin',
                    'reflections.bin', 'actor_index.bin',
                    'speech_events.bin', 'dissonance.bin',
+                   'learned_knowledge.bin', 'long_arc_drift.bin',
                    'open_loops.bin', 'speech_habits.bin']){
     try { fs.unlinkSync(path.join(CHDIR, f)); } catch {}
   }

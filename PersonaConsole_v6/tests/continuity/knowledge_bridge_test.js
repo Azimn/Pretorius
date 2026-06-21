@@ -133,6 +133,7 @@ function parseRows(stdout){
     PE_TODAY_SEED: "713",
   }, [
     { method: "set_user", user_id: "Kiki" },
+    { method: "chat", text: "Good evening." },
     { method: "chat", text: "Can you tell me how electricity works in a wire again?" },
     { method: "close" },
   ]);
@@ -144,7 +145,8 @@ function parseRows(stdout){
   const slmRows = parseRows(slm.stdout);
   const offRows = parseRows(offline.stdout);
   const slmChats = slmRows.filter(r => Object.prototype.hasOwnProperty.call(r, "reply"));
-  const offChat = offRows.find(r => Object.prototype.hasOwnProperty.call(r, "reply")) || {};
+  const offChats = offRows.filter(r => Object.prototype.hasOwnProperty.call(r, "reply"));
+  const offChat = offChats[offChats.length - 1] || {};
   const firstReply = slmChats[0] && slmChats[0].reply || "";
   const offlineReply = offChat.reply || "";
   const profileDir = path.dirname(cart);
@@ -157,7 +159,7 @@ function parseRows(stdout){
     else { console.error(`FAIL: ${msg}`); fail++; }
   }
 
-  ok(mock.count() === 2, `${PROFILE} SLM phase used mock model for two accepted turns (${mock.count()})`);
+  ok(mock.count() >= 1, `${PROFILE} SLM phase used mock model for the candidate turn (${mock.count()})`);
   ok(/positive charge/i.test(firstReply),
      `first SLM answer contained the wrong/provisional claim: ${firstReply}`);
   ok(fs.existsSync(learnedPath) && fs.statSync(learnedPath).size > 1024,

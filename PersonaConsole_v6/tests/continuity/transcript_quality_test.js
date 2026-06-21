@@ -29,7 +29,12 @@ if (!fs.existsSync(CART)){ console.error('cart not found:', CART); process.exit(
 const CHDIR = path.dirname(CART);
 
 function wipeState(){
-  for (const f of ['state.bin', 'memory.bin', 'chapters.bin', 'reflections.bin','open_loops.bin','speech_habits.bin']){
+  for (const f of [
+    'state.bin', 'memory.bin', 'chapters.bin', 'reflections.bin',
+    'actor_index.bin', 'dissonance.bin', 'learned_knowledge.bin',
+    'long_arc_drift.bin', 'open_loops.bin', 'speech_events.bin',
+    'speech_habits.bin',
+  ]){
     try { fs.unlinkSync(path.join(CHDIR, f)); } catch {}
   }
   for (const d of ['relations', 'aether']){
