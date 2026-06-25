@@ -1044,6 +1044,36 @@ Remaining polish issues:
 
 - The transcript still has a few Kiki lines with dash-heavy cadence because that is currently authored into her style banks. This is separate from repeat hygiene.
 
+### 2026-06-25 - Memory Import Bundle Staging
+
+Branch/commit:
+
+- `v6-phase5d-recall-modes`, local working tree before commit.
+
+What changed:
+
+- Added `docs/MEMORY_IMPORT_FORMAT_V6.md` for frontier-model-assisted history condensation.
+- Added `tools/import_memory_bundle.js` as a safe staging importer.
+- Added `tests/continuity/memory_import_bundle_test.js` and `make v6_memory_import_bundle_run`.
+
+Design decision:
+
+- The importer validates and stages pending JSON files under `<profile>/import_pending/`.
+- It does not write `learned_knowledge.bin`, `open_loops.bin`, relation sidecars, or attachment sidecars.
+- This keeps the C runtime as memory authority and avoids having JavaScript guess binary sidecar layouts.
+- Claude's proposed attachment sidecar module was reviewed but deferred as a separate feature. The importer can stage `attachment_bonds` for future Forge/runtime review without committing them.
+- The importer is framed as bootstrap/history seeding and test planting, not as the character's ongoing memory system. Running NPCs should continue to create new memories through the C runtime.
+
+Validation:
+
+- `node tests/continuity/memory_import_bundle_test.js`: passed, 25/25 assertions.
+- `make v6_memory_import_bundle_run`: passed through Cygwin make, 25/25 assertions.
+- `make host`: passed through Cygwin make.
+
+Next action:
+
+- Add a Forge or C-side promotion path that reviews `import_pending` files and commits approved records through learned-knowledge authority, memory firewall, topic mapping, and relation/open-loop APIs.
+
 ## Future Test Entries Template
 
 Copy this block for each substantial run:

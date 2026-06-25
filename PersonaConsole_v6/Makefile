@@ -169,7 +169,7 @@ RENDER_HEADERS := \
         v6_affect_dynamics_run v6_expression_policy_run v6_packet_psychology_run \
         v6_long_gap_decay_run v6_relation_dims_long_run_softening_run v6_long_arc_drift_run \
         v6_gate_chunk_1 v6_gate_chunk_2 v6_gate_chunk_3 v6_gate_chunk_4 v6_gate_chunked \
-        v6_learned_knowledge_run \
+        v6_learned_knowledge_run v6_memory_import_bundle_run \
         v7_api_run
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
@@ -641,6 +641,10 @@ build/learned_knowledge_test: tests/replay/learned_knowledge_test.c build/libper
 
 v6_learned_knowledge_run: build/learned_knowledge_test
 	./build/learned_knowledge_test
+
+v6_memory_import_bundle_run:
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/memory_import_bundle_test.js
 
 v6_demo_pack_battery_run: build/persona_host cartridges
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
