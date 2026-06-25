@@ -57,9 +57,9 @@ static const char *INTIMATE[] = {
 
 /* Reflections for obsession-class topics (the character's actual focus). */
 static const char *OBSESSION[] = {
-    "Always {topic} returns to the conversation. I begin to think you sense its weight.",
-    "{topic}. You have asked enough times that I no longer pretend not to expect it.",
-    "We return to {topic} the way I do — as if drawn.",
+    "I notice {topic} keeps returning to the conversation.",
+    "{topic} has come up enough times that I expect it now.",
+    "We return to {topic} as if it has its own pull.",
     "I have stopped resisting talk of {topic}. Perhaps that is fitting.",
 };
 #define OBSESSION_N (sizeof(OBSESSION) / sizeof(OBSESSION[0]))

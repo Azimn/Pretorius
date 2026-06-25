@@ -110,6 +110,26 @@ h1 {
   50% { transform: scale(1.25); opacity: 1; }
 }
 
+.character-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.character-picker select {
+  width: 100%;
+  min-height: 38px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 7px 8px;
+  font: inherit;
+}
+.character-picker select:focus { outline: none; border-color: var(--accent); }
+
 .secondary-button {
   width: 100%;
   border: 1px solid rgba(212,165,116,0.4);
@@ -375,6 +395,10 @@ body.show-meta .msg .meta { display: block; }
   .portrait-action,
   .advanced,
   .secondary-button { display: none; }
+  .character-picker {
+    grid-column: 2;
+    margin: 0;
+  }
   h1, .today, .presence { margin: 0; }
   .chat { height: calc(100vh - 98px); }
   .chat-header { display: none; }

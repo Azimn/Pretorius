@@ -21,6 +21,7 @@ const els = {
     delta:     $("voice-delta"),
     disp:      $("disp"),
     presence:  $("presence"),
+    characterSelect: $("character-select"),
     proactive: $("proactive-enabled"),
     speakFirst:$("speak-first"),
     idleDelay: $("idle-delay"),
@@ -47,10 +48,20 @@ const DEFAULT_SETTINGS = {
     idleDelay: 45000,
 };
 
+const CHARACTER_CATALOG = {
+    pretorius: { name: "Dr. Pretorius", path: "profiles/pretorius/pretorius.cart" },
+    kiki:      { name: "Kiki",          path: "profiles/kiki/kiki.cart" },
+    friendly:  { name: "Mira",          path: "profiles/friendly/friendly.cart" },
+    rival:     { name: "Cassian Vale",  path: "profiles/rival/rival.cart" },
+    quiet:     { name: "Eli Rowan",     path: "profiles/quiet/quiet.cart" },
+    mentor:    { name: "Marin Hale",    path: "profiles/mentor/mentor.cart" },
+};
+
 let settings = loadSettings();
 let idleTimer = null;
 let idleProbeTurn = -1;
 let idleRequestInFlight = false;
+let loadInFlight = false;
 let speakFirstAttempted = false;
 let latestTurn = 0;
 let latestState = null;
@@ -83,6 +94,34 @@ function applySettingsToControls() {
 function setPresence(text, active) {
     els.presence.textContent = text;
     els.presence.classList.toggle("active", !!active);
+}
+
+function slugFromState(s) {
+    const raw = String((s && (s.profile_slug || s.name)) || "").toLowerCase();
+    if (raw.includes("pretorius")) return "pretorius";
+    if (raw.includes("kiki")) return "kiki";
+    if (raw.includes("mira") || raw.includes("friendly")) return "friendly";
+    if (raw.includes("cassian") || raw.includes("rival")) return "rival";
+    if (raw.includes("eli") || raw.includes("quiet")) return "quiet";
+    if (raw.includes("marin") || raw.includes("mentor")) return "mentor";
+    return "";
+}
+
+function resetTranscript(message) {
+    els.messages.replaceChildren();
+    const hint = document.createElement("div");
+    hint.className = "empty-hint";
+    hint.textContent = message || "Start the conversation whenever you are ready. This is running locally in offline template mode unless you chose an optional renderer at launch.";
+    els.messages.appendChild(hint);
+}
+
+function setBusy(busy, label) {
+    loadInFlight = !!busy;
+    els.input.disabled = !!busy;
+    els.send.disabled = !!busy;
+    els.promptCharacter.disabled = !!busy || idleRequestInFlight || manualProbeTurn === latestTurn;
+    if (busy) setPresence(label || "switching", true);
+    else if (latestState) setPresence(presenceFromState(latestState), false);
 }
 
 function presenceFromState(s) {
@@ -124,7 +163,7 @@ function updateInnerLife(s) {
     if (els.needEnergy) els.needEnergy.style.width = `${energy}%`;
     if (els.needRapport) els.needRapport.style.width = `${rapport}%`;
     if (els.thought) els.thought.textContent = thoughtFromState(s);
-    els.promptCharacter.disabled = idleRequestInFlight || manualProbeTurn === latestTurn;
+    els.promptCharacter.disabled = loadInFlight || idleRequestInFlight || manualProbeTurn === latestTurn;
 }
 
 /* Try to fetch the character's portrait. On 404, keep the initial-letter
@@ -176,6 +215,9 @@ function setState(s) {
     els.delta.textContent   = s.voice_delta;
     els.disp.textContent    = s.disposition;
     latestTurn = Number(s.turn_count || 0);
+    const slug = slugFromState(s);
+    if (slug && els.characterSelect && els.characterSelect.value !== slug)
+        els.characterSelect.value = slug;
     setPresence(presenceFromState(s), false);
     updateInnerLife(s);
 }
@@ -185,6 +227,47 @@ async function fetchState() {
         const r = await fetch("/state");
         if (r.ok) setState(await r.json());
     } catch (e) { console.error(e); }
+}
+
+async function loadCharacter(slug) {
+    const entry = CHARACTER_CATALOG[slug];
+    if (!entry || loadInFlight) return;
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = null;
+    idleProbeTurn = -1;
+    manualProbeTurn = -1;
+    speakFirstAttempted = false;
+    setBusy(true, "loading character");
+    resetTranscript(`Loading ${entry.name}...`);
+    try {
+        const r = await fetch("/load", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ path: entry.path }),
+        });
+        const data = await r.json();
+        if (!r.ok || data.error || data.ok !== true) {
+            throw new Error(data.error || `load failed (${data.code ?? r.status})`);
+        }
+        const stateResp = await fetch("/state");
+        if (!stateResp.ok) throw new Error("state check failed after load");
+        const state = await stateResp.json();
+        const activeSlug = slugFromState(state);
+        if (activeSlug && activeSlug !== slug)
+            throw new Error(`host loaded ${state.name || activeSlug}, not ${entry.name}`);
+        setState(state);
+        loadPortrait();
+        resetTranscript(`You are now talking with ${state.name || entry.name}.`);
+    } catch (e) {
+        resetTranscript("Character switch failed. The current session was not changed safely.");
+        showModal(`Could not load ${entry.name}: ${e.message}`);
+        await fetchState();
+    } finally {
+        setBusy(false);
+        els.input.focus();
+        maybeSpeakFirst();
+        scheduleIdleProbe();
+    }
 }
 
 function scheduleIdleProbe() {
@@ -198,7 +281,7 @@ async function requestIdleProbe(opts = {}) {
     const allowFresh = !!opts.allowFresh;
     const allowManual = !!opts.allowManual;
     const meta = opts.meta || "quiet";
-    if (!settings.proactive) return;
+    if (!settings.proactive || loadInFlight) return;
     if (idleRequestInFlight || els.send.disabled) {
         scheduleIdleProbe();
         return;
@@ -249,6 +332,7 @@ function maybeSpeakFirst() {
 }
 
 async function sendMessage(text) {
+    if (loadInFlight) return;
     addMessage("user", text);
     scheduleIdleProbe();
     els.send.disabled = true;
@@ -277,7 +361,8 @@ async function sendMessage(text) {
         addMessage("char", `[network error] ${e.message}`);
     } finally {
         els.portrait.classList.remove("speaking");
-        els.send.disabled = false;
+        els.send.disabled = loadInFlight;
+        els.input.disabled = loadInFlight;
         els.input.focus();
         scheduleIdleProbe();
     }
@@ -327,6 +412,10 @@ els.promptCharacter.addEventListener("click", () => {
     requestIdleProbe({ allowFresh: true, allowManual: true, meta: "prompted" });
 });
 
+els.characterSelect.addEventListener("change", () => {
+    loadCharacter(els.characterSelect.value);
+});
+
 els.attach.addEventListener("click", () => {
     showModal("Attachments require a renderer that supports file input through an API or multimodal local model. Offline template chat is still fully available.");
 });
@@ -355,10 +444,9 @@ els.modalBackdrop.addEventListener("click", (e) => {
 });
 
 applySettingsToControls();
-const hint = document.createElement("div");
-hint.className = "empty-hint";
-hint.textContent = "Start the conversation whenever you are ready. This is running locally in offline template mode unless you chose an optional renderer at launch.";
-els.messages.appendChild(hint);
-fetchState().then(maybeSpeakFirst);
-loadPortrait();
+resetTranscript();
+fetchState().then(() => {
+    loadPortrait();
+    maybeSpeakFirst();
+});
 scheduleIdleProbe();

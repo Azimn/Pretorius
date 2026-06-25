@@ -22,6 +22,7 @@ const HOST = resolveHost(ROOT);
 const WEB_ROOT = path.join(ROOT, "bridges", "web");
 const PRET_SRC = path.join(ROOT, "profiles", "pretorius", "pretorius.cart");
 const KIKI_SRC = path.join(ROOT, "profiles", "kiki", "kiki.cart");
+const MENTOR_SRC = path.join(ROOT, "profiles", "mentor", "mentor.cart");
 
 const PROMPTS = [
   "Good evening.",
@@ -39,6 +40,12 @@ const PRETORIUS_MARKERS = [
 const KIKI_MARKERS = [
   "babe", "obvi", "scully", "punky", "cher horowitz",
   "carl sagan", "cosmic paperwork", "like, the whole", "omg", "rad",
+];
+
+const SHARED_VOICE_LEAKS = [
+  "i begin to think you sense its weight",
+  "always self returns",
+  "always the work returns",
 ];
 
 function tempCart(src, slug){
@@ -148,6 +155,7 @@ async function waitState(port){
 
   const pretCart = tempCart(PRET_SRC, "pretorius");
   const kikiCart = tempCart(KIKI_SRC, "kiki");
+  const mentorCart = fs.existsSync(MENTOR_SRC) ? tempCart(MENTOR_SRC, "mentor") : null;
   const script = [
     { method: "set_user", user_id: "tester" },
     ...PROMPTS.map(text => ({ method: "chat", text })),
@@ -163,8 +171,10 @@ async function waitState(port){
   const pretText = replies(pret.stdout).join("\n");
   const kikiLeaks = markerHits(kikiText, PRETORIUS_MARKERS);
   const pretLeaks = markerHits(pretText, KIKI_MARKERS);
+  const sharedLeaks = markerHits(`${kikiText}\n${pretText}`, SHARED_VOICE_LEAKS);
   ok(kikiLeaks.length === 0, `Kiki emits no Pretorius markers (${kikiLeaks.join(", ") || "none"})`);
   ok(pretLeaks.length === 0, `Pretorius emits no Kiki markers (${pretLeaks.join(", ") || "none"})`);
+  ok(sharedLeaks.length === 0, `shared callback phrases are neutralized (${sharedLeaks.join(", ") || "none"})`);
 
   const port = await freePort();
   const proc = spawn(HOST, ["--port", String(port), "--web-root", WEB_ROOT, pretCart], {
@@ -184,6 +194,16 @@ async function waitState(port){
     const reply = String(chat.reply || "");
     const leaks = markerHits(reply, PRETORIUS_MARKERS);
     ok(leaks.length === 0, `Kiki HTTP reply after /load has no Pretorius markers (${leaks.join(", ") || "none"})`);
+    if (mentorCart){
+      const loadMentor = await httpJson(port, "POST", "/load", { path: mentorCart });
+      ok(loadMentor && loadMentor.ok === true, "HTTP /load accepts Mentor cart after Kiki");
+      const mentorState = await waitState(port);
+      ok(/marin|mentor/i.test(mentorState.name || "") || /mentor/i.test(mentorState.profile_slug || ""),
+         `HTTP /state reports Mentor after second load (name=${mentorState.name}, slug=${mentorState.profile_slug})`);
+      const mentorChat = await httpJson(port, "POST", "/chat", { text: "Good evening." });
+      const mentorLeaks = markerHits(String(mentorChat.reply || ""), SHARED_VOICE_LEAKS);
+      ok(mentorLeaks.length === 0, `Mentor HTTP reply has no shared reflection leak (${mentorLeaks.join(", ") || "none"})`);
+    }
   } finally {
     proc.kill("SIGTERM");
   }

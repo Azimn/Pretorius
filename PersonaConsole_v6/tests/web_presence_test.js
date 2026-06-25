@@ -26,6 +26,8 @@ ok(/id="need-focus"/.test(html), 'focus meter exists');
 ok(/id="need-energy"/.test(html), 'energy meter exists');
 ok(/id="need-rapport"/.test(html), 'rapport meter exists');
 ok(/id="prompt-character"/.test(html), 'manual prompt button exists');
+ok(/id="character-select"/.test(html), 'character selector exists');
+ok(/value="kiki"/.test(html) && /value="mentor"/.test(html), 'selector includes multiple cartridges');
 ok(/id="proactive-enabled"/.test(html), 'proactive toggle exists');
 ok(/id="speak-first"/.test(html), 'speak-first toggle exists');
 ok(/id="idle-delay"/.test(html), 'idle delay selector exists');
@@ -34,6 +36,10 @@ ok(/character may speak first/.test(html), 'first-move copy exists');
 
 ok(/SETTINGS_KEY/.test(js) && /localStorage/.test(js), 'presence settings persist in localStorage');
 ok(/fetch\("\/idle_probe"/.test(js), 'UI calls idle_probe endpoint');
+ok(/fetch\("\/load"/.test(js), 'UI calls load endpoint for cartridge switching');
+ok(/function loadCharacter/.test(js), 'UI has explicit character load transaction');
+ok(/state check failed after load/.test(js), 'UI verifies state after load');
+ok(/replaceChildren/.test(js), 'UI clears transcript on character switch');
 ok(/allowFresh/.test(js), 'first-move path can use idle_probe before turn 1');
 ok(/meta: "first move"/.test(js), 'first move is labeled in transcript');
 ok(/presenceFromState/.test(js), 'presence label derives from engine state');
@@ -44,6 +50,7 @@ ok(/obsession_pressure/.test(js), 'presence can surface preoccupation');
 ok(/last_reply_had_question/.test(js), 'presence can surface waiting-on-user state');
 
 ok(/\.presence/.test(css), 'presence badge has CSS');
+ok(/\.character-picker/.test(css), 'character picker has CSS');
 ok(/\.inner-life/.test(css), 'inner-loop panel has CSS');
 ok(/\.meter/.test(css), 'need meters have CSS');
 ok(/\.ghost-button/.test(css), 'manual prompt button has CSS');

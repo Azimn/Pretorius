@@ -733,9 +733,9 @@ static int render_reflection_callback(Engine *eng, char *out, size_t n){
     if (phrase_recently_used(eng, text_id, PE_TEMPLATE_BLACKOUT_TURNS))
         return 0;
     if (eng->frame.speech_act == PE_SA_QUESTION)
-        snprintf(out, n, "Ah. %s What do you make of that?", text);
+        snprintf(out, n, "%s What do you make of that?", text);
     else
-        snprintf(out, n, "Ah. %s", text);
+        snprintf(out, n, "%s", text);
     sanitize_template_output(out, n);
     record_use(&eng->memory, usage_id(PE_USAGE_CALLBACK, m->id), eng->state.turn_count);
     record_use(&eng->memory, usage_id(PE_USAGE_MEMORY, m->id), eng->state.turn_count);
