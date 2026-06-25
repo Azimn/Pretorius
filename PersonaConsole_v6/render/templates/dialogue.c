@@ -208,7 +208,7 @@ static const char *render_memory_summary(Engine *eng, const MemoryNode *m,
 
 static void fill_text_slots(Engine *eng, const char *src, uint32_t slot_seed, char *out, size_t n){
     size_t pos = 0;
-    const char *user_name = eng->relation.known_as[0] ? eng->relation.known_as : "my dear";
+    const char *user_name = eng->relation.known_as[0] ? eng->relation.known_as : "you";
     if (n > 0) out[0] = 0;
 
     /* Address pick: intimate slots [2..PE_ADDRESS_COUNT-1] are gated by
@@ -218,7 +218,7 @@ static void fill_text_slots(Engine *eng, const char *src, uint32_t slot_seed, ch
         modulus = 2;
     uint32_t r = (slot_seed ^ eng->state.today_seed) % modulus;
     const char *address = eng->identity.address_user_as[r];
-    if (!address[0]) address = "my dear";
+    if (!address[0]) address = "you";
 
     /* v2: prefer plan.callback_memory; fall back to top-recall.
      * v3.2: indices may resolve into working memory OR cold_scratch[]

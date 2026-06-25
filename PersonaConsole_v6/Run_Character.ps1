@@ -47,6 +47,25 @@ function Test-PortOpen([int]$PortNumber) {
   }
 }
 
+function Invoke-HostJson([string]$Path, [string]$Body = $null) {
+  $uri = "http://127.0.0.1:$Port$Path"
+  try {
+    if ($null -eq $Body) {
+      return Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 2
+    }
+    return Invoke-RestMethod -Uri $uri -Method Post -Body $Body -ContentType "application/json" -TimeoutSec 4
+  } catch {
+    return $null
+  }
+}
+
+function Test-ActiveCharacter([object]$State, [string]$Requested) {
+  if ($null -eq $State -or -not $State.name) { return $false }
+  $active = ([string]$State.name).ToLowerInvariant()
+  if ($Requested -eq "pretorius") { return $active -like "*pretorius*" }
+  return $active -eq $Requested
+}
+
 if ($Renderer -eq "template") {
   $env:PE_RENDER_BACKEND = "template"
   Remove-Item Env:\PE_SLM_PROVIDER -ErrorAction SilentlyContinue
@@ -62,8 +81,26 @@ if ($Renderer -eq "template") {
 }
 
 if (Test-PortOpen $Port) {
+  $state = Invoke-HostJson "/state"
+  if (Test-ActiveCharacter $state $Character) {
+    Start-Process $url
+    Write-Host "PersonaConsole is already running on $url"
+    Write-Host "Character: $($state.name)"
+    exit 0
+  }
+
+  Write-Host "PersonaConsole is already running on $url with a different character."
+  if ($state -and $state.name) { Write-Host "Active character: $($state.name)" }
+  Write-Host "Loading requested character: $Character"
+
+  $load = Invoke-HostJson "/load" (@{ path = $cart } | ConvertTo-Json -Compress)
+  Start-Sleep -Milliseconds 350
+  $newState = Invoke-HostJson "/state"
+  if (-not $load -or $load.ok -ne $true -or -not (Test-ActiveCharacter $newState $Character)) {
+    throw "Could not switch the running PersonaConsole server to '$Character'. Stop the server with Stop_Server.ps1, then launch again."
+  }
   Start-Process $url
-  Write-Host "PersonaConsole is already running on $url"
+  Write-Host "PersonaConsole switched to $($newState.name) on $url"
   exit 0
 }
 

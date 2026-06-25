@@ -162,7 +162,7 @@ RENDER_HEADERS := \
         v6_packet_experiment_run v6_audit_rewrite_run v6_memory_probe_overlay_run \
         v6_wrong_addressee_repair_run v6_lore_act_fallback_run \
         v6_knowledge_bridge_run v6_knowledge_bridge_nonpretorius_run \
-        v6_knowledge_write_path_run v6_generic_bridge_trigger_run \
+        v6_knowledge_write_path_run v6_generic_bridge_trigger_run v6_character_isolation_run \
         v6_knowledge_confirmation_escalation_run \
         v6_situation_overlay_run v6_typed_dissonance_run v6_private_thought_run \
         v6_society_template_hygiene_run v6_theory_of_mind_run \
@@ -618,6 +618,10 @@ v6_generic_bridge_trigger_run: build/persona_host profiles/pretorius/pretorius.c
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/generic_bridge_trigger_test.js
 
+v6_character_isolation_run: build/persona_host profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/character_isolation_test.js
+
 v6_knowledge_confirmation_escalation_run: build/learned_knowledge_test
 	./build/learned_knowledge_test
 
@@ -756,7 +760,7 @@ v6_gate_chunk_4:
 	$(MAKE) v6_recall_modes_run v6_open_loops_run v6_speech_habits_run
 	$(MAKE) v6_society_template_hygiene_run v6_theory_of_mind_run
 	$(MAKE) v6_affect_dynamics_run v6_expression_policy_run v6_packet_psychology_run
-	$(MAKE) v6_generic_bridge_trigger_run
+	$(MAKE) v6_generic_bridge_trigger_run v6_character_isolation_run
 	$(MAKE) v6_long_gap_decay_run v6_relation_dims_long_run_softening_run v6_long_arc_drift_run
 	$(MAKE) v4_firewall_run lint_test
 	@echo "--- V6 gate chunk 4: green ---"

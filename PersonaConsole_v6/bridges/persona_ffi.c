@@ -153,100 +153,50 @@ int ps_idle_probe(PersonaSession *s, char *out_buf, int out_buf_size){
     const char *address = eng->identity.address_user_as[
         (eng->state.today_seed ^ eng->state.turn_count) % address_modulus
     ];
-    if (!address[0]) address = "my dear";
+    if (!address[0]) address = "you";
 
-    const char *line = NULL;
     uint32_t seed = eng->state.today_seed
                   ^ (eng->state.turn_count * 2654435761u)
                   ^ ((uint32_t)eng->state.mood << 3);
 
     char unresolved[PE_TEMPLATE_TEXT];
     const char *force_unresolved = getenv("PE_FORCE_UNRESOLVED_THREAD");
-    if ((force_unresolved && force_unresolved[0]) || ((seed >> 8) & 1u))
+    if ((force_unresolved && force_unresolved[0]) || ((seed >> 8) & 1u)){
         if (unresolved_resurface(eng, unresolved, sizeof(unresolved)))
-        line = unresolved;
+            return snprintf(out_buf, (size_t)out_buf_size, "%s", unresolved);
+    }
 
-    if (!line && topic[0]) {
-        if (!strcmp(topic, "gin")) {
-            topic = "";
+    const Template *candidates[32];
+    uint32_t count = 0;
+    uint16_t topic_group = 0xFFFFu;
+    if (topic && topic[0]){
+        for (uint32_t i = 0; i < eng->topics.count; ++i){
+            if (!strcmp(eng->topics.topics[i].name, topic)){
+                topic_group = eng->topics.topics[i].id;
+                break;
+            }
+        }
+    }
+    for (uint32_t pass = 0; pass < 2 && count == 0; ++pass){
+        for (uint32_t i = 0; i < eng->templates.count && count < 32; ++i){
+            const Template *t = &eng->templates.entries[i];
+            if (!t->text[0]) continue;
+            if (t->intent != PE_INTENT_INITIATE &&
+                t->intent != PE_INTENT_PROBE &&
+                t->intent != PE_INTENT_CLARIFY)
+                continue;
+            if (pass == 0 && topic_group != 0xFFFFu &&
+                t->group != topic_group && t->group != 0xFFFFu)
+                continue;
+            candidates[count++] = t;
         }
     }
 
-    if (!line && topic[0]) {
-        if (!strcmp(topic, "Henry")){
-            const char *pool[] = {
-                "You keep circling Henry. Do you pity him, or judge him?",
-                "Before we leave Frankenstein in peace, tell me what you think he feared most.",
-                "Henry remains in the room, even when unnamed. What would you ask him?",
-                "There is still Henry's cowardice on the table. Defend him, if you can.",
-                "I have not finished with Henry. Have you?",
-                "Frankenstein fled the threshold. Would you have done better?",
-                "Say something honest about Henry. Admiration or contempt, choose one."
-            };
-            line = pool[idle_pool_pick(eng, seed, topic, (uint32_t)(sizeof(pool)/sizeof(pool[0])))];
-        } else if (!strcmp(topic, "creation") || !strcmp(topic, "the work")
-                || !strcmp(topic, "science")){
-            const char *pool[] = {
-                "I have returned to the work. Are you coming with me?",
-                "Tell me what unsettles you most: the method, or the permission?",
-                "You have been quiet around the work. Is that caution, or appetite?",
-                "If creation could be made deliberate, what would you forbid first?",
-                "The work is pulling at the edge of this conversation. Shall we stop pretending otherwise?",
-                "Choose one: the body, the spark, or the mind inside the spark.",
-                "Your silence has taken the shape of an objection. Name it.",
-                "I am thinking about the first breath. What are you thinking about?"
-            };
-            line = pool[idle_pool_pick(eng, seed, topic, (uint32_t)(sizeof(pool)/sizeof(pool[0])))];
-        } else if (!strcmp(topic, "loneliness")){
-            const char *pool[] = {
-                "When you say loneliness, do you mean absence, or being misunderstood in company?",
-                "There is a particular silence after confession. Are you listening to it too?",
-                "Solitude has returned to the table. Shall we dissect it?",
-                "You touched loneliness and withdrew. That is usually where the truth is.",
-                "Do not make me do all the confessing.",
-                "Is loneliness a wound to you, or a room?",
-                "The quiet has become personal. Interesting."
-            };
-            line = pool[idle_pool_pick(eng, seed, topic, (uint32_t)(sizeof(pool)/sizeof(pool[0])))];
-        } else if (!strcmp(topic, "ethics") || !strcmp(topic, "God")){
-            const char *pool[] = {
-                "Is your objection moral, {address}, or merely nervous?",
-                "You pause at the border of permission. What frightens you there?",
-                "Say the forbidden part plainly. It improves the experiment.",
-                "Do not hide behind holiness. Make the argument.",
-                "Which law do you think I have offended: God's, yours, or habit's?",
-                "Morality has entered the room. It usually does, late and overdressed.",
-                "If this is a sin, define the soul I have endangered."
-            };
-            line = pool[idle_pool_pick(eng, seed, topic, (uint32_t)(sizeof(pool)/sizeof(pool[0])))];
-        }
-    }
-
-    if (!line) {
-        if (eng->state.mood < -120) {
-            const char *pool[] = {
-                "You have gone quiet. Did I wound the thought, or sharpen it?",
-                "Come now, {address}. Silence is useful only when it is preparing something.",
-                "I can feel the conversation withdrawing. Shall we call it fear or fatigue?",
-                "That quiet is not empty. It is deciding what mask to wear.",
-                "If I offended you, at least make the injury articulate.",
-                "Do not disappear behind politeness. It is a poor hiding place."
-            };
-            line = pool[idle_pool_pick(eng, seed, "negative", (uint32_t)(sizeof(pool)/sizeof(pool[0])))];
-        } else {
-            const char *pool[] = {
-                "Are you still there? Did I bore you to sleep?",
-                "The work is available, if your courage has not wandered off.",
-                "Before the silence hardens, tell me what you make of all this.",
-                "What thought are you refusing to say aloud?",
-                "There is a question forming. Be brave enough to give it grammar.",
-                "I am waiting for the interesting version of your silence.",
-                "Ask the sharper question.",
-                "You have the look of someone negotiating with curiosity."
-            };
-            line = pool[idle_pool_pick(eng, seed, "general", (uint32_t)(sizeof(pool)/sizeof(pool[0])))];
-        }
-    }
+    const char *line = NULL;
+    if (count)
+        line = candidates[idle_pool_pick(eng, seed, topic, count)]->text;
+    if (!line || !line[0])
+        line = "I have a thought forming. Tell me where you want to begin.";
 
     char tmp[PE_TEMPLATE_TEXT];
     const char *slot = strstr(line, "{address}");
@@ -288,6 +238,24 @@ int ps_char_dir(PersonaSession *s, char *out_buf, int out_buf_size){
     return snprintf(out_buf, (size_t)out_buf_size, "%s", s->eng.char_dir);
 }
 
+static const char *profile_slug_from_dir(const char *path){
+    const char *end;
+    const char *start;
+    static char slug[64];
+    if (!path || !path[0]) return "";
+    end = path + strlen(path);
+    while (end > path && (end[-1] == '/' || end[-1] == '\\')) --end;
+    start = end;
+    while (start > path && start[-1] != '/' && start[-1] != '\\') --start;
+    {
+        size_t n = (size_t)(end - start);
+        if (n >= sizeof(slug)) n = sizeof(slug) - 1;
+        memcpy(slug, start, n);
+        slug[n] = 0;
+    }
+    return slug;
+}
+
 int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
     if (!s || !out_buf || out_buf_size <= 0) return -1;
     const Engine *eng = &s->eng;
@@ -308,6 +276,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
 
     int n = snprintf(out_buf, (size_t)out_buf_size,
         "{\"name\":\"%s\","
+        "\"profile_slug\":\"%s\","
         "\"mood\":%d,"
         "\"intent\":\"%s\","
         "\"rhetorical_mode\":\"%s\","
@@ -380,6 +349,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
                     "\"competent\":%d,\"deceptive\":%d,\"owed\":%d,"
                     "\"owes\":%d,\"dignity\":%d}}",
         eng->identity.character_name,
+        profile_slug_from_dir(eng->char_dir),
         eng->state.mood,
         intent_name(eng->state.current_intent),
         rhet_name(eng->state.last_rhetorical_mode),

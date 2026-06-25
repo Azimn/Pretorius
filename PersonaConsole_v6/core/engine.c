@@ -293,7 +293,7 @@ static const char *pe_cold_open_address(const Engine *eng){
     const char *address = eng->identity.address_user_as[
         (eng->state.today_seed ^ eng->state.turn_count) % modulus
     ];
-    return address[0] ? address : "my dear";
+    return address[0] ? address : "you";
 }
 
 static size_t pe_append_token(char *dst, size_t cap, size_t pos, const char *s){
@@ -1145,32 +1145,32 @@ static void pe_act_aware_audit_fallback(const V6UserTurnInterpretation *it,
                                         char *out,
                                         size_t n){
     const char *act = it && it->user_act ? it->user_act : "";
-    const char *line = "Let me answer without inventing more than I know.";
+    const char *line = "I should keep to what is known.";
     if (!out || n == 0) return;
     if (violation == PE_AUDIT_V_PRIVATE_LEAK){
         if (!strcmp(act, "emotional_disclosure"))
-            line = "I hear you. Let us keep to what you actually said.";
+            line = "I hear that. I should stay with what you actually said.";
         else if (!strcmp(act, "identity_test"))
-            line = "Test me by what I choose to say, not by what I keep private.";
+            line = "Judge the answer I give, not what remains private.";
         else
-            line = "I will keep that much to myself. Continue.";
+            line = "I am keeping part of that back.";
     } else if (violation == PE_AUDIT_V_LORE){
         if (!strcmp(act, "memory_probe")){
-            line = "That thread is not surfacing cleanly. Give me the anchor again.";
+            line = "That thread is not clear enough to claim as fact.";
         } else if (!strcmp(act, "emotional_disclosure")){
-            line = "I hear the weight of it. Stay with that a moment.";
+            line = "I hear the weight of it.";
         } else if (!strcmp(act, "correction")){
-            line = "Point taken. I will hold to the correction, not the invention.";
+            line = "Point taken. I will hold to the correction.";
         } else if (!strcmp(act, "direct_question")){
-            line = "I can answer the shape of it, but not with a false fact.";
+            line = "I can answer only the part that is grounded.";
         } else if (!strcmp(act, "challenge") || !strcmp(act, "disagreement")){
-            line = "Challenge accepted, but not on invented ground.";
+            line = "I should not answer that with an invented fact.";
         } else if (!strcmp(act, "identity_test")){
-            line = "I will not invent proof. Test me by the things I keep consistent.";
+            line = "I should not invent proof.";
         } else if (!strcmp(act, "open_ended_invitation")){
-            line = "Then let us keep to what is known. What matters most in it to you?";
+            line = "Let us keep to what is known. What part matters most?";
         } else if (!strcmp(act, "rich_neutral_input")){
-            line = "There is enough there without inventing more. I am listening.";
+            line = "There is enough there without inventing more.";
         }
     }
     snprintf(out, n, "%s", line);
@@ -1614,7 +1614,7 @@ static void pe_fill_pending_line(Engine *eng, const char *src, char *out, size_t
     const char *address = eng->identity.address_user_as[
         (eng->state.today_seed ^ eng->state.turn_count) % modulus
     ];
-    if (!address[0]) address = "my dear";
+    if (!address[0]) address = "you";
     if (n > 0) out[0] = 0;
     while (src && *src && pos + 1 < n){
         if (!strncmp(src, "{address}", 9)){

@@ -97,7 +97,7 @@ function presenceFromState(s) {
 }
 
 function thoughtFromState(s) {
-    if (!s) return "gathering himself";
+    if (!s) return "gathering a thought";
     const mood = Number(s.mood || 0);
     const obsession = Number(s.obsession_pressure || 0);
     const unresolved = Number(s.unresolved_count || 0);
@@ -108,9 +108,9 @@ function thoughtFromState(s) {
     if (unresolved > 0) return "holding an unfinished thread";
     if (s.last_reply_had_question) return "waiting for your answer";
     if (wantMax > 6) return "wanting to steer the subject";
-    if (obsession >= 700) return "circling a private fixation";
+    if (obsession >= 700) return "holding a strong focus";
     if (sinceQuestion >= 4) return "looking for a better question";
-    if (mood < -300) return "nursing an irritation";
+    if (mood < -300) return "guarding the next reply";
     if (mood > 300) return "pleased with the current direction";
     return "turning something over";
 }
