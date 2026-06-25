@@ -1074,6 +1074,43 @@ Next action:
 
 - Add a Forge or C-side promotion path that reviews `import_pending` files and commits approved records through learned-knowledge authority, memory firewall, topic mapping, and relation/open-loop APIs.
 
+### 2026-06-25 - Selective Continuity Memory Pressure
+
+Branch/commit:
+
+- `v6-phase5d-recall-modes`, local working tree before commit.
+
+What changed:
+
+- Added a lightweight engine-side memory attention bridge. Episodic memories can now apply pressure to neutral/offline turns through salience, emotional charge, actor relevance, topic relevance, obsession relevance, and confirmed learned-knowledge hints.
+- Explicit memory requests such as `remember this` now force a discrete episode instead of being swallowed by recent-topic compaction.
+- Renderer scoring now slightly prefers `{memory}` reminiscence templates when Layer 1 has already selected a callback memory.
+- `/state` exposes `last_callback_memory` so tests and future tooling can inspect whether a memory actually influenced the turn.
+- Expanded neutral baseline ACK lines to avoid one-line repeat pockets in long character-to-character sessions.
+
+Design note:
+
+- This follows the selective-continuity idea: the engine does not simulate a whole mind, but it lets memories that matter change future behavior.
+- No LLM-agent architecture was added. The engine owns attention pressure; the cartridge still owns character surface.
+- Post-render memory priming only raises future retrieval pressure. It does not mutate the already-rendered turn plan or falsely mark a memory as spoken.
+
+Validation:
+
+- `make host`: passed.
+- `make v6_character_isolation_run`: passed.
+- `make v6_society_template_hygiene_run`: passed with `exactRepeats=0`, `openerRepeats=1`.
+- `make v6_memory_import_bundle_run`: passed, 25/25 assertions.
+- `make v5_transcript_quality_run`: passed, 95/100.
+- `make v6_believability_battery_run`: passed, 91/100 when run sequentially.
+
+Testing caution:
+
+- Do not run profile-mutating continuity tests in parallel unless each test uses isolated profile directories. A parallel run temporarily lowered battery determinism/memory scores because two tests touched the same profile state.
+
+Remaining polish issues:
+
+- The next useful step is a C/Forge promotion path from `import_pending` into canonical runtime memory, followed by a test proving imported history changes offline template behavior without direct user prompting.
+
 ## Future Test Entries Template
 
 Copy this block for each substantial run:

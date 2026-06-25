@@ -642,6 +642,10 @@ static int32_t score_template(Engine *eng, const Template *t){
     /* personality fit */
     if (t->intent == PE_INTENT_MONOLOGUE) s += eng->identity.extraversion / 1024;
     if (t->intent == PE_INTENT_REMINISCE) s += eng->identity.openness     / 1024;
+    if (eng->plan.callback_memory != 0xFFFF
+        && t->intent == PE_INTENT_REMINISCE
+        && text_has_slot(t->text, "{memory}"))
+        s += 180;
     /* v2: plan-shape fit — closer min_* to plan values = better */
     s += (int32_t)((p->certainty     - t->min_certainty)     / 8);
     s += (int32_t)((p->aggression    - t->min_aggression)    / 8);

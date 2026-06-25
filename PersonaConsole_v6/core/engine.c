@@ -1176,30 +1176,139 @@ static void pe_act_aware_audit_fallback(const V6UserTurnInterpretation *it,
     snprintf(out, n, "%s", line);
 }
 
+static int pe_lk_has_confirmed_topic_hint(const Engine *eng, uint16_t topic_id,
+                                          const char *summary){
+    char low_summary[PE_MEM_SUMMARY_LEN];
+    char low_topic[PE_TOPIC_NAME];
+    if (!eng || topic_id == 0xFFFFu) return 0;
+    lowercase_copy(low_summary, sizeof(low_summary), summary ? summary : "");
+    low_topic[0] = 0;
+    for (uint32_t i = 0; i < eng->topics.count; ++i){
+        if (eng->topics.topics[i].id == topic_id){
+            lowercase_copy(low_topic, sizeof(low_topic), eng->topics.topics[i].name);
+            break;
+        }
+    }
+    for (uint32_t i = 0; i < eng->learned_knowledge.header.entry_count
+                        && i < PE_LK_RECORD_CAP; ++i){
+        const pe_lk_record_t *r = &eng->learned_knowledge.records[i];
+        if (!r->record_id || !r->topic_key[0]) continue;
+        if (r->status != PE_LK_STATUS_CONFIRMED &&
+            r->status != PE_LK_STATUS_CARTRIDGE_AUTHORED &&
+            r->status != PE_LK_STATUS_WORLD_AUTHORED)
+            continue;
+        if ((low_topic[0] && strstr(low_topic, r->topic_key)) ||
+            (low_summary[0] && strstr(low_summary, r->topic_key)))
+            return 1;
+    }
+    return 0;
+}
+
+static int pe_engine_topic_is_obsession(const Engine *eng, uint16_t topic_id){
+    if (!eng || topic_id == 0xFFFFu || topic_id == 0) return 0;
+    for (int i = 0; i < PE_OBSESSION_COUNT; ++i){
+        if (!eng->identity.obsessions[i]) break;
+        if (eng->identity.obsessions[i] == topic_id) return 1;
+    }
+    return 0;
+}
+
+static int pe_memory_attention_score(Engine *eng, uint16_t idx,
+                                     const MemoryNode *m,
+                                     int allow_cross_actor){
+    int score;
+    uint32_t actor;
+    char low_summary[PE_MEM_SUMMARY_LEN];
+    if (!eng || !m || !m->summary[0]) return 0;
+    if (m->memory_type == MEM_CORE || m->core_memory) return 0;
+    lowercase_copy(low_summary, sizeof(low_summary), m->summary);
+    actor = pe_actor_index_get(&eng->actor_index, idx);
+    if (!allow_cross_actor && actor != 0 && eng->relation.user_hash != 0
+        && actor != eng->relation.user_hash)
+        return 0;
+
+    score = (int)m->salience * 3;
+    score += 255 - (int)m->retrieval_prob;
+    if (m->emotion.valence < 0)
+        score += (int)(-m->emotion.valence) * 2;
+    else
+        score += (int)m->emotion.valence;
+    score += (int)m->emotion.arousal;
+    if (strstr(low_summary, "remember this") ||
+        strstr(low_summary, "asked me to remember"))
+        score += 900;
+    if (eng->primary_topic != 0xFFFFu && m->topic_id == eng->primary_topic)
+        score += 180;
+    if (actor != 0 && actor == eng->relation.user_hash)
+        score += 520;
+    if (pe_lk_has_confirmed_topic_hint(eng, m->topic_id, m->summary))
+        score += 90;
+    if (pe_engine_topic_is_obsession(eng, m->topic_id))
+        score += 70;
+    return score;
+}
+
 static void pe_prime_unprompted_memory(Engine *eng){
     if (!eng) return;
     if (eng->state.turns_since_unprompted_recall < 0xFFFFu)
         eng->state.turns_since_unprompted_recall++;
     if (eng->state.turns_since_unprompted_recall < 12) return;
-    if ((persona_rng_u32(&eng->state) & 0xFFu) >= 40u) return;
 
     MemoryNode *best = NULL;
+    uint16_t best_idx = 0xFFFFu;
     int best_score = 0;
     for (uint16_t i = 0; i < eng->memory.episodic_count; ++i){
         MemoryNode *m = &eng->memory.episodic[i];
-        if (m->core_memory || m->memory_type == MEM_CORE) continue;
-        if (m->retrieval_prob > 100) continue;
-        int stale = 200 - (int)m->retrieval_prob;
-        int score = (int)m->salience * 2 + stale;
+        int score = pe_memory_attention_score(eng, i, m, 0);
         if (score > best_score){
             best_score = score;
             best = m;
+            best_idx = i;
         }
     }
-    if (best){
-        best->retrieval_prob = 240;
-        eng->state.turns_since_unprompted_recall = 0;
+    if (!best || best_score < 640) return;
+    if ((int)(persona_rng_u32(&eng->state) & 0x3FFu) >= best_score) return;
+    best->retrieval_prob = 240;
+    (void)best_idx;
+    eng->state.turns_since_unprompted_recall = 0;
+}
+
+static void pe_apply_memory_attention(Engine *eng, const EmotionVector *ev,
+                                      size_t input_len){
+    MemoryNode *best = NULL;
+    uint16_t best_idx = 0xFFFFu;
+    int best_score = 0;
+    int neutral_space;
+    int rich_or_direct;
+    if (!eng || !ev) return;
+    if (eng->state.turns_since_unprompted_recall < 12u) return;
+    rich_or_direct = (eng->input_class == 3 || eng->input_class == 4 ||
+                      input_len > 80 || ev->arousal > 55);
+    if (rich_or_direct) return;
+    neutral_space = (eng->input_class == 0 && eng->matched_group == 0xFFFF);
+    if (!neutral_space
+        && eng->state.current_intent != PE_INTENT_INITIATE
+        && eng->state.current_intent != PE_INTENT_REMINISCE)
+        return;
+    for (uint16_t i = 0; i < eng->memory.episodic_count; ++i){
+        MemoryNode *m = &eng->memory.episodic[i];
+        int score = pe_memory_attention_score(eng, i, m, 1);
+        if (score > best_score){
+            best_score = score;
+            best = m;
+            best_idx = i;
+        }
     }
+    if (!best || best_score < 620) return;
+    if ((int)(persona_rng_u32(&eng->state) & 0x3FFu) >= best_score) return;
+    eng->plan.callback_memory = best_idx;
+    eng->plan.target_topic = best->topic_id;
+    if (eng->state.current_intent == PE_INTENT_INITIATE || neutral_space)
+        eng->state.current_intent = PE_INTENT_REMINISCE;
+    best->retrieval_prob = (best->retrieval_prob < 220u) ? 220u : best->retrieval_prob;
+    eng->state.last_callback_memory = eng->plan.callback_memory;
+    eng->state.last_target_topic = eng->plan.target_topic;
+    eng->state.turns_since_unprompted_recall = 0;
 }
 
 static int pe_probe_skip_word(const char *w){
@@ -2592,6 +2701,7 @@ int persona_process_input(Engine *eng,
 
     /* 9a. v2: build rhetorical plan before realization */
     pe_build_plan(eng);
+    pe_apply_memory_attention(eng, &ev, input_len);
     pe_build_turn_frame(eng);
     pe_update_private_thought_frame(eng);
     eng->last_audit_result = PE_AUDIT_PASS;
@@ -2781,7 +2891,13 @@ post_render:;
                             ? eng->relation.known_as : "the visitor";
         if (!strcmp(speaker, "anon")) speaker = "Someone";
         MemoryNode *recent = NULL;
-        if (!identity_threat && eng->input_class != 1 && eng->input_class != 5)
+        int explicit_memory_request =
+            word_in_text_ci(input_text, "remember this", 13) ||
+            word_in_text_ci(input_text, "remember that", 13) ||
+            word_in_text_ci(input_text, "do not forget", 13);
+        if (explicit_memory_request && s < 110u) s = 110u;
+        if (!explicit_memory_request
+            && !identity_threat && eng->input_class != 1 && eng->input_class != 5)
             recent = recent_topic_memory(eng, eng->primary_topic, 5);
         if (recent){
             recent->retrieval_prob = (recent->retrieval_prob > 223)
