@@ -38,6 +38,10 @@ uint8_t pe_compute_salience(Engine *eng,
 void pe_commit_memory(Engine *eng, const char *summary,
                       const EmotionVector *ev, uint16_t topic_id,
                       uint8_t salience, int identity_threat);
+void pe_commit_memory_ex(Engine *eng, const char *summary,
+                         const EmotionVector *ev, uint16_t topic_id,
+                         uint8_t salience, int identity_threat,
+                         uint8_t flags);
 void pe_decay_episodic(Engine *eng);
 void pe_push_short_term(Engine *eng, uint8_t type, const char *text);
 

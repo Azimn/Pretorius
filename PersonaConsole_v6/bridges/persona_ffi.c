@@ -263,6 +263,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
     uint32_t lk_count = eng->learned_knowledge.header.entry_count;
     uint16_t lk_max_confidence = 0;
     uint8_t lk_best_status = 0;
+    uint8_t last_callback_memory_flags = 0;
     if (eng->state.today_index < eng->todays.count)
         today_label = eng->todays.entries[eng->state.today_index].label;
     for (uint32_t i = 0; i < lk_count && i < PE_LK_RECORD_CAP; ++i){
@@ -272,6 +273,10 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
             lk_max_confidence = r->confidence;
             lk_best_status = r->status;
         }
+    }
+    if (eng->state.last_callback_memory != 0xFFFFu){
+        const MemoryNode *cb = pe_active_node(eng, eng->state.last_callback_memory);
+        if (cb) last_callback_memory_flags = cb->flags;
     }
 
     int n = snprintf(out_buf, (size_t)out_buf_size,
@@ -292,6 +297,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"last_template_intent\":\"%s\","
         "\"target_topic\":%u,"
         "\"last_callback_memory\":%u,"
+        "\"last_callback_memory_flags\":%u,"
         "\"unresolved_count\":%u,"
         "\"open_loop_count\":%u,"
         "\"open_loop_resolved_count\":%u,"
@@ -366,6 +372,7 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         intent_name(eng->last_template_intent),
         (unsigned)eng->state.last_target_topic,
         (unsigned)eng->state.last_callback_memory,
+        (unsigned)last_callback_memory_flags,
         (unsigned)eng->state.unresolved_count,
         (unsigned)pe_open_loops_count(&eng->open_loops),
         (unsigned)pe_open_loops_count_status(&eng->open_loops, PE_OL_RESOLVED),

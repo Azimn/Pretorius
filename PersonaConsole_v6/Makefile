@@ -594,6 +594,10 @@ v6_memory_probe_overlay_run: build/persona_host profiles/pretorius/pretorius.car
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/memory_probe_overlay_test.js
 
+v6_memory_consequence_run: build/persona_host profiles/kiki/kiki.cart profiles/mentor/mentor.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/memory_consequence_test.js
+
 v6_wrong_addressee_repair_run: build/persona_host profiles/pretorius/pretorius.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/replay/audit_wrong_addressee_repair_test.js

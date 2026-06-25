@@ -132,6 +132,10 @@ enum {
     MEM_CACHE = 2
 };
 
+enum {
+    PE_MEM_FLAG_USER_PINNED = 1u << 0
+};
+
 /* ---------- drives (id matches array slot) ---------- */
 enum {
     PE_DRIVE_RECOGNITION = 0,
@@ -251,7 +255,7 @@ typedef struct {
     uint8_t  private_threshold;  /* v3.1: disclosure gate (0=public; higher=more private) */
     uint8_t  retrieval_prob;     /* v3.3: probabilistic recall strength, 0..255 */
     uint8_t  memory_type;        /* MEM_CORE / MEM_EPISODIC / MEM_CACHE */
-    uint8_t  _pad2;
+    uint8_t  flags;              /* PE_MEM_FLAG_*; replaces former padding byte */
     char     summary[PE_MEM_SUMMARY_LEN];
     /* v3.0: 64-bit SimHash of the summary, computed at commit time.
      * Lets pe_associative_recall do fuzzy semantic match via Hamming

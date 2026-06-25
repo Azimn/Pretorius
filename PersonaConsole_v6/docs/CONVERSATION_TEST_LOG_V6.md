@@ -1111,6 +1111,47 @@ Remaining polish issues:
 
 - The next useful step is a C/Forge promotion path from `import_pending` into canonical runtime memory, followed by a test proving imported history changes offline template behavior without direct user prompting.
 
+### 2026-06-25 - Memory Consequence Pass
+
+Branch/commit:
+
+- `v6-phase5d-recall-modes`, working tree before commit.
+
+Renderer:
+
+- Template/offline tier.
+
+What changed:
+
+- Explicit user memory requests now set `PE_MEM_FLAG_USER_PINNED` on the episodic `MemoryNode` instead of relying on summary text containing phrases such as `remember this`.
+- Memory attention still answers which memory is tugging on the character.
+- A new compact consequence mapper answers what the selected memory does to the current turn posture: follow-up pressure, approach/avoidance pressure, topic gravity, stance, rhetorical mode, and intent bias.
+- User-pinned memories are prioritized as a class before ordinary memories, while still using deterministic score comparison among pinned memories.
+- `/state` now exposes `last_callback_memory_flags` so tests can prove a user-pinned memory, not a generic seed memory, won the callback slot.
+
+Design note:
+
+- This remains engine-level behavior coupling, not a hidden LLM agent or prose-based inner monologue.
+- The engine decides that a memory has behavioral pressure; the cartridge still decides what that pressure sounds like.
+- The memory flag is stored in a byte that was already present in `MemoryNode`, so this does not increase memory-node size.
+- Tests isolate sidecars in temporary cartridge folders to avoid cross-character memory spillage.
+
+Validation:
+
+- `make host`: passed under Cygwin/GCC.
+- `make v6_memory_consequence_run`: passed for Kiki and Mentor temp cartridges.
+- `git diff --check`: passed.
+
+Observed output:
+
+- Kiki: planted user-pinned memory surfaced later without direct prompting and changed frame pressure from baseline `probe/0/intone` to `probe/0/assert`.
+- Mentor: planted user-pinned memory surfaced later without direct prompting and changed frame pressure from baseline `reminisce/0/lament` to `probe/0/assert`.
+
+Remaining polish issues:
+
+- Mentor produced one bare punctuation reply (`.`) during the consequence test even though the internal frame shifted correctly. Treat this as template surface polish, not memory coupling failure.
+- The next broader pass should continue testing more personas with isolated cartridge folders so memory history remains cartridge-local.
+
 ## Future Test Entries Template
 
 Copy this block for each substantial run:

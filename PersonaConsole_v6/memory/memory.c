@@ -96,9 +96,10 @@ static uint16_t evict_lowest_non_core(MemoryStore *m){
     return worst;
 }
 
-void pe_commit_memory(Engine *eng, const char *summary,
-                      const EmotionVector *ev, uint16_t topic_id,
-                      uint8_t salience, int identity_threat)
+void pe_commit_memory_ex(Engine *eng, const char *summary,
+                         const EmotionVector *ev, uint16_t topic_id,
+                         uint8_t salience, int identity_threat,
+                         uint8_t flags)
 {
     MemoryStore *m = &eng->memory;
     uint16_t slot;
@@ -128,6 +129,7 @@ void pe_commit_memory(Engine *eng, const char *summary,
     n->topic_id = topic_id;
     n->core_memory = 0;
     n->memory_type = MEM_EPISODIC;
+    n->flags = flags;
     n->retrieval_prob = 255;
     n->decay_counter = 0;
     if (summary) {
@@ -156,6 +158,13 @@ void pe_commit_memory(Engine *eng, const char *summary,
      * Stored in the parallel sidecar (actor_index.bin), never in the summary
      * text. A zero hash means "no actor known" and is treated as legacy. */
     pe_actor_index_tag(&eng->actor_index, slot, eng->relation.user_hash);
+}
+
+void pe_commit_memory(Engine *eng, const char *summary,
+                      const EmotionVector *ev, uint16_t topic_id,
+                      uint8_t salience, int identity_threat)
+{
+    pe_commit_memory_ex(eng, summary, ev, topic_id, salience, identity_threat, 0);
 }
 
 void pe_decay_episodic(Engine *eng){
