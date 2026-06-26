@@ -187,13 +187,17 @@ async function waitState(port){
     ok(/pretorius/i.test(first.name || ""), "HTTP host starts as Pretorius");
     const load = await httpJson(port, "POST", "/load", { path: kikiCart });
     ok(load && load.ok === true, "HTTP /load accepts Kiki cart");
+    const webUser = await httpJson(port, "POST", "/set_user", { user_id: "You" });
+    ok(webUser && webUser.ok === true, "HTTP web path establishes local actor identity");
     const after = await waitState(port);
     ok(/^kiki$/i.test(after.name || "") || /^kiki$/i.test(after.profile_slug || ""),
        `HTTP /state reports Kiki after load (name=${after.name}, slug=${after.profile_slug})`);
+    ok(after.user_id === "You", `HTTP /state reports web actor identity (${after.user_id})`);
     const chat = await httpJson(port, "POST", "/chat", { text: "Good evening." });
     const reply = String(chat.reply || "");
     const leaks = markerHits(reply, PRETORIUS_MARKERS);
     ok(leaks.length === 0, `Kiki HTTP reply after /load has no Pretorius markers (${leaks.join(", ") || "none"})`);
+    ok(!/^Someone[,.]/.test(reply), `Kiki HTTP reply does not address anonymous Someone (${reply})`);
     if (mentorCart){
       const loadMentor = await httpJson(port, "POST", "/load", { path: mentorCart });
       ok(loadMentor && loadMentor.ok === true, "HTTP /load accepts Mentor cart after Kiki");

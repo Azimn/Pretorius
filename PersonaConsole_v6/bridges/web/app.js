@@ -42,6 +42,7 @@ const els = {
 };
 
 const SETTINGS_KEY = "persona_presence_settings_v1";
+const WEB_USER_KEY = "persona_web_user_id_v1";
 const DEFAULT_SETTINGS = {
     proactive: true,
     speakFirst: true,
@@ -66,6 +67,30 @@ let speakFirstAttempted = false;
 let latestTurn = 0;
 let latestState = null;
 let manualProbeTurn = -1;
+
+function webUserId() {
+    const saved = (localStorage.getItem(WEB_USER_KEY) || "").trim();
+    return saved || "You";
+}
+
+async function ensureWebUser() {
+    const user_id = webUserId();
+    try {
+        const r = await fetch("/set_user", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ user_id }),
+        });
+        const data = await r.json();
+        if (!r.ok || data.error || data.ok !== true)
+            throw new Error(data.error || "set_user failed");
+        return true;
+    } catch (e) {
+        console.error(e);
+        showModal("The chat server is running, but the browser could not establish a local user identity. Restart the chat server if replies seem to use the wrong memory.");
+        return false;
+    }
+}
 
 function clampPct(n) {
     return Math.max(0, Math.min(100, Math.round(n)));
@@ -249,6 +274,7 @@ async function loadCharacter(slug) {
         if (!r.ok || data.error || data.ok !== true) {
             throw new Error(data.error || `load failed (${data.code ?? r.status})`);
         }
+        await ensureWebUser();
         const stateResp = await fetch("/state");
         if (!stateResp.ok) throw new Error("state check failed after load");
         const state = await stateResp.json();
@@ -445,7 +471,7 @@ els.modalBackdrop.addEventListener("click", (e) => {
 
 applySettingsToControls();
 resetTranscript();
-fetchState().then(() => {
+ensureWebUser().then(fetchState).then(() => {
     loadPortrait();
     maybeSpeakFirst();
 });

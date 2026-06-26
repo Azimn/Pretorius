@@ -35,6 +35,9 @@ ok(/character may speak during quiet/.test(html), 'quiet initiative copy exists'
 ok(/character may speak first/.test(html), 'first-move copy exists');
 
 ok(/SETTINGS_KEY/.test(js) && /localStorage/.test(js), 'presence settings persist in localStorage');
+ok(/WEB_USER_KEY/.test(js), 'web chat has a local actor identity key');
+ok(/function ensureWebUser/.test(js), 'UI establishes local user identity');
+ok(/fetch\("\/set_user"/.test(js), 'UI calls set_user endpoint before chat');
 ok(/fetch\("\/idle_probe"/.test(js), 'UI calls idle_probe endpoint');
 ok(/fetch\("\/load"/.test(js), 'UI calls load endpoint for cartridge switching');
 ok(/function loadCharacter/.test(js), 'UI has explicit character load transaction');

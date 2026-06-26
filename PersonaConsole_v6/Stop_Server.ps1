@@ -8,6 +8,7 @@ if (Test-Path -LiteralPath $pidFile) {
     Stop-Process -Id ([int]$pidValue) -Force
   }
   Remove-Item -LiteralPath $pidFile -Force
+  Get-Process persona_host -ErrorAction SilentlyContinue | Stop-Process -Force
   Write-Host "PersonaConsole stopped."
 } else {
   Get-Process persona_host -ErrorAction SilentlyContinue | Stop-Process -Force

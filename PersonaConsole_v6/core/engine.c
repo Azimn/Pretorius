@@ -296,6 +296,15 @@ static const char *pe_cold_open_address(const Engine *eng){
     return address[0] ? address : "you";
 }
 
+static int pe_is_generic_actor_name(const char *name){
+    if (!name || !name[0]) return 1;
+    return pe_strieq(name, "Someone")
+        || pe_strieq(name, "You")
+        || pe_strieq(name, "User")
+        || pe_strieq(name, "Visitor")
+        || pe_strieq(name, "the visitor");
+}
+
 static size_t pe_append_token(char *dst, size_t cap, size_t pos, const char *s){
     while (s && *s && pos + 1 < cap) dst[pos++] = *s++;
     if (pos < cap) dst[pos] = 0;
@@ -1759,8 +1768,8 @@ static void pe_queue_resumption(Engine *eng, uint32_t real_gap_seconds){
         }
         if (best){
             char callback[PE_RESUMPTION_LEN];
-            const char *name = eng->relation.known_as[0]
-                             ? eng->relation.known_as : NULL;
+            const char *name = pe_is_generic_actor_name(eng->relation.known_as)
+                             ? NULL : eng->relation.known_as;
             const char *topic = topic_name_by_id(eng, best->topic_id);
             if (!pe_memory_can_own_cold_open(best)) return;
             int case_id = (topic && topic[0])
