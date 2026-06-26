@@ -46,6 +46,11 @@ const SHARED_VOICE_LEAKS = [
   "i begin to think you sense its weight",
   "always self returns",
   "always the work returns",
+  "begin wherever the thought is warmest",
+  "i am glad you returned",
+  "what shall we examine first",
+  "i still owe you the rest",
+  "{topic}",
 ];
 
 function tempCart(src, slug){

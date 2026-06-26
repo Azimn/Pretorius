@@ -915,7 +915,8 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
         return 0;
     }
 
-    if (eng->state.current_intent == PE_INTENT_REMINISCE
+    if (eng->matched_group == 0xFFFF
+        && eng->state.current_intent == PE_INTENT_REMINISCE
         && render_reflection_callback(eng, out, n)){
         eng->last_template_intent = PE_INTENT_REMINISCE;
         return 0;
@@ -993,7 +994,8 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
 
     /* fallback if nothing matched */
     if (eng->candidate_count == 0){
-        if (eng->state.current_intent == PE_INTENT_REMINISCE
+        if (eng->matched_group == 0xFFFF
+            && eng->state.current_intent == PE_INTENT_REMINISCE
             && render_reflection_callback(eng, out, n)){
             eng->last_template_intent = PE_INTENT_REMINISCE;
             return 0;
@@ -1019,11 +1021,15 @@ int pe_generate_response(Engine *eng, const char *input, char *out, size_t n){
             const Template *t = &eng->templates.entries[eng->candidate_ids[i]];
             if (t->group != eng->matched_group) continue;
             if (t->intent == PE_INTENT_ANSWER) {
-                eng->candidate_scores[i] += 260;
+                eng->candidate_scores[i] += 380;
+            } else if (t->intent == PE_INTENT_PROBE
+                    || t->intent == PE_INTENT_CLARIFY
+                    || t->intent == PE_INTENT_ATTEND) {
+                eng->candidate_scores[i] += 160;
             } else if (t->intent == PE_INTENT_MONOLOGUE
                     || t->intent == PE_INTENT_REMINISCE
                     || t->intent == PE_INTENT_BOAST) {
-                eng->candidate_scores[i] -= 180;
+                eng->candidate_scores[i] -= 420;
             }
         }
     }

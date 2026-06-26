@@ -93,7 +93,9 @@ static const char *topic_name_by_id(const Engine *eng, uint16_t topic_id){
 
 static const char *idle_topic_name(const Engine *eng){
     const char *planned = topic_name_by_id(eng, eng->state.last_target_topic);
-    if (planned[0]) return planned;
+    if (planned[0] && strcmp(planned, "the question")
+        && strcmp(planned, "the matter"))
+        return planned;
 
     uint16_t best_topic = 0xFFFF;
     uint16_t best_momentum = 0;
@@ -105,7 +107,10 @@ static const char *idle_topic_name(const Engine *eng){
         }
     }
     if (best_topic == 0xFFFF || best_momentum < 180) return "";
-    return topic_name_by_id(eng, best_topic);
+    planned = topic_name_by_id(eng, best_topic);
+    if (!strcmp(planned, "the question") || !strcmp(planned, "the matter"))
+        return "";
+    return planned;
 }
 
 static const char *unresolved_resurface(const Engine *eng, char *buf, size_t cap){
@@ -140,6 +145,31 @@ static uint32_t idle_pool_pick(const Engine *eng, uint32_t seed,
     return h % count;
 }
 
+static void idle_fill_slots(const char *line, const char *address,
+                            const char *topic, char *out, size_t cap){
+    size_t pos = 0;
+    if (!out || cap == 0) return;
+    out[0] = 0;
+    while (line && *line && pos + 1 < cap){
+        if (!strncmp(line, "{address}", 9)){
+            const char *s = (address && address[0]) ? address : "you";
+            while (*s && pos + 1 < cap) out[pos++] = *s++;
+            line += 9;
+        } else if (!strncmp(line, "{topic}", 7)){
+            const char *s = (topic && topic[0]) ? topic : "this";
+            while (*s && pos + 1 < cap) out[pos++] = *s++;
+            line += 7;
+        } else if (!strncmp(line, "{memory}", 8)){
+            const char *s = (topic && topic[0]) ? topic : "that";
+            while (*s && pos + 1 < cap) out[pos++] = *s++;
+            line += 8;
+        } else {
+            out[pos++] = *line++;
+        }
+    }
+    out[pos] = 0;
+}
+
 int ps_idle_probe(PersonaSession *s, char *out_buf, int out_buf_size){
     if (!s || !out_buf || out_buf_size <= 0) return -1;
     const Engine *eng = &s->eng;
@@ -161,34 +191,42 @@ int ps_idle_probe(PersonaSession *s, char *out_buf, int out_buf_size){
 
     char unresolved[PE_TEMPLATE_TEXT];
     const char *force_unresolved = getenv("PE_FORCE_UNRESOLVED_THREAD");
-    if ((force_unresolved && force_unresolved[0]) || ((seed >> 8) & 1u)){
+    if (force_unresolved && force_unresolved[0]){
         if (unresolved_resurface(eng, unresolved, sizeof(unresolved)))
             return snprintf(out_buf, (size_t)out_buf_size, "%s", unresolved);
     }
 
     const Template *candidates[32];
     uint32_t count = 0;
-    uint16_t topic_group = 0xFFFFu;
-    if (topic && topic[0]){
-        for (uint32_t i = 0; i < eng->topics.count; ++i){
-            if (!strcmp(eng->topics.topics[i].name, topic)){
-                topic_group = eng->topics.topics[i].id;
-                break;
+    uint16_t topic_group = eng->last_template_group;
+    for (uint32_t source_pass = 0; source_pass < 2 && count == 0; ++source_pass){
+        for (uint32_t pass = 0; pass < 2 && count == 0; ++pass){
+            for (uint32_t i = 0; i < eng->templates.count && count < 32; ++i){
+                const Template *t = &eng->templates.entries[i];
+                if (!t->text[0]) continue;
+                if (source_pass == 0 && t->source != PE_TEMPLATE_SRC_CARTRIDGE)
+                    continue;
+                if (eng->state.mood < t->mood_min || eng->state.mood > t->mood_max)
+                    continue;
+                if (t->intent != PE_INTENT_INITIATE &&
+                    t->intent != PE_INTENT_PROBE &&
+                    t->intent != PE_INTENT_CLARIFY &&
+                    !(eng->state.mood < -150 &&
+                      (t->intent == PE_INTENT_WITHDRAW ||
+                       t->intent == PE_INTENT_ATTEND)))
+                    continue;
+                if ((!topic || !topic[0]) && strstr(t->text, "{topic}"))
+                    continue;
+                if (topic_group != 0xFFFFu){
+                    if (pass == 0 && t->group != topic_group) continue;
+                    if (pass == 1 && t->group != topic_group && t->group != 0xFFFFu) continue;
+                } else if (pass == 0 && eng->state.mood < -150
+                           && t->intent != PE_INTENT_WITHDRAW
+                           && t->intent != PE_INTENT_ATTEND) {
+                    continue;
+                }
+                candidates[count++] = t;
             }
-        }
-    }
-    for (uint32_t pass = 0; pass < 2 && count == 0; ++pass){
-        for (uint32_t i = 0; i < eng->templates.count && count < 32; ++i){
-            const Template *t = &eng->templates.entries[i];
-            if (!t->text[0]) continue;
-            if (t->intent != PE_INTENT_INITIATE &&
-                t->intent != PE_INTENT_PROBE &&
-                t->intent != PE_INTENT_CLARIFY)
-                continue;
-            if (pass == 0 && topic_group != 0xFFFFu &&
-                t->group != topic_group && t->group != 0xFFFFu)
-                continue;
-            candidates[count++] = t;
         }
     }
 
@@ -199,14 +237,8 @@ int ps_idle_probe(PersonaSession *s, char *out_buf, int out_buf_size){
         line = "I have a thought forming. Tell me where you want to begin.";
 
     char tmp[PE_TEMPLATE_TEXT];
-    const char *slot = strstr(line, "{address}");
-    if (slot) {
-        size_t head = (size_t)(slot - line);
-        snprintf(tmp, sizeof(tmp), "%.*s%s%s",
-                 (int)head, line, address, slot + 9);
-        line = tmp;
-    }
-    return snprintf(out_buf, (size_t)out_buf_size, "%s", line);
+    idle_fill_slots(line, address, topic, tmp, sizeof(tmp));
+    return snprintf(out_buf, (size_t)out_buf_size, "%s", tmp);
 }
 
 int ps_save(PersonaSession *s){

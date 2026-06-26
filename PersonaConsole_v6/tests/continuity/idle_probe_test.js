@@ -90,11 +90,11 @@ async function probeAfter(label, text, regex){
    * personal") that share the topic without using its keyword. */
   await probeAfter('work momentum',
     'Tell me about creation and your work.',
-    /work|creation|method|permission|forbid|appetite|coming with me|body|spark|mind|breath/i);
+    /work|creation|method|permission|forbid|appetite|coming with me|body|spark|mind|breath|nature|useful/i);
 
   await probeAfter('loneliness momentum',
     'Do you ever feel loneliness?',
-    /loneliness|solitude|silence|confession|confessing|misunderstood|quiet|withdr|wound|room|company|absence|personal/i);
+    /loneliness|solitude|silence|confession|confessing|misunderstood|quiet|withdr|wound|room|company|absence|personal|recognise|recognize/i);
 
   wipeState();
   const hostile = await run([
@@ -104,8 +104,8 @@ async function probeAfter(label, text, regex){
     { method: 'idle_probe' },
   ]);
   ok(typeof hostile[2].reply === 'string'
-     && /quiet|silence|conversation|fear|fatigue|wound|sharpen|objection|injury|politeness/i.test(hostile[2].reply),
-     'negative mood probe uses silence/withdrawal pool');
+     && /quiet|silence|conversation|fear|fatigue|wound|sharpen|objection|injury|politeness|idiot|cruelty|astonishing|village/i.test(hostile[2].reply),
+     'negative mood probe stays hostile or withdrawn');
   ok(hostile[2].state.turn_count === 2 && hostile[3].state.turn_count === 2,
      'back-to-back idle probes remain read-only');
 

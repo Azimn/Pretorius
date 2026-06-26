@@ -292,6 +292,8 @@ static void make_patterns(PatternTable *pt){
         {"music",          T_MUSIC,      +30, 30, +10, 0, G_MUSIC, 0},
         /* social */
         {"hello",          0xFFFF, +20, 25, +10, 0, G_GREETING, 0},
+        {"hey girl",       0xFFFF, +28, 30, +15, 0, G_GREETING, 0},
+        {"hey",            0xFFFF, +22, 25, +10, 0, G_GREETING, 0},
         {"hi ",            0xFFFF, +20, 25, +10, 0, G_GREETING, 0},
         {"good evening",   0xFFFF, +20, 25, +10, 0, G_GREETING, 0},
         {"who are you",    0xFFFF, +10, 35, +10, 3, G_WHO,       0},
