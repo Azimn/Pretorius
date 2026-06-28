@@ -21,6 +21,9 @@ const els = {
     delta:     $("voice-delta"),
     disp:      $("disp"),
     presence:  $("presence"),
+    rendererStatus: $("renderer-status"),
+    rendererLabel: $("renderer-label"),
+    rendererDetail: $("renderer-detail"),
     characterSelect: $("character-select"),
     proactive: $("proactive-enabled"),
     speakFirst:$("speak-first"),
@@ -34,6 +37,9 @@ const els = {
     chatSubtitle: $("chat-subtitle"),
     attach: $("attach-button"),
     connectModel: $("connect-model"),
+    importBundle: $("import-memory-bundle"),
+    bundleFile: $("memory-bundle-file"),
+    resetRuntime: $("reset-runtime"),
     portraitAction: $("portrait-action"),
     portraitFile: $("portrait-file"),
     modalBackdrop: $("modal-backdrop"),
@@ -41,12 +47,47 @@ const els = {
     modalClose: $("modal-close"),
 };
 
-const SETTINGS_KEY = "persona_presence_settings_v1";
+const SETTINGS_KEY = "persona_presence_settings_v2";
 const WEB_USER_KEY = "persona_web_user_id_v1";
 const DEFAULT_SETTINGS = {
     proactive: true,
-    speakFirst: true,
+    speakFirst: false,
     idleDelay: 45000,
+};
+
+const LK_SCOPE_IDS = {
+    real_world: 1,
+    cartridge_canon: 2,
+    simulation_world: 3,
+    actor_specific: 4,
+    relationship_specific: 5,
+    session_local: 6,
+    private_character_belief: 7,
+    private_belief: 7,
+};
+
+const LK_STATUS_IDS = {
+    provisional: 1,
+    confirmed: 2,
+    corrected: 3,
+    disputed: 4,
+    deprecated: 5,
+    cartridge_authored: 6,
+    world_authored: 7,
+    candidate: 8,
+};
+
+const LK_EDGE_IDS = {
+    corrects: 1,
+    contradicts: 2,
+    supports: 3,
+    derived_from: 4,
+    taught_by: 5,
+    belongs_to_scope: 6,
+    evidenced_by: 7,
+    used_in_response: 8,
+    related_to_actor: 9,
+    related_to_topic: 10,
 };
 
 const CHARACTER_CATALOG = {
@@ -67,6 +108,7 @@ let speakFirstAttempted = false;
 let latestTurn = 0;
 let latestState = null;
 let manualProbeTurn = -1;
+let sessionHasUserTurn = false;
 
 function webUserId() {
     const saved = (localStorage.getItem(WEB_USER_KEY) || "").trim();
@@ -94,6 +136,35 @@ async function ensureWebUser() {
 
 function clampPct(n) {
     return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+async function postJson(url, body) {
+    const r = await fetch(url, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body || {}),
+    });
+    const data = await r.json();
+    if (!r.ok || data.error || data.ok === false) {
+        throw new Error(data.error || `request failed: ${url}`);
+    }
+    return data;
+}
+
+function evidenceRefToInt(text) {
+    const s = String(text || "").trim();
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < s.length; ++i) {
+        h ^= s.charCodeAt(i) & 0xff;
+        h = Math.imul(h, 16777619) >>> 0;
+    }
+    return h >>> 0;
+}
+
+function mapNameId(map, value, fallback) {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    const key = String(value || fallback || "").trim();
+    return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : map[fallback];
 }
 
 function loadSettings() {
@@ -140,11 +211,53 @@ function resetTranscript(message) {
     els.messages.appendChild(hint);
 }
 
+function rendererStatusFromState(s) {
+    const backend = String((s && s.renderer_backend) || "template").toLowerCase();
+    const provider = String((s && s.renderer_provider) || "none").toLowerCase();
+    const model = String((s && s.renderer_model) || "").trim();
+    const mode = String((s && s.renderer_mode) || "").toLowerCase();
+
+    if (mode === "ollama" || (backend === "slm" && provider === "ollama")) {
+        return {
+            cls: "renderer-online",
+            label: "Ollama mode",
+            detail: model ? `${model} connected locally` : "local model renderer active",
+            subtitle: model ? `local Ollama session | ${model}` : "local Ollama session",
+        };
+    }
+    if (mode === "api" || (backend === "slm" && provider === "api")) {
+        return {
+            cls: "renderer-api",
+            label: "API mode",
+            detail: model ? `${model} via API renderer` : "remote/API renderer active",
+            subtitle: model ? `API renderer | ${model}` : "API renderer session",
+        };
+    }
+    return {
+        cls: "renderer-offline",
+        label: "Offline mode",
+        detail: "template renderer active",
+        subtitle: "private local offline session",
+    };
+}
+
+function syncTranscriptHintFromState(s) {
+    const current = els.messages.querySelector(".empty-hint");
+    if (!current) return;
+    if (Number((s && s.turn_count) || 0) > 0) {
+        resetTranscript(`Continuing the existing local ${s.name || "character"} session. Use "start fresh local session" if you want a clean runtime.`);
+    } else {
+        resetTranscript();
+    }
+}
+
 function setBusy(busy, label) {
     loadInFlight = !!busy;
     els.input.disabled = !!busy;
     els.send.disabled = !!busy;
     els.promptCharacter.disabled = !!busy || idleRequestInFlight || manualProbeTurn === latestTurn;
+    if (els.importBundle) els.importBundle.disabled = !!busy;
+    if (els.resetRuntime) els.resetRuntime.disabled = !!busy;
     if (busy) setPresence(label || "switching", true);
     else if (latestState) setPresence(presenceFromState(latestState), false);
 }
@@ -226,11 +339,12 @@ function addMessage(role, text, meta) {
 
 function setState(s) {
     latestState = s;
+    const renderer = rendererStatusFromState(s);
     els.name.textContent    = s.name || "-";
     els.initial.textContent = (s.name || "?").charAt(0).toUpperCase();
     els.today.textContent   = s.today || "";
     els.chatTitle.textContent = s.name || "Chat";
-    els.chatSubtitle.textContent = "private local session";
+    els.chatSubtitle.textContent = renderer.subtitle;
     els.mood.textContent    = s.mood;
     els.intent.textContent  = s.intent;
     els.mode.textContent    = s.rhetorical_mode;
@@ -243,6 +357,12 @@ function setState(s) {
     const slug = slugFromState(s);
     if (slug && els.characterSelect && els.characterSelect.value !== slug)
         els.characterSelect.value = slug;
+    if (els.rendererStatus) {
+        els.rendererStatus.classList.remove("renderer-offline", "renderer-online", "renderer-api");
+        els.rendererStatus.classList.add(renderer.cls);
+    }
+    if (els.rendererLabel) els.rendererLabel.textContent = renderer.label;
+    if (els.rendererDetail) els.rendererDetail.textContent = renderer.detail;
     setPresence(presenceFromState(s), false);
     updateInnerLife(s);
 }
@@ -250,7 +370,11 @@ function setState(s) {
 async function fetchState() {
     try {
         const r = await fetch("/state");
-        if (r.ok) setState(await r.json());
+        if (r.ok) {
+            const state = await r.json();
+            setState(state);
+            syncTranscriptHintFromState(state);
+        }
     } catch (e) { console.error(e); }
 }
 
@@ -262,6 +386,7 @@ async function loadCharacter(slug) {
     idleProbeTurn = -1;
     manualProbeTurn = -1;
     speakFirstAttempted = false;
+    sessionHasUserTurn = false;
     setBusy(true, "loading character");
     resetTranscript(`Loading ${entry.name}...`);
     try {
@@ -296,9 +421,41 @@ async function loadCharacter(slug) {
     }
 }
 
+async function resetRuntimeSession() {
+    if (loadInFlight) return;
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = null;
+    idleProbeTurn = -1;
+    manualProbeTurn = -1;
+    speakFirstAttempted = false;
+    sessionHasUserTurn = false;
+    setBusy(true, "starting fresh session");
+    resetTranscript("Clearing local runtime memory for this cartridge...");
+    try {
+        await postJson("/reset_runtime", {});
+        await ensureWebUser();
+        const stateResp = await fetch("/state");
+        if (!stateResp.ok) throw new Error("state check failed after reset");
+        const state = await stateResp.json();
+        setState(state);
+        loadPortrait();
+        resetTranscript(`Fresh local session started for ${state.name || "this character"}.`);
+    } catch (e) {
+        resetTranscript("Fresh-session reset failed. The existing runtime was left in place.");
+        showModal(`Could not reset this local session: ${e.message}`);
+        await fetchState();
+    } finally {
+        setBusy(false);
+        els.input.focus();
+        maybeSpeakFirst();
+        scheduleIdleProbe();
+    }
+}
+
 function scheduleIdleProbe() {
     if (idleTimer) clearTimeout(idleTimer);
     if (!settings.proactive) return;
+    if (!sessionHasUserTurn && latestTurn > 0) return;
     const delay = Number(settings.idleDelay || DEFAULT_SETTINGS.idleDelay);
     idleTimer = setTimeout(() => requestIdleProbe({ allowFresh: false, meta: "quiet" }), delay);
 }
@@ -317,6 +474,7 @@ async function requestIdleProbe(opts = {}) {
         return;
     }
     if ((!allowFresh && latestTurn === 0)
+        || (!allowFresh && !allowManual && !sessionHasUserTurn && latestTurn > 0)
         || (!allowManual && idleProbeTurn === latestTurn)
         || (allowManual && manualProbeTurn === latestTurn)) {
         scheduleIdleProbe();
@@ -359,6 +517,7 @@ function maybeSpeakFirst() {
 
 async function sendMessage(text) {
     if (loadInFlight) return;
+    sessionHasUserTurn = true;
     addMessage("user", text);
     scheduleIdleProbe();
     els.send.disabled = true;
@@ -391,6 +550,147 @@ async function sendMessage(text) {
         els.input.disabled = loadInFlight;
         els.input.focus();
         scheduleIdleProbe();
+    }
+}
+
+async function importHistoryBundle(file) {
+    if (!file || loadInFlight) return;
+    let bundle;
+    let imported = {
+        core: 0,
+        episodic: 0,
+        relationships: 0,
+        openLoops: 0,
+        learned: 0,
+        edges: 0,
+    };
+    setBusy(true, "importing history");
+    try {
+        bundle = JSON.parse(await file.text());
+        if (!bundle || bundle.bundle_version !== 1 || !bundle.records || typeof bundle.records !== "object")
+            throw new Error("not a valid V6 bundle_version 1 file");
+
+        const records = bundle.records;
+        const lkMap = new Map();
+        const learned = Array.isArray(records.learned_knowledge) ? records.learned_knowledge : [];
+
+        for (const rec of Array.isArray(records.core_memories) ? records.core_memories : []) {
+            const row = await postJson("/import_memory", {
+                summary: rec.summary || rec.text || "",
+                topic_key: rec.topic_key || rec.topic || "core",
+                actor_name: rec.actor_name || rec.actor || "",
+                salience: Number(rec.salience || 70),
+                emotional_impact: Number(rec.emotional_impact || 0),
+                is_core: 1,
+                is_pinned: rec.pinned ? 1 : 0,
+            });
+            if (row.memory_id) imported.core++;
+        }
+
+        for (const rec of Array.isArray(records.episodic_memories) ? records.episodic_memories : []) {
+            const row = await postJson("/import_memory", {
+                summary: rec.summary || rec.text || "",
+                topic_key: rec.topic_key || rec.topic || "episode",
+                actor_name: rec.actor_name || rec.actor || "",
+                salience: Number(rec.salience || 50),
+                emotional_impact: Number(rec.emotional_impact || 0),
+                is_core: 0,
+                is_pinned: rec.pinned ? 1 : 0,
+            });
+            if (row.memory_id) imported.episodic++;
+        }
+
+        for (const rec of Array.isArray(records.relationships) ? records.relationships : []) {
+            await postJson("/import_relationship", {
+                actor_name: rec.actor_name || rec.actor || "",
+                trust: Number(rec.trust || 500),
+                threat: Number(rec.threat || 500),
+                intimacy: Number(rec.intimacy || 0),
+                resentment: Number(rec.resentment || 0),
+                dependency: Number(rec.dependency || 0),
+                obligation: Number(rec.obligation || 0),
+                envy: Number(rec.envy || 0),
+                admiration: Number(rec.admiration || 500),
+                embarrassment: Number(rec.embarrassment || 0),
+            });
+            imported.relationships++;
+        }
+
+        for (const rec of Array.isArray(records.open_loops) ? records.open_loops : []) {
+            const row = await postJson("/import_open_loop", {
+                actor_name: rec.actor_name || rec.actor || "",
+                topic_key: rec.topic_key || rec.topic || "",
+                desired_speech_act: rec.desired_speech_act || rec.speech_act || "return_to",
+                urgency: Number(rec.urgency || 500),
+                shame_cost: Number(rec.shame_cost || 0),
+                avoidance_pressure: Number(rec.avoidance_pressure || 0),
+            });
+            if (row.loop_id) imported.openLoops++;
+        }
+
+        for (let i = 0; i < learned.length; ++i) {
+            const rec = learned[i];
+            const importId = rec.import_id || `lk_${i + 1}`;
+            const row = await postJson("/import_learned_knowledge", {
+                topic_key: rec.topic_key || rec.topic || "knowledge",
+                claim_text: rec.claim_text || rec.claim || "",
+                scope: Number(rec.scope_id || mapNameId(LK_SCOPE_IDS, rec.scope, "real_world")),
+                source_type: 7,
+                source_tier: 5,
+                status: Number(rec.status_id || mapNameId(LK_STATUS_IDS, rec.status, "candidate")),
+                authority_rank: Math.min(60, Number(rec.authority_rank || 35)),
+                confidence: Number(rec.confidence || 450),
+                source_actor_name: rec.source_actor_name || rec.actor_name || "",
+                correction_of_record_id: 0,
+                evidence_ref: evidenceRefToInt(rec.evidence_ref || rec.evidence || ""),
+                domain_tag: 0,
+            });
+            if (row.record_id) {
+                lkMap.set(importId, row.record_id);
+                imported.learned++;
+            }
+        }
+
+        for (let i = 0; i < learned.length; ++i) {
+            const rec = learned[i];
+            const sourceId = lkMap.get(rec.import_id || `lk_${i + 1}`);
+            const targetId = lkMap.get(rec.correction_of || "");
+            if (!sourceId || !targetId) continue;
+            const row = await postJson("/import_learned_edge", {
+                source_record_id: sourceId,
+                relation_type: 1,
+                target_record_id: targetId,
+                weight: 1000,
+                confidence: 1000,
+            });
+            if (row.edge_id) imported.edges++;
+        }
+
+        for (const edge of Array.isArray(records.learned_knowledge_edges) ? records.learned_knowledge_edges : []) {
+            const sourceId = lkMap.get(edge.source_import_id || edge.source || "");
+            const targetId = lkMap.get(edge.target_import_id || edge.target || "");
+            if (!sourceId || !targetId) continue;
+            const row = await postJson("/import_learned_edge", {
+                source_record_id: sourceId,
+                relation_type: Number(edge.relation_type_id || mapNameId(LK_EDGE_IDS, edge.relation_type || edge.type, "supports")),
+                target_record_id: targetId,
+                weight: Number(edge.weight || 500),
+                confidence: Number(edge.confidence || 500),
+            });
+            if (row.edge_id) imported.edges++;
+        }
+
+        await postJson("/save", {});
+        await fetchState();
+        showModal(`Imported ${imported.core + imported.episodic} memories, ${imported.learned} learned claims, ${imported.relationships} relationships, and ${imported.openLoops} open loops. Attachment bonds are not applied by the runtime yet.`);
+    } catch (e) {
+        try { await postJson("/discard_changes", {}); } catch (discardErr) { console.error(discardErr); }
+        await fetchState();
+        showModal(`History import failed and in-memory changes were discarded. ${e.message}`);
+    } finally {
+        if (els.bundleFile) els.bundleFile.value = "";
+        setBusy(false);
+        els.input.focus();
     }
 }
 
@@ -448,6 +748,19 @@ els.attach.addEventListener("click", () => {
 
 els.connectModel.addEventListener("click", () => {
     showModal("Local model rendering is optional. Start PersonaConsole with the optional Ollama launcher to test it. The default offline cartridge mode does not need a model.");
+});
+
+els.importBundle.addEventListener("click", () => {
+    els.bundleFile.click();
+});
+
+els.resetRuntime.addEventListener("click", () => {
+    resetRuntimeSession();
+});
+
+els.bundleFile.addEventListener("change", () => {
+    const file = els.bundleFile.files && els.bundleFile.files[0];
+    if (file) importHistoryBundle(file);
 });
 
 els.portraitAction.addEventListener("click", () => {

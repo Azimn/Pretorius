@@ -72,6 +72,7 @@ MEMORY_SRC := \
     memory/open_loops.c       \
     memory/speech_habits.c    \
     memory/learned_knowledge.c \
+    memory/import_runtime.c    \
     memory/theory_of_mind.c    \
     memory/affect_dynamics.c   \
     memory/long_arc_drift.c
@@ -646,9 +647,13 @@ build/learned_knowledge_test: tests/replay/learned_knowledge_test.c build/libper
 v6_learned_knowledge_run: build/learned_knowledge_test
 	./build/learned_knowledge_test
 
-v6_memory_import_bundle_run:
+v6_memory_import_bundle_run: build/persona_host profiles/friendly/friendly.cart
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
 	node tests/continuity/memory_import_bundle_test.js
+
+v6_memory_import_effect_run: build/persona_host profiles/kiki/kiki.cart profiles/mentor/mentor.cart
+	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }
+	node tests/continuity/memory_import_effect_test.js
 
 v6_demo_pack_battery_run: build/persona_host cartridges
 	@command -v node >/dev/null 2>&1 || { echo "node not in PATH"; exit 0; }

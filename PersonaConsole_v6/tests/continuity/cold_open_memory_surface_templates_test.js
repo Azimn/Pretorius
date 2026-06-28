@@ -2,9 +2,8 @@
 /* cold_open_memory_surface_templates_test.js
  *
  * Verifies that cold-open memory callbacks keep engine ownership while allowing
- * cartridges to author the final surface phrasing. Pretorius should use his
- * authored bank. Kiki, which does not author that bank yet, should fall back to
- * the generic engine phrasing without stacking greetings.
+ * cartridges to author the final surface phrasing. Pretorius and Kiki should
+ * both use their authored banks without stacking greetings.
  */
 const fs = require('fs');
 const os = require('os');
@@ -123,10 +122,10 @@ async function exercise({ label, cart, actor, plant, expectedSource, continuityT
     });
 
     await exercise({
-      label: 'kiki-generic',
+      label: 'kiki',
       cart: kiki.cart,
       actor: 'Jay',
-      expectedSource: 1,
+      expectedSource: 2,
       plant: [
         "Hi Kiki. I'm Jay, and I keep thinking about entropy and old computers.",
         "I should go, but do not lose the thread about entropy."

@@ -164,7 +164,9 @@ void v6_interpret_user_turn(const RenderContext *ctx,
     } else if (starts_with_ci_low(low, "actually,") ||
                starts_with_ci_low(low, "actually ") ||
                contains_wordish(low, "that's not") ||
-               contains_wordish(low, "that is not") || starts_with_ci_low(low, "no,")){
+               contains_wordish(low, "that is not") ||
+               starts_with_ci_low(low, "no,") ||
+               starts_with_ci_low(low, "no ")){
         out->user_act = "correction";
         out->pressure = "repair";
         out->response_move = "admit uncertainty or ask clarification without breaking character";
@@ -190,6 +192,26 @@ void v6_interpret_user_turn(const RenderContext *ctx,
         out->pressure = "acknowledgement";
         out->response_move = "acknowledge the emotional content before analysis";
         out->rich_input = 1u;
+        out->direct_input = 1u;
+    } else if ((contains_wordish(low, "exactly") ||
+                contains_wordish(low, "yeah") ||
+                contains_wordish(low, "yep") ||
+                contains_wordish(low, "totally") ||
+                contains_wordish(low, "same here") ||
+                contains_wordish(low, "that lol")) &&
+               len < 64u){
+        out->user_act = "continuation";
+        out->pressure = "continuation";
+        out->response_move = "stay with the current literal subject and add one grounded thought";
+        out->direct_input = 1u;
+    } else if (question &&
+               len <= 12u &&
+               (starts_with_ci_low(low, "what") ||
+                starts_with_ci_low(low, "wait") ||
+                starts_with_ci_low(low, "which part"))){
+        out->user_act = "clarification_probe";
+        out->pressure = "clarification";
+        out->response_move = "answer the immediately prior referent plainly in one sentence";
         out->direct_input = 1u;
     } else if (contains_wordish(low, "haha") || contains_wordish(low, "lol") ||
                contains_wordish(low, "jk") || contains_wordish(low, "kidding")){
@@ -437,11 +459,45 @@ static void append_tiny_examples(const Engine *eng, char *buf, int cap, int *pos
                     ? eng->identity.character_name : "{{char}}";
     append(buf, cap, pos, "\n[EXAMPLES]\n");
     append(buf, cap, pos, "<START>\n{{user}}: What do you mean?\n");
-    append(buf, cap, pos, "%s: I mean there is one part still unresolved. Which part should we stay with?\n", who);
+    append(buf, cap, pos, "%s: Wait, which part do you want me to stay with?\n", who);
     append(buf, cap, pos, "<START>\n{{user}}: Do you agree?\n");
-    append(buf, cap, pos, "%s: Not entirely. I see part of it, but I need a clearer reason.\n", who);
+    append(buf, cap, pos, "%s: Sort of. I can see one side of it, but I need the sharper reason.\n", who);
     append(buf, cap, pos, "<START>\n{{user}}: Tell me more.\n");
-    append(buf, cap, pos, "%s: I can. First, tell me which thread matters most.\n", who);
+    append(buf, cap, pos, "%s: I can. Zoom in for me first so I do not answer the wrong thing.\n", who);
+}
+
+static void append_voice_cues(const Engine *eng,
+                              const PromptCompilerConfig *cfg,
+                              char *buf, int cap, int *pos){
+    uint32_t vf;
+    int first = 1;
+    int cue_count = 0;
+    int include_literal = (cfg && cfg->render_profile == PE_SLM_PROFILE_TINY);
+    if (!eng) return;
+    append(buf, cap, pos, "flags=");
+    vf = eng->identity.voice_flags;
+    for (int b = 0; b < 12; ++b){
+        if (!VOICE_TOKEN[b]) continue;
+        if (vf & (1u << b)){
+            append(buf, cap, pos, "%s%s", first ? "" : " ", VOICE_TOKEN[b]);
+            first = 0;
+        }
+    }
+    if (first) append(buf, cap, pos, "neutral");
+    append(buf, cap, pos, "\n");
+    for (int i = 0; i < 4 && cue_count < 2; ++i){
+        if (!eng->identity.flourishes[i][0]) continue;
+        if (include_literal){
+            append(buf, cap, pos, "rare_optional_flourish=%.40s\n",
+                   eng->identity.flourishes[i]);
+        } else {
+            append(buf, cap, pos,
+                   "rare_optional_flourish=present use sparingly, not every turn\n");
+        }
+        ++cue_count;
+    }
+    if (!cue_count)
+        append(buf, cap, pos, "rare_optional_flourish=none\n");
 }
 
 static void append_topics_line(const Engine *eng, char *buf, int cap, int *pos){
@@ -479,8 +535,9 @@ static int prompt_compile_gemma_raw(const RenderContext *ctx,
     append(out_buf, cap, &pos, "Do not rename the addressee or call them by a memory name unless [USER] says that is their name.\n");
     append(out_buf, cap, &pos, "Do not echo a distinctive phrase from the other speaker unless you are directly challenging it.\n");
     append(out_buf, cap, &pos, "Do not say \"I remember this\" or \"You asked me to remember\". Work memory into the reply naturally.\n");
-    append(out_buf, cap, &pos, "Only named cartridge facts exist. ");
+    append(out_buf, cap, &pos, "Personal continuity must stay grounded in cartridge facts, canonical memory, learned knowledge, or the user's current message. ");
     append_topics_line(eng, out_buf, cap, &pos);
+    append(out_buf, cap, &pos, "General world knowledge and user-provided outside topics are allowed when they do not rewrite personal continuity.\n");
     if (eng){
         append(out_buf, cap, &pos, "affect=mood:%d obsession:%d exhaustion:%d\n",
                eng->state.mood, eng->state.obsession_pressure, eng->state.exhaustion);
@@ -622,18 +679,7 @@ static int prompt_compile_situation(const RenderContext *ctx,
     if (eng && eng->relation.known_as[0])
         append(out_buf, cap, &pos, "addressing=%s\n", eng->relation.known_as);
     if (eng){
-        append(out_buf, cap, &pos, "voice_flags=");
-        uint32_t vf = eng->identity.voice_flags;
-        int first = 1;
-        for (int b = 0; b < 12; ++b){
-            if (!VOICE_TOKEN[b]) continue;
-            if (vf & (1u << b)){
-                append(out_buf, cap, &pos, "%s%s", first ? "" : " ", VOICE_TOKEN[b]);
-                first = 0;
-            }
-        }
-        if (first) append(out_buf, cap, &pos, "neutral");
-        append(out_buf, cap, &pos, "\n");
+        append_voice_cues(eng, cfg, out_buf, cap, &pos);
         append_topics_line(eng, out_buf, cap, &pos);
     }
 
@@ -710,6 +756,12 @@ static int prompt_compile_situation(const RenderContext *ctx,
             append(out_buf, cap, &pos, "No canonical memory is selected. Express grounded uncertainty in character.\n");
         }
         append(out_buf, cap, &pos, "Do not deflect with generic wording such as \"say it another way\" or \"ask differently\".\n");
+    } else if (!strcmp(it.user_act, "clarification_probe")){
+        append(out_buf, cap, &pos, "\n[CLARIFICATION_PROBE_OVERLAY]\n");
+        append(out_buf, cap, &pos, "The user is asking what your immediately previous line meant.\n");
+        append(out_buf, cap, &pos, "Answer the referent plainly in one sentence.\n");
+        append(out_buf, cap, &pos, "Do not answer a clarification question with another rhetorical question.\n");
+        append(out_buf, cap, &pos, "Do not introduce a new metaphor, new agenda, or unrelated topic.\n");
     } else if (!strcmp(it.user_act, "emotional_disclosure")){
         append(out_buf, cap, &pos, "\n[EMOTIONAL_DISCLOSURE_OVERLAY]\n");
         append(out_buf, cap, &pos, "The user is offering emotional state, not merely topic data.\n");
@@ -758,7 +810,8 @@ static int prompt_compile_situation(const RenderContext *ctx,
     append(out_buf, cap, &pos, "Compose the actual response. Do not paraphrase a selected template line.\n");
     append(out_buf, cap, &pos, "If the current message is rich or direct, attend to it before resuming open loops or proactive thoughts.\n");
     append(out_buf, cap, &pos, "If the user asks a direct question, answer the question before adding color or resistance.\n");
-    append(out_buf, cap, &pos, "Use the character voice, but do not over-perform it. Prefer listening and direct relevance over catchphrases.\n");
+    append(out_buf, cap, &pos, "Use the character voice, but do not over-perform it. Prefer listening and direct relevance over catchphrases or signature references.\n");
+    append(out_buf, cap, &pos, "You may use general knowledge or reason about topics outside memory when the user brings them in. Do not turn that into new personal history.\n");
     append_repair_block(ctx, out_buf, cap, &pos);
 
     append(out_buf, cap, &pos, "\n[OUTPUT]\n");
@@ -908,22 +961,7 @@ int prompt_compile_with_input(const RenderContext *ctx,
     /* ----- [VOICE] ----- */
     if (cfg->include_voice_mask && eng){
         append(out_buf, cap, &pos, "\n[VOICE]\n");
-        append(out_buf, cap, &pos, "flags=");
-        uint32_t vf = eng->identity.voice_flags;
-        int first = 1;
-        for (int b = 0; b < 12; ++b){
-            if (!VOICE_TOKEN[b]) continue;
-            if (vf & (1u << b)){
-                append(out_buf, cap, &pos, "%s%s", first ? "" : " ", VOICE_TOKEN[b]);
-                first = 0;
-            }
-        }
-        if (first) append(out_buf, cap, &pos, "neutral");
-        append(out_buf, cap, &pos, "\n");
-        for (int i = 0; i < 4; ++i){
-            if (eng->identity.flourishes[i][0])
-                append(out_buf, cap, &pos, "flourish=%.40s\n", eng->identity.flourishes[i]);
-        }
+        append_voice_cues(eng, cfg, out_buf, cap, &pos);
     }
 
     /* ----- [USER] ----- */
@@ -960,19 +998,20 @@ int prompt_compile_with_input(const RenderContext *ctx,
     append(out_buf, cap, &pos, "Do not say \"I remember this\" or \"You asked me to remember\". Refer to memories naturally, without labels.\n");
     if (ctx->frame && ctx->frame->fatigue_term_count)
         append(out_buf, cap, &pos, "Avoid [FATIGUE] terms this turn unless needed to answer a direct question.\n");
-    append(out_buf, cap, &pos, "Vary sentence shape; do not reuse a striking metaphor or opener.\n");
-    append(out_buf, cap, &pos, "Only people, places, and things named in [WORLD], [MEMORY], or [USER] exist.\n");
-    append(out_buf, cap, &pos, "Do NOT invent people, places, events, family, or memories not listed in [MEMORY].\n");
+    append(out_buf, cap, &pos, "Vary sentence shape; do not reuse a striking metaphor, opener, or signature reference every turn.\n");
+    append(out_buf, cap, &pos, "You may discuss general world knowledge and user-provided outside topics.\n");
+    append(out_buf, cap, &pos, "Do NOT invent personal history, relationship continuity, family details, or memories not grounded in [MEMORY], [LEARNED_KNOWLEDGE], or [USER].\n");
     append(out_buf, cap, &pos, "No assistant tone, no helpdesk phrasing, no meta-commentary.\n");
     if (cfg->render_profile == PE_SLM_PROFILE_TINY){
-        append(out_buf, cap, &pos, "Tiny model rules: use one concrete noun from [WORLD] or [MEMORY]; no atmospheric filler.\n");
+        append(out_buf, cap, &pos, "Tiny model rules: use one concrete noun from [WORLD], [MEMORY], or the user's current topic; no atmospheric filler.\n");
         append(out_buf, cap, &pos, "Prefer plain subject-verb sentences. Do not begin with weather, darkness, silence, or vague mood.\n");
     } else if (cfg->render_profile == PE_SLM_PROFILE_EXPRESSIVE){
-        append(out_buf, cap, &pos, "Expressive model rules: richer phrasing is allowed, but answer first and avoid exposition.\n");
+        append(out_buf, cap, &pos, "Expressive model rules: richer phrasing is allowed, but answer first and stay with the user's subject.\n");
+        append(out_buf, cap, &pos, "Three or four sentences are fine when the user opens a broader topic, as long as the reply stays grounded and in character.\n");
         append(out_buf, cap, &pos, "No assistant deference. Do not over-address the user or explain the role.\n");
     } else {
-        append(out_buf, cap, &pos, "Balanced model rules: concise, grounded, one to three sentences unless the frame asks otherwise.\n");
-        append(out_buf, cap, &pos, "Favor direct answers over atmosphere.\n");
+        append(out_buf, cap, &pos, "Balanced model rules: concise, grounded, usually one to three sentences, but do not compress a direct answer into fragments.\n");
+        append(out_buf, cap, &pos, "Favor direct answers over atmosphere, and let outside topics breathe when the user clearly wants them.\n");
     }
     append_repair_block(ctx, out_buf, cap, &pos);
     append(out_buf, cap, &pos, "Do NOT use the bracket tags in your reply.\n");

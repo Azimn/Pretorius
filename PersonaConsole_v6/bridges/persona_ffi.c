@@ -9,16 +9,19 @@
 #include "persona_ffi.h"
 #include "persona.h"
 #include "persona_internal.h"
+#include "import_runtime.h"
 #include "reflection.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+#include <unistd.h>
 
 struct PersonaSession {
     Engine eng;
     char   user_id[64];
+    char   cart_path[512];
 };
 
 static const char *intent_name(uint16_t i){
@@ -29,6 +32,53 @@ static const char *intent_name(uint16_t i){
     };
     if (i < (sizeof(NAMES)/sizeof(NAMES[0]))) return NAMES[i];
     return "unknown";
+}
+
+static void remove_if_exists(const char *path){
+    if (!path || !path[0]) return;
+    remove(path);
+}
+
+static void wipe_dir_contents(const char *dir_path){
+    DIR *d;
+    struct dirent *ent;
+    char child[512];
+    if (!dir_path || !dir_path[0]) return;
+    d = opendir(dir_path);
+    if (!d) return;
+    while ((ent = readdir(d)) != NULL){
+        if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) continue;
+        snprintf(child, sizeof(child), "%s/%s", dir_path, ent->d_name);
+        remove(child);
+    }
+    closedir(d);
+    rmdir(dir_path);
+}
+
+static void wipe_runtime_sidecars(const char *char_dir){
+    static const char *FILES[] = {
+        "state.bin",
+        "memory.bin",
+        "actor_index.bin",
+        "chapters.bin",
+        "reflections.bin",
+        "open_loops.bin",
+        "speech_habits.bin",
+        "speech_events.bin",
+        "learned_knowledge.bin",
+        "dissonance.bin",
+        "long_arc_drift.bin",
+        NULL
+    };
+    char path[512];
+    for (int i = 0; FILES[i]; ++i){
+        if (pe_path_join(path, sizeof(path), char_dir, FILES[i]) == 0)
+            remove_if_exists(path);
+    }
+    if (pe_path_join(path, sizeof(path), char_dir, "relations") == 0)
+        wipe_dir_contents(path);
+    if (pe_path_join(path, sizeof(path), char_dir, "aether") == 0)
+        wipe_dir_contents(path);
 }
 
 static const char *rhet_name(uint16_t r){
@@ -49,6 +99,47 @@ static const char *private_thought_name(uint8_t k){
     return "unknown";
 }
 
+static const char *renderer_backend_name(void){
+    const char *backend = getenv("PE_RENDER_BACKEND");
+    return (backend && backend[0]) ? backend : "template";
+}
+
+static const char *renderer_provider_name(const char *backend){
+    const char *provider;
+    if (!backend || !backend[0] || !strcmp(backend, "template"))
+        return "none";
+    provider = getenv("PE_SLM_PROVIDER");
+    if (provider && provider[0]) return provider;
+    if (!strcmp(backend, "slm")) return "ollama";
+    return "unknown";
+}
+
+static const char *renderer_mode_name(const char *backend, const char *provider){
+    if (!backend || !backend[0] || !strcmp(backend, "template"))
+        return "offline";
+    if (!strcmp(backend, "slm") && provider && !strcmp(provider, "ollama"))
+        return "ollama";
+    if (!strcmp(backend, "slm") && provider && !strcmp(provider, "api"))
+        return "api";
+    return "custom";
+}
+
+static const char *renderer_model_name(const char *backend, const char *provider){
+    const char *model = getenv("PE_SLM_MODEL");
+    if (model && model[0]) return model;
+    if (provider && !strcmp(provider, "ollama")){
+        model = getenv("PE_OLLAMA_MODEL");
+        if (model && model[0]) return model;
+    }
+    if (provider && !strcmp(provider, "api")){
+        model = getenv("PE_API_MODEL");
+        if (model && model[0]) return model;
+    }
+    if (!backend || !backend[0] || !strcmp(backend, "template"))
+        return "template";
+    return "";
+}
+
 PersonaSession* ps_open(const char *cartridge_path){
     if (!cartridge_path) return NULL;
     PersonaSession *s = (PersonaSession*)calloc(1, sizeof(PersonaSession));
@@ -57,6 +148,7 @@ PersonaSession* ps_open(const char *cartridge_path){
         free(s);
         return NULL;
     }
+    snprintf(s->cart_path, sizeof(s->cart_path), "%s", cartridge_path);
     snprintf(s->user_id, sizeof(s->user_id), "%s", "Someone");
     persona_set_user(&s->eng, s->user_id);
     return s;
@@ -65,6 +157,12 @@ PersonaSession* ps_open(const char *cartridge_path){
 void ps_close(PersonaSession *s){
     if (!s) return;
     persona_save(&s->eng);
+    persona_close(&s->eng);
+    free(s);
+}
+
+void ps_close_without_save(PersonaSession *s){
+    if (!s) return;
     persona_close(&s->eng);
     free(s);
 }
@@ -254,6 +352,34 @@ int ps_load(PersonaSession *s, const char *new_cart){
     persona_close(&s->eng);
     memset(&s->eng, 0, sizeof(s->eng));
     if (persona_open(&s->eng, new_cart) != 0) return -1;
+    snprintf(s->cart_path, sizeof(s->cart_path), "%s", new_cart);
+    snprintf(s->user_id, sizeof(s->user_id), "%s", saved_user);
+    persona_set_user(&s->eng, s->user_id);
+    return 0;
+}
+
+int ps_discard_unsaved(PersonaSession *s){
+    char saved_user[64];
+    if (!s || !s->cart_path[0]) return -1;
+    snprintf(saved_user, sizeof(saved_user), "%s", s->user_id);
+    persona_close(&s->eng);
+    memset(&s->eng, 0, sizeof(s->eng));
+    if (persona_open(&s->eng, s->cart_path) != 0) return -1;
+    snprintf(s->user_id, sizeof(s->user_id), "%s", saved_user);
+    persona_set_user(&s->eng, s->user_id);
+    return 0;
+}
+
+int ps_reset_runtime(PersonaSession *s){
+    char saved_user[64];
+    char char_dir[256];
+    if (!s || !s->cart_path[0]) return -1;
+    snprintf(saved_user, sizeof(saved_user), "%s", s->user_id);
+    snprintf(char_dir, sizeof(char_dir), "%s", s->eng.char_dir);
+    persona_close(&s->eng);
+    wipe_runtime_sidecars(char_dir[0] ? char_dir : NULL);
+    memset(&s->eng, 0, sizeof(s->eng));
+    if (persona_open(&s->eng, s->cart_path) != 0) return -1;
     snprintf(s->user_id, sizeof(s->user_id), "%s", saved_user);
     persona_set_user(&s->eng, s->user_id);
     return 0;
@@ -296,6 +422,10 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
     uint16_t lk_max_confidence = 0;
     uint8_t lk_best_status = 0;
     uint8_t last_callback_memory_flags = 0;
+    const char *renderer_backend = renderer_backend_name();
+    const char *renderer_provider = renderer_provider_name(renderer_backend);
+    const char *renderer_mode = renderer_mode_name(renderer_backend, renderer_provider);
+    const char *renderer_model = renderer_model_name(renderer_backend, renderer_provider);
     if (eng->state.today_index < eng->todays.count)
         today_label = eng->todays.entries[eng->state.today_index].label;
     for (uint32_t i = 0; i < lk_count && i < PE_LK_RECORD_CAP; ++i){
@@ -314,6 +444,10 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
     int n = snprintf(out_buf, (size_t)out_buf_size,
         "{\"name\":\"%s\","
         "\"profile_slug\":\"%s\","
+        "\"renderer_backend\":\"%s\","
+        "\"renderer_provider\":\"%s\","
+        "\"renderer_mode\":\"%s\","
+        "\"renderer_model\":\"%s\","
         "\"mood\":%d,"
         "\"intent\":\"%s\","
         "\"rhetorical_mode\":\"%s\","
@@ -389,6 +523,10 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
                     "\"owes\":%d,\"dignity\":%d}}",
         eng->identity.character_name,
         profile_slug_from_dir(eng->char_dir),
+        renderer_backend,
+        renderer_provider,
+        renderer_mode,
+        renderer_model,
         eng->state.mood,
         intent_name(eng->state.current_intent),
         rhet_name(eng->state.last_rhetorical_mode),
@@ -608,4 +746,137 @@ int ps_relationships(PersonaSession *s, char *out_buf, int out_buf_size){
     pos += snprintf(out_buf + pos, (size_t)(out_buf_size - pos),
                     "],\"count\":%d}", count);
     return pos;
+}
+
+int ps_import_memory(PersonaSession *s,
+                     const char *summary,
+                     const char *topic_key,
+                     const char *actor_name,
+                     int salience,
+                     int emotional_impact,
+                     int is_core,
+                     int is_pinned,
+                     unsigned *memory_id_out){
+    pe_import_memory_record_t rec;
+    uint32_t memory_id = 0;
+    if (!s || !summary || !summary[0]) return -1;
+    memset(&rec, 0, sizeof(rec));
+    rec.summary = summary;
+    rec.topic_key = topic_key;
+    rec.actor_name = actor_name;
+    rec.salience = salience;
+    rec.emotional_impact = emotional_impact;
+    rec.is_core = is_core;
+    rec.is_pinned = is_pinned;
+    if (pe_import_memory_record(&s->eng, &rec, &memory_id) != 0) return -1;
+    if (memory_id_out) *memory_id_out = memory_id;
+    return 0;
+}
+
+int ps_import_relationship(PersonaSession *s,
+                           const char *actor_name,
+                           unsigned trust,
+                           unsigned threat,
+                           unsigned intimacy,
+                           unsigned resentment,
+                           unsigned dependency,
+                           unsigned obligation,
+                           unsigned envy,
+                           unsigned admiration,
+                           unsigned embarrassment){
+    pe_import_relationship_record_t rec;
+    if (!s || !actor_name || !actor_name[0]) return -1;
+    memset(&rec, 0, sizeof(rec));
+    rec.actor_name = actor_name;
+    rec.trust = (uint16_t)trust;
+    rec.threat = (uint16_t)threat;
+    rec.intimacy = (uint16_t)intimacy;
+    rec.resentment = (uint16_t)resentment;
+    rec.dependency = (uint16_t)dependency;
+    rec.obligation = (uint16_t)obligation;
+    rec.envy = (uint16_t)envy;
+    rec.admiration = (uint16_t)admiration;
+    rec.embarrassment = (uint16_t)embarrassment;
+    return pe_import_relationship_record(&s->eng, &rec);
+}
+
+int ps_import_open_loop(PersonaSession *s,
+                        const char *actor_name,
+                        const char *topic_key,
+                        const char *desired_speech_act,
+                        unsigned urgency,
+                        unsigned shame_cost,
+                        unsigned avoidance_pressure,
+                        unsigned *loop_id_out){
+    pe_import_open_loop_record_t rec;
+    uint32_t loop_id = 0;
+    if (!s || !topic_key || !topic_key[0]) return -1;
+    memset(&rec, 0, sizeof(rec));
+    rec.actor_name = actor_name;
+    rec.topic_key = topic_key;
+    rec.desired_speech_act = desired_speech_act;
+    rec.urgency = (uint16_t)urgency;
+    rec.shame_cost = (uint16_t)shame_cost;
+    rec.avoidance_pressure = (uint16_t)avoidance_pressure;
+    if (pe_import_open_loop_record(&s->eng, &rec, &loop_id) != 0) return -1;
+    if (loop_id_out) *loop_id_out = loop_id;
+    return 0;
+}
+
+int ps_import_learned_knowledge(PersonaSession *s,
+                                const char *topic_key,
+                                const char *claim_text,
+                                unsigned scope,
+                                unsigned source_type,
+                                unsigned source_tier,
+                                unsigned status,
+                                unsigned authority_rank,
+                                unsigned confidence,
+                                const char *source_actor_name,
+                                unsigned correction_of_record_id,
+                                unsigned evidence_ref,
+                                unsigned domain_tag,
+                                unsigned *record_id_out){
+    pe_lk_write_t w;
+    uint32_t record_id = 0;
+    if (!s || !topic_key || !topic_key[0] || !claim_text || !claim_text[0]) return -1;
+    memset(&w, 0, sizeof(w));
+    w.topic_key = topic_key;
+    w.claim_text = claim_text;
+    w.scope = (uint8_t)scope;
+    w.source_type = (uint8_t)source_type;
+    w.source_tier = (uint8_t)source_tier;
+    w.status = (uint8_t)status;
+    w.authority_rank = (uint8_t)authority_rank;
+    w.confidence = (uint16_t)confidence;
+    w.source_actor_name = source_actor_name;
+    w.source_actor_id = (source_actor_name && source_actor_name[0])
+                      ? persona_hash(source_actor_name) : 0u;
+    w.correction_of_record_id = correction_of_record_id;
+    w.evidence_ref = evidence_ref;
+    w.domain_tag = (uint8_t)domain_tag;
+    record_id = pe_import_learned_record(&s->eng, &w);
+    if (!record_id) return -1;
+    if (record_id_out) *record_id_out = record_id;
+    return 0;
+}
+
+int ps_import_learned_edge(PersonaSession *s,
+                           unsigned source_record_id,
+                           unsigned relation_type,
+                           unsigned target_record_id,
+                           unsigned weight,
+                           unsigned confidence,
+                           unsigned *edge_id_out){
+    uint32_t edge_id = 0;
+    if (!s || !source_record_id || !target_record_id || !relation_type) return -1;
+    edge_id = pe_import_learned_edge(&s->eng,
+                                     source_record_id,
+                                     (uint8_t)relation_type,
+                                     target_record_id,
+                                     (uint16_t)weight,
+                                     (uint8_t)confidence);
+    if (!edge_id) return -1;
+    if (edge_id_out) *edge_id_out = edge_id;
+    return 0;
 }

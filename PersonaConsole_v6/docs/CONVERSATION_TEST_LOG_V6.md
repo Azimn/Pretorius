@@ -1152,6 +1152,88 @@ Remaining polish issues:
 - Mentor produced one bare punctuation reply (`.`) during the consequence test even though the internal frame shifted correctly. Treat this as template surface polish, not memory coupling failure.
 - The next broader pass should continue testing more personas with isolated cartridge folders so memory history remains cartridge-local.
 
+### 2026-06-26 - Canonical History Import And Offline Memory Impact
+
+Branch/commit:
+
+- `v6-phase5d-recall-modes`, working tree before commit.
+
+Renderer:
+
+- Template/offline tier for the effect test.
+- Host canonical import path for bundle apply.
+
+What changed:
+
+- Promoted the transcript bundle path from staging-only into a canonical apply path.
+- `tools/import_memory_bundle.js` can still stage JSON for review, but `--apply` now opens `persona_host --stdio` and writes through the C runtime's import methods instead of touching binary sidecars directly.
+- Added canonical import methods for episodic/core memory, learned knowledge, learned knowledge edges, relationship dimensions, and open loops.
+- Added `discard_changes` plus a no-autosave batch-import mode so a failed import can roll back in-memory changes instead of leaving half-persisted state.
+- The web client now exposes `import history bundle` in `Advanced`, reading a V6 JSON bundle locally and applying it through the same host endpoints.
+- Imported memories can now be marked `pinned`, which preserves milestone-grade importance in offline recall/consequence coupling.
+
+Why this matters:
+
+- Imported history is no longer decorative staging data.
+- The same transcript-derived bundle can now change offline behavior, not only model-backed phrasing.
+- Learned knowledge imported from earlier conversations can be recalled later in template mode without requiring the model that originally helped teach it.
+
+Validation:
+
+- `make host`: passed.
+- `make v6_memory_import_bundle_run`: passed.
+- `make v6_memory_import_effect_run`: passed.
+
+Observed effect:
+
+- Kiki: imported pinned history surfaced offline without direct prompting, and imported learned knowledge on `physics` answered as canonical content rather than generic filler.
+- Mentor: imported pinned history surfaced offline without direct prompting, and imported learned knowledge on `electricity/work` answered with the corrected technical claim offline.
+- Baseline runs without imported bundles did not surface the same imported memory callback and did not already contain the imported learned fact.
+
+Current limits:
+
+- Attachment bonds remain staged only.
+- Imported open loops require a `topic_key` that maps to cartridge vocabulary; unmapped loops are skipped safely instead of failing the entire import.
+
+## 2026-06-27 - Web Session Reset And Kiki Cold-Open Surface
+
+What changed:
+
+- Added `POST /reset_runtime` to clear the active cartridge's mutable sidecars and reopen the same cartridge without losing the browser actor identity.
+- Added a `start fresh local session` control to the web UI.
+- The UI now warns when a page refresh resumes an existing local runtime instead of silently looking like a clean chat.
+- Added cartridge-authored Kiki cold-open memory templates so continuity callbacks no longer fall back to the generic engine line for her.
+
+Why this mattered:
+
+- Refreshing the page while Kiki already had persisted runtime state made the browser look "fresh" while the engine was still on an old thread.
+- That produced misleading outputs like a loneliness callback on `hello`, which was continuity from old state, not a new-turn greeting bug.
+- Kiki also needed her own cold-open callback surface so continuity would sound like Kiki rather than the neutral engine fallback.
+
+Before:
+
+- Browser could reconnect to an old Kiki runtime with no visible warning.
+- Kiki cold-open memory fallback could surface as `The old thread about loneliness has not left the table.`
+
+After:
+
+- Browser makes resumed local state explicit.
+- Testers can clear runtime state in one click.
+- Kiki authored cold-open example now surfaces as lines like:
+  - `Jay. That thing about entropy is still pinging around in my head.`
+  - `Jay, we left entropy humming in the room.`
+
+Validation:
+
+- `make web_presence_test`: passed.
+- `make v6_character_isolation_run`: passed.
+- `make v6_cold_open_memory_surface_templates_run`: passed.
+
+Notes:
+
+- The web issue was not model bleed. It was persisted cartridge state plus an unhelpful generic cold-open fallback.
+- Cartridge separation remains intact: Kiki and Pretorius now both stay on their own surface language through the same host binary and web load path.
+
 ## Future Test Entries Template
 
 Copy this block for each substantial run:

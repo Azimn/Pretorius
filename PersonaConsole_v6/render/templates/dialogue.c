@@ -876,8 +876,9 @@ static int render_direct_callback_question(Engine *eng, const char *input,
 
 static int render_direct_argument(Engine *eng, const char *input,
                                   char *out, size_t n){
-    (void)eng;
     if (!input || !out || n == 0) return 0;
+    if (!eng || !strstr(eng->identity.character_name, "Pretorius"))
+        return 0;
     if (contains_ci(input, "immoral") || contains_ci(input, "wrong about creation")
         || (contains_ci(input, "you are wrong") && contains_ci(input, "creation"))){
         static const char *pool[] = {

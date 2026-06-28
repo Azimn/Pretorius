@@ -78,7 +78,10 @@ static int profile_from_env_or_model(const char *provider, const char *model){
     if (contains_ci(model, "gemma3:1b") || contains_ci(model, "1b") ||
         contains_ci(model, "1.2b") || contains_ci(model, "lfm2.5"))
         return PE_SLM_PROFILE_TINY;
-    if (contains_ci(model, "mistral"))
+    if (contains_ci(model, "mistral") ||
+        contains_ci(model, "qwen3:8b") ||
+        contains_ci(model, "qwen3:14b") ||
+        contains_ci(model, "qwen3-vl:30b"))
         return PE_SLM_PROFILE_EXPRESSIVE;
     return PE_SLM_PROFILE_BALANCED;
 }
@@ -167,8 +170,12 @@ static void apply_frame_budget(SlmPriv *p, const RenderContext *ctx){
         ctx->frame->speech_act == PE_SA_CONCESSION ||
         ctx->frame->speech_act == PE_SA_PROMISE)
         want_tokens += 32;
+    if (p->profile == PE_SLM_PROFILE_EXPRESSIVE)
+        want_tokens += 96;
+    else if (p->profile == PE_SLM_PROFILE_BALANCED)
+        want_tokens += 32;
     if (want_tokens < 96) want_tokens = 96;
-    if (want_tokens > 512) want_tokens = 512;
+    if (want_tokens > 768) want_tokens = 768;
 
     if (!getenv("PE_OLLAMA_NUM_PRED"))
         p->ollama.num_predict = want_tokens;

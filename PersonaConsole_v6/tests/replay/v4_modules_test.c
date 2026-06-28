@@ -233,15 +233,15 @@ static void test_prompt_compiler(void){
           "prompt_compile: tiny profile blocks filler");
     CHECK(strstr(buf, "[EXAMPLES]") != NULL &&
           strstr(buf, "<START>") != NULL &&
-          strstr(buf, "one part still unresolved") != NULL &&
-          strstr(buf, "Not entirely") != NULL,
+          strstr(buf, "Wait, which part") != NULL &&
+          strstr(buf, "Sort of.") != NULL,
           "prompt_compile: tiny profile includes neutral fixed examples");
 
     cfg.render_profile = PE_SLM_PROFILE_BALANCED;
     n = prompt_compile(&ctx, &cfg, buf, sizeof(buf));
     CHECK(n > 0 && strstr(buf, "renderer_profile=balanced") != NULL,
           "prompt_compile: balanced profile labeled");
-    CHECK(strstr(buf, "one to three sentences") != NULL,
+    CHECK(strstr(buf, "do not compress a direct answer into fragments") != NULL,
           "prompt_compile: balanced profile favors concise answers");
     CHECK(strstr(buf, "[EXAMPLES]") == NULL,
           "prompt_compile: balanced profile omits tiny examples");
@@ -250,7 +250,7 @@ static void test_prompt_compiler(void){
     n = prompt_compile(&ctx, &cfg, buf, sizeof(buf));
     CHECK(n > 0 && strstr(buf, "renderer_profile=expressive") != NULL,
           "prompt_compile: expressive profile labeled");
-    CHECK(strstr(buf, "richer phrasing is allowed") != NULL,
+    CHECK(strstr(buf, "Three or four sentences are fine") != NULL,
           "prompt_compile: expressive profile allows range");
     CHECK(strstr(buf, "[EXAMPLES]") == NULL,
           "prompt_compile: expressive profile omits tiny examples");
@@ -276,6 +276,8 @@ static void test_prompt_compiler(void){
               "prompt_compile: situation packet emits interpretation and move");
         CHECK(strstr(buf, "The C runtime is the identity") != NULL,
               "prompt_compile: situation packet preserves Layer 1 authority");
+        CHECK(strstr(buf, "You may use general knowledge or reason about topics outside memory") != NULL,
+              "prompt_compile: situation packet allows non-memory topics without granting continuity authority");
         unsetenv("V6_PACKET_MODE");
         n = prompt_compile_with_input(&ctx, &cfg,
                                       "I have this weird thought about code and lightning.",
@@ -314,6 +316,21 @@ static void test_packet_interpretation(void){
         "Are you actually Pretorius right now, or just doing a cute impression?", &it);
     CHECK(!strcmp(it.user_act, "identity_test"),
           "packet interpretation: identity pressure is explicit");
+
+    v6_interpret_user_turn(&ctx,
+        "No working on a chatbot", &it);
+    CHECK(!strcmp(it.user_act, "correction"),
+          "packet interpretation: terse no-prefixed clarification counts as correction");
+
+    v6_interpret_user_turn(&ctx,
+        "I am exactly doing that lol", &it);
+    CHECK(!strcmp(it.user_act, "continuation"),
+          "packet interpretation: short affirmation stays on the current subject");
+
+    v6_interpret_user_turn(&ctx,
+        "What?", &it);
+    CHECK(!strcmp(it.user_act, "clarification_probe"),
+          "packet interpretation: short what-question is a clarification probe");
 }
 
 int main(void){

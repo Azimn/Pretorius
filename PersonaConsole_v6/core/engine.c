@@ -1154,32 +1154,32 @@ static void pe_act_aware_audit_fallback(const V6UserTurnInterpretation *it,
                                         char *out,
                                         size_t n){
     const char *act = it && it->user_act ? it->user_act : "";
-    const char *line = "I should keep to what is known.";
+    const char *line = "I am not sure yet.";
     if (!out || n == 0) return;
     if (violation == PE_AUDIT_V_PRIVATE_LEAK){
         if (!strcmp(act, "emotional_disclosure"))
-            line = "I hear that. I should stay with what you actually said.";
+            line = "I hear that.";
         else if (!strcmp(act, "identity_test"))
-            line = "Judge the answer I give, not what remains private.";
+            line = "Ask me plainly.";
         else
-            line = "I am keeping part of that back.";
+            line = "Not all of that is ready to say.";
     } else if (violation == PE_AUDIT_V_LORE){
         if (!strcmp(act, "memory_probe")){
-            line = "That thread is not clear enough to claim as fact.";
+            line = "I am not certain about that memory.";
         } else if (!strcmp(act, "emotional_disclosure")){
-            line = "I hear the weight of it.";
+            line = "I hear that.";
         } else if (!strcmp(act, "correction")){
-            line = "Point taken. I will hold to the correction.";
+            line = "I will hold to the correction.";
         } else if (!strcmp(act, "direct_question")){
-            line = "I can answer only the part that is grounded.";
+            line = "I am not sure enough to answer that.";
         } else if (!strcmp(act, "challenge") || !strcmp(act, "disagreement")){
-            line = "I should not answer that with an invented fact.";
+            line = "I will not invent an answer.";
         } else if (!strcmp(act, "identity_test")){
-            line = "I should not invent proof.";
+            line = "I will not invent proof.";
         } else if (!strcmp(act, "open_ended_invitation")){
-            line = "Let us keep to what is known. What part matters most?";
+            line = "What part matters most?";
         } else if (!strcmp(act, "rich_neutral_input")){
-            line = "There is enough there without inventing more.";
+            line = "There is enough there to stay with.";
         }
     }
     snprintf(out, n, "%s", line);
@@ -2834,6 +2834,28 @@ int persona_process_input(Engine *eng,
         render_ctx.user_input = input_text;
         render_ctx.seed      = eng->state.rng_state;
         v6_interpret_user_turn(&render_ctx, input_text, &packet_it);
+        if (v6_packet_mode_is_situation()){
+            uint16_t adjusted_intent = eng->state.current_intent;
+            if (!strcmp(packet_it.user_act, "correction")){
+                adjusted_intent = eng->negation_active
+                    ? PE_INTENT_CLARIFY : PE_INTENT_ANSWER;
+            } else if (!strcmp(packet_it.user_act, "continuation") ||
+                       !strcmp(packet_it.user_act, "rich_neutral_input") ||
+                       !strcmp(packet_it.user_act, "emotional_disclosure")){
+                adjusted_intent = PE_INTENT_ATTEND;
+            } else if (!strcmp(packet_it.user_act, "memory_probe") ||
+                       !strcmp(packet_it.user_act, "clarification_probe") ||
+                       !strcmp(packet_it.user_act, "direct_question") ||
+                       !strcmp(packet_it.user_act, "identity_test")){
+                adjusted_intent = PE_INTENT_ANSWER;
+            }
+            if (adjusted_intent != eng->state.current_intent){
+                eng->state.current_intent = adjusted_intent;
+                pe_build_plan(eng);
+                pe_build_turn_frame(eng);
+                pe_update_private_thought_frame(eng);
+            }
+        }
 
         if (pe_try_learned_knowledge_answer(eng, input_text, out, n)){
             learned_knowledge_output = 1;
@@ -2917,7 +2939,12 @@ post_render:;
             if (!pe_copy_audit_pass(input_text, out)
                 || !pe_output_label_audit_pass(out)
                 || !pe_self_repeat_audit_pass(out)){
-                snprintf(out, n, "Say it another way.");
+                pe_act_aware_audit_fallback(&packet_it, violation, out, n);
+                if (!pe_copy_audit_pass(input_text, out)
+                    || !pe_output_label_audit_pass(out)
+                    || !pe_self_repeat_audit_pass(out)){
+                    snprintf(out, n, "I am not sure yet.");
+                }
                 eng->state.current_intent = PE_INTENT_CLARIFY;
             }
             eng->last_audit_result =

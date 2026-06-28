@@ -19,6 +19,13 @@
       <h1 id="character-name">PersonaConsole</h1>
       <p class="today" id="today-label"></p>
       <div class="presence" id="presence">offline-ready</div>
+      <div class="renderer-status renderer-offline" id="renderer-status" aria-live="polite">
+        <span class="renderer-light" id="renderer-light" aria-hidden="true"></span>
+        <div class="renderer-copy">
+          <strong id="renderer-label">offline mode</strong>
+          <span id="renderer-detail">template renderer active</span>
+        </div>
+      </div>
 
       <label class="character-picker">
         character
@@ -62,6 +69,19 @@
           <h2>Renderer</h2>
           <p class="fineprint">Offline template mode is active by default. Local/API models are optional upgrades.</p>
           <button type="button" class="secondary-button" id="connect-model">connect local model</button>
+        </div>
+
+        <div class="settings">
+          <h2>Memory bundle</h2>
+          <p class="fineprint">Import a V6 JSON history bundle created from transcript analysis. The engine writes canonical memory and learned knowledge from it.</p>
+          <button type="button" class="secondary-button" id="import-memory-bundle">import history bundle</button>
+          <input type="file" id="memory-bundle-file" accept=".json,application/json" hidden>
+        </div>
+
+        <div class="settings">
+          <h2>Session</h2>
+          <p class="fineprint">A page refresh keeps the current local runtime. Use this only when you want to clear the active cartridge's runtime memory and start fresh.</p>
+          <button type="button" class="secondary-button" id="reset-runtime">start fresh local session</button>
         </div>
 
         <div class="inner-life" aria-label="Character state cues">

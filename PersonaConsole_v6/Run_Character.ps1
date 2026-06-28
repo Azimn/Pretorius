@@ -66,9 +66,31 @@ function Test-ActiveCharacter([object]$State, [string]$Requested) {
   return $active -eq $Requested
 }
 
+function Test-ActiveRenderer([object]$State, [string]$RequestedRenderer, [string]$RequestedModel) {
+  if ($null -eq $State) { return $false }
+  $mode = ""
+  $model = ""
+  if ($null -ne $State.PSObject.Properties["renderer_mode"]) {
+    $mode = ([string]$State.renderer_mode).ToLowerInvariant()
+  }
+  if ($null -ne $State.PSObject.Properties["renderer_model"]) {
+    $model = [string]$State.renderer_model
+  }
+  if ($RequestedRenderer -eq "template") {
+    return $mode -eq "offline"
+  }
+  if ($RequestedRenderer -eq "ollama") {
+    if ($mode -ne "ollama") { return $false }
+    if (-not $RequestedModel) { return $true }
+    return $model -eq $RequestedModel
+  }
+  return $false
+}
+
 if ($Renderer -eq "template") {
   $env:PE_RENDER_BACKEND = "template"
   Remove-Item Env:\PE_SLM_PROVIDER -ErrorAction SilentlyContinue
+  Remove-Item Env:\V6_PACKET_MODE -ErrorAction SilentlyContinue
 } else {
   $env:PE_RENDER_BACKEND = "slm"
   $env:PE_SLM_PROVIDER = "ollama"
@@ -78,30 +100,52 @@ if ($Renderer -eq "template") {
   $env:PE_OLLAMA_PORT = "11434"
   $env:PE_OLLAMA_TEMP = "0"
   $env:PE_OLLAMA_NUM_PRED = "160"
+  $env:PE_OLLAMA_THINK = "0"
+  $env:V6_PACKET_MODE = "situation"
 }
 
 if (Test-PortOpen $Port) {
   $state = Invoke-HostJson "/state"
-  if (Test-ActiveCharacter $state $Character) {
+  $characterMatches = Test-ActiveCharacter $state $Character
+  $rendererMatches = Test-ActiveRenderer $state $Renderer $OllamaModel
+  if ($characterMatches -and $rendererMatches) {
     Start-Process $url
     Write-Host "PersonaConsole is already running on $url"
     Write-Host "Character: $($state.name)"
+    if ($state.renderer_mode) {
+      Write-Host "Renderer: $($state.renderer_mode) $($state.renderer_model)"
+    }
     exit 0
   }
 
-  Write-Host "PersonaConsole is already running on $url with a different character."
-  if ($state -and $state.name) { Write-Host "Active character: $($state.name)" }
-  Write-Host "Loading requested character: $Character"
-
-  $load = Invoke-HostJson "/load" (@{ path = $cart } | ConvertTo-Json -Compress)
-  Start-Sleep -Milliseconds 350
-  $newState = Invoke-HostJson "/state"
-  if (-not $load -or $load.ok -ne $true -or -not (Test-ActiveCharacter $newState $Character)) {
-    throw "Could not switch the running PersonaConsole server to '$Character'. Stop the server with Stop_Server.ps1, then launch again."
+  if ($characterMatches -and -not $rendererMatches) {
+    Write-Host "PersonaConsole is already running on $url with the right character but the wrong renderer."
+    if ($state.renderer_mode) {
+      Write-Host "Active renderer: $($state.renderer_mode) $($state.renderer_model)"
+    }
+    Write-Host "Restarting with renderer: $Renderer"
+    Get-Process persona_host -ErrorAction SilentlyContinue | Stop-Process -Force
+    if (Test-Path -LiteralPath $pidFile) {
+      Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Milliseconds 350
   }
-  Start-Process $url
-  Write-Host "PersonaConsole switched to $($newState.name) on $url"
-  exit 0
+
+  if (Test-PortOpen $Port) {
+    Write-Host "PersonaConsole is already running on $url with a different character."
+    if ($state -and $state.name) { Write-Host "Active character: $($state.name)" }
+    Write-Host "Loading requested character: $Character"
+
+    $load = Invoke-HostJson "/load" (@{ path = $cart } | ConvertTo-Json -Compress)
+    Start-Sleep -Milliseconds 350
+    $newState = Invoke-HostJson "/state"
+    if (-not $load -or $load.ok -ne $true -or -not (Test-ActiveCharacter $newState $Character) -or -not (Test-ActiveRenderer $newState $Renderer $OllamaModel)) {
+      throw "Could not switch the running PersonaConsole server to '$Character' with renderer '$Renderer'. Stop the server with Stop_Server.ps1, then launch again."
+    }
+    Start-Process $url
+    Write-Host "PersonaConsole switched to $($newState.name) on $url"
+    exit 0
+  }
 }
 
 $args = @("--port", "$Port", "--web-root", $webRoot, $cart)

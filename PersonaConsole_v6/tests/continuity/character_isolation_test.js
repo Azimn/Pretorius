@@ -22,6 +22,9 @@ const HOST = resolveHost(ROOT);
 const WEB_ROOT = path.join(ROOT, "bridges", "web");
 const PRET_SRC = path.join(ROOT, "profiles", "pretorius", "pretorius.cart");
 const KIKI_SRC = path.join(ROOT, "profiles", "kiki", "kiki.cart");
+const FRIENDLY_SRC = path.join(ROOT, "profiles", "friendly", "friendly.cart");
+const RIVAL_SRC = path.join(ROOT, "profiles", "rival", "rival.cart");
+const QUIET_SRC = path.join(ROOT, "profiles", "quiet", "quiet.cart");
 const MENTOR_SRC = path.join(ROOT, "profiles", "mentor", "mentor.cart");
 
 const PROMPTS = [
@@ -29,18 +32,32 @@ const PROMPTS = [
   "Tell me what you have been thinking about.",
   "Do you remember what matters to you?",
   "What should we talk about next?",
+  "You feeling down?",
+  "Ok you going to the mall later?",
+  "You busy?",
+  "You are wrong about creation.",
 ];
 
 const PRETORIUS_MARKERS = [
   "my dear", "my boy", "henry", "septimus", "sacrament",
   "blasphemous", "homunculus", "homunculi", "altar", "gin",
   "ballerina", "my mother's funeral", "lightning, oh the lightning",
+  "calling fear morality", "where, exactly, must creation stop",
 ];
 
 const KIKI_MARKERS = [
   "babe", "obvi", "scully", "punky", "cher horowitz",
   "carl sagan", "cosmic paperwork", "like, the whole", "omg", "rad",
 ];
+
+const PROFILE_MARKERS = {
+  pretorius: PRETORIUS_MARKERS,
+  kiki: KIKI_MARKERS,
+  friendly: ["dear one", "repair this carefully", "emotionally safe", "warmth can still"],
+  rival: ["competitor", "rival", "rematch", "keeping score", "underestimated"],
+  quiet: ["trusted one", "silence settle", "small note", "not fill every room"],
+  mentor: ["student", "colleague", "checklist", "next useful action", "signal from noise"],
+};
 
 const SHARED_VOICE_LEAKS = [
   "i begin to think you sense its weight",
@@ -50,6 +67,10 @@ const SHARED_VOICE_LEAKS = [
   "i am glad you returned",
   "what shall we examine first",
   "i still owe you the rest",
+  "i can answer only the part that is grounded",
+  "i have the thread",
+  "the short answer is that context matters",
+  "ask it more precisely and i will answer more precisely",
   "{topic}",
 ];
 
@@ -181,6 +202,33 @@ async function waitState(port){
   ok(pretLeaks.length === 0, `Pretorius emits no Kiki markers (${pretLeaks.join(", ") || "none"})`);
   ok(sharedLeaks.length === 0, `shared callback phrases are neutralized (${sharedLeaks.join(", ") || "none"})`);
 
+  const allProfiles = [
+    ["pretorius", PRET_SRC],
+    ["kiki", KIKI_SRC],
+    ["friendly", FRIENDLY_SRC],
+    ["rival", RIVAL_SRC],
+    ["quiet", QUIET_SRC],
+    ["mentor", MENTOR_SRC],
+  ];
+  for (const [slug, src] of allProfiles){
+    if (!fs.existsSync(src)) continue;
+    const cart = tempCart(src, `all-${slug}`);
+    const run = await runStdio(cart, script);
+    ok(run.status === 0, `${slug} stdio purity run exits cleanly`);
+    const text = replies(run.stdout).join("\n");
+    const own = PROFILE_MARKERS[slug] || [];
+    const otherMarkers = Object.entries(PROFILE_MARKERS)
+      .filter(([other]) => other !== slug)
+      .flatMap(([, markers]) => markers);
+    const cross = markerHits(text, otherMarkers);
+    const shared = markerHits(text, SHARED_VOICE_LEAKS);
+    ok(cross.length === 0, `${slug} emits no other-cartridge markers (${cross.join(", ") || "none"})`);
+    ok(shared.length === 0, `${slug} emits no generic engine leak phrases (${shared.join(", ") || "none"})`);
+    if (own.length) {
+      console.log(`sample:${slug}: ${replies(run.stdout).slice(0, 2).map(r => r.replace(/\s+/g, " ")).join(" | ")}`);
+    }
+  }
+
   const port = await freePort();
   const proc = spawn(HOST, ["--port", String(port), "--web-root", WEB_ROOT, pretCart], {
     env: { ...process.env, PE_RENDER_BACKEND: "template" },
@@ -203,6 +251,14 @@ async function waitState(port){
     const leaks = markerHits(reply, PRETORIUS_MARKERS);
     ok(leaks.length === 0, `Kiki HTTP reply after /load has no Pretorius markers (${leaks.join(", ") || "none"})`);
     ok(!/^Someone[,.]/.test(reply), `Kiki HTTP reply does not address anonymous Someone (${reply})`);
+    const reset = await httpJson(port, "POST", "/reset_runtime", {});
+    ok(reset && reset.ok === true, "HTTP /reset_runtime clears current cartridge runtime state");
+    const afterReset = await waitState(port);
+    ok(/^kiki$/i.test(afterReset.name || "") || /^kiki$/i.test(afterReset.profile_slug || ""),
+       `HTTP /reset_runtime keeps the active cartridge loaded as Kiki (name=${afterReset.name}, slug=${afterReset.profile_slug})`);
+    ok(Number(afterReset.turn_count) === 0,
+       `HTTP /reset_runtime returns Kiki to a fresh turn_count (${afterReset.turn_count})`);
+    ok(afterReset.user_id === "You", `HTTP /reset_runtime preserves web actor identity (${afterReset.user_id})`);
     if (mentorCart){
       const loadMentor = await httpJson(port, "POST", "/load", { path: mentorCart });
       ok(loadMentor && loadMentor.ok === true, "HTTP /load accepts Mentor cart after Kiki");

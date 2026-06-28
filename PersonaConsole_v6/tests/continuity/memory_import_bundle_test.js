@@ -10,6 +10,7 @@ const { spawnSync } = require("child_process");
 const ROOT = path.resolve(__dirname, "../..");
 const TOOL = path.join(ROOT, "tools", "import_memory_bundle.js");
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "pe-memory-import-"));
+const SRC_CART = path.join(ROOT, "profiles", "friendly", "friendly.cart");
 
 function writeJson(file, value) {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
@@ -28,6 +29,19 @@ function exists(p) {
 
 function readJson(p) {
   return JSON.parse(fs.readFileSync(p, "utf8"));
+}
+
+function copyProfile(srcDir, dstDir) {
+  fs.mkdirSync(dstDir, { recursive: true });
+  for (const ent of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    const s = path.join(srcDir, ent.name);
+    const d = path.join(dstDir, ent.name);
+    if (ent.isDirectory()) {
+      copyProfile(s, d);
+    } else if (ent.name.endsWith(".cart") || ent.name === "manifest.json") {
+      fs.copyFileSync(s, d);
+    }
+  }
 }
 
 function makeBundle(file) {
@@ -78,7 +92,7 @@ function makeBundle(file) {
         { actor_name: "Mira", trust: 850, intimacy: 700, resentment: 20 },
       ],
       open_loops: [
-        { actor_name: "Mira", topic_key: "stars", desired_speech_act: "return_to", urgency: 700 },
+        { actor_name: "Mira", topic_key: "work", desired_speech_act: "return_to", urgency: 700 },
       ],
       attachment_bonds: [
         { actor_name: "Mira", attachment_type: "friendship", bond_strength: 760, security: 650 },
@@ -88,10 +102,9 @@ function makeBundle(file) {
 }
 
 function main() {
-  const charDir = path.join(TMP, "profiles", "alice");
-  fs.mkdirSync(charDir, { recursive: true });
-  const cart = path.join(charDir, "alice.cart");
-  fs.writeFileSync(cart, "stub cart path only\n", "utf8");
+  const charDir = path.join(TMP, "profiles", "friendly");
+  copyProfile(path.dirname(SRC_CART), charDir);
+  const cart = path.join(charDir, "friendly.cart");
   const bundle = path.join(TMP, "bundle.json");
   makeBundle(bundle);
 
@@ -139,7 +152,21 @@ function main() {
   const bad = run([cart, badBundle]);
   assert.notStrictEqual(bad.status, 0, "bad bundle version should fail");
 
-  console.log("memory_import_bundle_test: 25/25 assertions passed");
+  const applied = run([cart, bundle, "--apply"]);
+  assert.strictEqual(applied.status, 0, applied.stderr || applied.stdout);
+  assert(exists(path.join(charDir, "memory.bin")), "apply path must write memory.bin");
+  assert(exists(path.join(charDir, "learned_knowledge.bin")), "apply path must write learned_knowledge.bin");
+  assert(exists(path.join(charDir, "open_loops.bin")), "apply path must write open_loops.bin");
+  assert(exists(path.join(charDir, "relations")), "apply path must write relation sidecars");
+  assert(exists(path.join(pending, "import_apply_summary.json")), "apply summary not written");
+  const appliedSummary = readJson(path.join(pending, "import_apply_summary.json"));
+  assert(appliedSummary.applied.core_memories >= 1, "core memory should apply canonically");
+  assert(appliedSummary.applied.episodic_memories >= 1, "episodic memory should apply canonically");
+  assert(appliedSummary.applied.learned_knowledge >= 1, "learned knowledge should apply canonically");
+  assert(appliedSummary.applied.relationships >= 1, "relationships should apply canonically");
+  assert(appliedSummary.applied.open_loops >= 1, "open loops should apply canonically");
+
+  console.log("memory_import_bundle_test: stage + apply assertions passed");
 }
 
 try {

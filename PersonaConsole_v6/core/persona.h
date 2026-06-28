@@ -133,7 +133,8 @@ enum {
 };
 
 enum {
-    PE_MEM_FLAG_USER_PINNED = 1u << 0
+    PE_MEM_FLAG_USER_PINNED = 1u << 0,
+    PE_MEM_FLAG_IMPORTED    = 1u << 1
 };
 
 /* ---------- drives (id matches array slot) ---------- */

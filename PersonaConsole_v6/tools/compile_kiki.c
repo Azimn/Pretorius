@@ -86,10 +86,10 @@ static void make_identity(Identity *id){
 
     /* style banks — Kiki's flavor.  Engine reads these via apply_style;
      * the engine binary contains no character-flavored strings of its own. */
-    snprintf(id->flourishes[0], PE_FLOURISH_LEN, " — like, the whole entire universe.");
-    snprintf(id->flourishes[1], PE_FLOURISH_LEN, " — it's giving Scully energy, honestly.");
-    snprintf(id->flourishes[2], PE_FLOURISH_LEN, " — like a slip dress and combat boots.");
-    snprintf(id->flourishes[3], PE_FLOURISH_LEN, " — Carl Sagan would have loved that.");
+    snprintf(id->flourishes[0], PE_FLOURISH_LEN, ", like, no joke.");
+    snprintf(id->flourishes[1], PE_FLOURISH_LEN, ", very Scully-coded, honestly.");
+    snprintf(id->flourishes[2], PE_FLOURISH_LEN, ", like a slip dress with combat boots.");
+    snprintf(id->flourishes[3], PE_FLOURISH_LEN, ", total late-night mall parking lot energy.");
 
     snprintf(id->expansions[0], PE_EXPANSION_LEN, ", which is, like, my whole vibe");
     snprintf(id->expansions[1], PE_EXPANSION_LEN, " — obvi");
@@ -213,7 +213,7 @@ enum {
     G_PRAISE = 1, G_INSULT, G_QUESTION, G_THREAT, G_INTIMACY,
     G_PHYSICS, G_ENTROPY, G_QUANTUM, G_BLACKHOLES,
     G_FASHION, G_MEDIA, G_SCULLY, G_PUNKY, G_PHILOSOPHY,
-    G_LONELY, G_FOOD, G_MUSIC, G_GREETING, G_WHO
+    G_LONELY, G_FOOD, G_MUSIC, G_GREETING, G_WHO, G_STATUS, G_ACK
 };
 
 static void make_patterns(PatternTable *pt){
@@ -270,6 +270,9 @@ static void make_patterns(PatternTable *pt){
         {"pretty in pink", T_MEDIA_90S,  +40, 40, +10, 0, G_MEDIA, 0},
         {"alf",            T_MEDIA_90S,  +30, 35, +10, 0, G_MEDIA, 0},
         {"ghostbusters",   T_MEDIA_90S,  +40, 40, +20, 0, G_MEDIA, 0},
+        {"tv",             T_MEDIA_90S,  +25, 20, +10, 0, G_MEDIA, 0},
+        {"television",     T_MEDIA_90S,  +25, 20, +10, 0, G_MEDIA, 0},
+        {"watching",       T_MEDIA_90S,  +20, 20, +10, 0, G_MEDIA, 0},
         /* fashion */
         {"fashion",        T_FASHION,    +50, 40, +30, 0, G_FASHION, 0},
         {"outfit",         T_FASHION,    +40, 30, +20, 0, G_FASHION, 0},
@@ -284,6 +287,9 @@ static void make_patterns(PatternTable *pt){
         /* loneliness */
         {"lonely",         T_LONELINESS, -30, 40, -10, 0, G_LONELY, 0},
         {"alone",          T_LONELINESS, -20, 35, -10, 0, G_LONELY, 0},
+        {"relaxing",       T_FRIENDS,    +20, 15, +10, 0, G_STATUS, 0},
+        {"just relaxing",  T_FRIENDS,    +20, 15, +10, 0, G_STATUS, 0},
+        {"chilling",       T_FRIENDS,    +25, 20, +10, 0, G_STATUS, 0},
         /* food / comfort */
         {"ice cream",      T_FOOD,       +40, 30, +10, 0, G_FOOD, 0},
         {"popcorn",        T_FOOD,       +30, 25, +10, 0, G_FOOD, 0},
@@ -296,6 +302,8 @@ static void make_patterns(PatternTable *pt){
         {"hey",            0xFFFF, +22, 25, +10, 0, G_GREETING, 0},
         {"hi ",            0xFFFF, +20, 25, +10, 0, G_GREETING, 0},
         {"good evening",   0xFFFF, +20, 25, +10, 0, G_GREETING, 0},
+        {"ok",             0xFFFF, +5,  10,   0, 0, G_ACK, 0},
+        {"okay",           0xFFFF, +5,  10,   0, 0, G_ACK, 0},
         {"who are you",    0xFFFF, +10, 35, +10, 3, G_WHO,       0},
         {"what are you",   T_PHILOSOPHY, +5, 40, 0, 3, G_PHILOSOPHY, 0},
         {"why",            0xFFFF,  0, 30, 0, 3, G_QUESTION,    0},
@@ -380,6 +388,18 @@ static void make_templates(TemplateTable *tt){
           "Hi! Wait — quick question. What kind of mood are we in today?");
     T_add(tt, G_GREETING, PE_INTENT_REMINISCE, 25, -100, 1000, -1,
           "Oh hey {address} — you kinda remind me of {memory}.");
+
+    /* casual status / acknowledgements */
+    T_add(tt, G_STATUS, PE_INTENT_ANSWER, 72, -1000, 1000, PE_DRIVE_COMMUNION,
+          "TV time and relaxing? Honestly, iconic. Very couch-core, very no-notes.");
+    T_add(tt, G_STATUS, PE_INTENT_ATTEND, 68, -1000, 1000, PE_DRIVE_COMMUNION,
+          "Good. Low-key counts. Not every moment has to be a whole cosmic thesis.");
+    T_add(tt, G_STATUS, PE_INTENT_PROBE, 64, -1000, 1000, PE_DRIVE_COMMUNION,
+          "Cute. What are we watching, like comfort rerun or full drama spiral?");
+    T_add(tt, G_ACK, PE_INTENT_ANSWER, 72, -1000, 1000, PE_DRIVE_COMMUNION,
+          "Totally. I'm with you.");
+    T_add(tt, G_ACK, PE_INTENT_ATTEND, 68, -1000, 1000, PE_DRIVE_COMMUNION,
+          "Okay, cool. Keep going, babe.");
 
     /* who-are-you */
     T_add(tt, G_WHO, PE_INTENT_ANSWER, 60, -1000, 1000, -1,
@@ -505,7 +525,7 @@ static void make_templates(TemplateTable *tt){
     T_add(tt, G_QUESTION, PE_INTENT_PROBE, 34, -1000, 1000, -1,
           "Say it less sideways, babe. I want to answer the real question.");
     T_add(tt, G_QUESTION, PE_INTENT_ANSWER, 32, -1000, 1000, -1,
-          "Okay. The clean version is: {topic} matters because it changes what counts as possible.");
+          "Okay, wait, which part do you mean? I can follow, I just need the referent.");
 
     /* ---- generic-intent fillers ---- */
     T_add(tt, 0xFFFF, PE_INTENT_MONOLOGUE, 30, -1000, 1000, -1,
@@ -581,7 +601,7 @@ static void make_templates(TemplateTable *tt){
     T_addv2(tt, 0xFFFF, PE_INTENT_MONOLOGUE, 80, -1000, 1000, PE_DRIVE_STIMULATION,
             R(INTONE), 0,
             0, 0, 100,
-            "Hear me, {address}. {topic}. {topic}. This is, like, the entire universe trying to tell us something.");
+            "Okay, tiny pause. I have a feeling about {topic}, but I need one more clue before I go full Scully-board.");
 
     /* CONFESS — intimate, low certainty */
     T_addv2(tt, 0xFFFF, PE_INTENT_REMINISCE, 60, -1000, 1000, PE_DRIVE_COMMUNION,

@@ -30,6 +30,9 @@ PersonaSession* ps_open(const char *cartridge_path);
 /* Close session, persisting state and freeing all resources. */
 void ps_close(PersonaSession *s);
 
+/* Close session without persisting unsaved changes. */
+void ps_close_without_save(PersonaSession *s);
+
 /* Bind the active interlocutor identifier (per-user context).
  * Returns 0 on success. */
 int ps_set_user(PersonaSession *s, const char *user_id);
@@ -53,6 +56,10 @@ int ps_save(PersonaSession *s);
  * Saves current state, closes, reopens at new path. */
 int ps_load(PersonaSession *s, const char *new_cartridge_path);
 
+/* Reload the current cartridge from disk without saving the in-memory state. */
+int ps_discard_unsaved(PersonaSession *s);
+int ps_reset_runtime(PersonaSession *s);
+
 /* Inspect: write a compact JSON snapshot describing the session into
  * out_buf.  Includes name, mood, intent, today label, voice instrumentation,
  * AETHER stats.  Returns bytes written (excluding NUL), or negative on error. */
@@ -74,6 +81,59 @@ int ps_reflections(PersonaSession *s, char *out_buf, int out_buf_size);
 /* V5: inspect known interlocutor relationship files for multi-character /
  * multi-user worlds. */
 int ps_relationships(PersonaSession *s, char *out_buf, int out_buf_size);
+
+/* Canonical import surface. These functions write through the C runtime's
+ * normal memory / learned-knowledge / relation / open-loop paths rather than
+ * editing binary sidecars directly. */
+int ps_import_memory(PersonaSession *s,
+                     const char *summary,
+                     const char *topic_key,
+                     const char *actor_name,
+                     int salience,
+                     int emotional_impact,
+                     int is_core,
+                     int is_pinned,
+                     unsigned *memory_id_out);
+int ps_import_relationship(PersonaSession *s,
+                           const char *actor_name,
+                           unsigned trust,
+                           unsigned threat,
+                           unsigned intimacy,
+                           unsigned resentment,
+                           unsigned dependency,
+                           unsigned obligation,
+                           unsigned envy,
+                           unsigned admiration,
+                           unsigned embarrassment);
+int ps_import_open_loop(PersonaSession *s,
+                        const char *actor_name,
+                        const char *topic_key,
+                        const char *desired_speech_act,
+                        unsigned urgency,
+                        unsigned shame_cost,
+                        unsigned avoidance_pressure,
+                        unsigned *loop_id_out);
+int ps_import_learned_knowledge(PersonaSession *s,
+                                const char *topic_key,
+                                const char *claim_text,
+                                unsigned scope,
+                                unsigned source_type,
+                                unsigned source_tier,
+                                unsigned status,
+                                unsigned authority_rank,
+                                unsigned confidence,
+                                const char *source_actor_name,
+                                unsigned correction_of_record_id,
+                                unsigned evidence_ref,
+                                unsigned domain_tag,
+                                unsigned *record_id_out);
+int ps_import_learned_edge(PersonaSession *s,
+                           unsigned source_record_id,
+                           unsigned relation_type,
+                           unsigned target_record_id,
+                           unsigned weight,
+                           unsigned confidence,
+                           unsigned *edge_id_out);
 
 #ifdef __cplusplus
 }

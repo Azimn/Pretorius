@@ -14,6 +14,7 @@
  * control over FFI.
  */
 #include "persona_ffi.h"
+#include "persona.h"
 #include "http.h"
 #include "json.h"
 
@@ -111,6 +112,19 @@ static int serve_portrait(PersonaSession *s, HttpResponse *out){
 /* Each handler writes a JSON object into out_buf and returns its length. */
 typedef int (*MethodFn)(HostCtx *ctx, const char *body,
                         char *out_buf, int out_cap);
+
+static void json_opt_string(const char *body, const char *key,
+                            char *out, int out_cap){
+    if (!out || out_cap <= 0) return;
+    out[0] = 0;
+    json_get_string(body, key, out, out_cap);
+}
+
+static int json_opt_int(const char *body, const char *key, int fallback){
+    int v = fallback;
+    json_get_int(body, key, &v);
+    return v;
+}
 
 static int method_chat(HostCtx *ctx, const char *body,
                        char *out_buf, int out_cap){
@@ -219,6 +233,146 @@ static int method_set_user(HostCtx *ctx, const char *body,
                     rc == 0 ? "true" : "false", rc);
 }
 
+static int method_discard_changes(HostCtx *ctx, const char *body,
+                                  char *out_buf, int out_cap){
+    (void)body;
+    int rc = ps_discard_unsaved(ctx->sess);
+    return snprintf(out_buf, (size_t)out_cap,
+                    "{\"ok\":%s,\"code\":%d}",
+                    rc == 0 ? "true" : "false", rc);
+}
+
+static int method_reset_runtime(HostCtx *ctx, const char *body,
+                                char *out_buf, int out_cap){
+    (void)body;
+    int rc = ps_reset_runtime(ctx->sess);
+    return snprintf(out_buf, (size_t)out_cap,
+                    "{\"ok\":%s,\"code\":%d}",
+                    rc == 0 ? "true" : "false", rc);
+}
+
+static int method_import_memory(HostCtx *ctx, const char *body,
+                                char *out_buf, int out_cap){
+    char summary[PE_MEM_SUMMARY_LEN];
+    char topic_key[PE_LK_TOPIC_LEN];
+    char actor_name[PE_NAME_LEN];
+    unsigned memory_id = 0;
+    int rc;
+    if (json_get_string(body, "summary", summary, sizeof(summary)) != 0)
+        return snprintf(out_buf, (size_t)out_cap,
+                        "{\"error\":\"missing 'summary' field\"}");
+    json_opt_string(body, "topic_key", topic_key, sizeof(topic_key));
+    json_opt_string(body, "actor_name", actor_name, sizeof(actor_name));
+    rc = ps_import_memory(ctx->sess,
+                          summary,
+                          topic_key[0] ? topic_key : NULL,
+                          actor_name[0] ? actor_name : NULL,
+                          json_opt_int(body, "salience", 60),
+                          json_opt_int(body, "emotional_impact", 0),
+                          json_opt_int(body, "is_core", 0),
+                          json_opt_int(body, "is_pinned", 0),
+                          &memory_id);
+    return snprintf(out_buf, (size_t)out_cap,
+                    "{\"ok\":%s,\"code\":%d,\"memory_id\":%u}",
+                    rc == 0 ? "true" : "false", rc, memory_id);
+}
+
+static int method_import_relationship(HostCtx *ctx, const char *body,
+                                      char *out_buf, int out_cap){
+    char actor_name[PE_NAME_LEN];
+    int rc;
+    if (json_get_string(body, "actor_name", actor_name, sizeof(actor_name)) != 0)
+        return snprintf(out_buf, (size_t)out_cap,
+                        "{\"error\":\"missing 'actor_name' field\"}");
+    rc = ps_import_relationship(ctx->sess,
+                                actor_name,
+                                (unsigned)json_opt_int(body, "trust", 500),
+                                (unsigned)json_opt_int(body, "threat", 500),
+                                (unsigned)json_opt_int(body, "intimacy", 0),
+                                (unsigned)json_opt_int(body, "resentment", 0),
+                                (unsigned)json_opt_int(body, "dependency", 0),
+                                (unsigned)json_opt_int(body, "obligation", 0),
+                                (unsigned)json_opt_int(body, "envy", 0),
+                                (unsigned)json_opt_int(body, "admiration", 500),
+                                (unsigned)json_opt_int(body, "embarrassment", 0));
+    return snprintf(out_buf, (size_t)out_cap,
+                    "{\"ok\":%s,\"code\":%d}",
+                    rc == 0 ? "true" : "false", rc);
+}
+
+static int method_import_open_loop(HostCtx *ctx, const char *body,
+                                   char *out_buf, int out_cap){
+    char actor_name[PE_NAME_LEN];
+    char topic_key[PE_LK_TOPIC_LEN];
+    char desired[32];
+    unsigned loop_id = 0;
+    int rc;
+    if (json_get_string(body, "topic_key", topic_key, sizeof(topic_key)) != 0)
+        return snprintf(out_buf, (size_t)out_cap,
+                        "{\"error\":\"missing 'topic_key' field\"}");
+    json_opt_string(body, "actor_name", actor_name, sizeof(actor_name));
+    json_opt_string(body, "desired_speech_act", desired, sizeof(desired));
+    rc = ps_import_open_loop(ctx->sess,
+                             actor_name[0] ? actor_name : NULL,
+                             topic_key,
+                             desired[0] ? desired : NULL,
+                             (unsigned)json_opt_int(body, "urgency", 500),
+                             (unsigned)json_opt_int(body, "shame_cost", 0),
+                             (unsigned)json_opt_int(body, "avoidance_pressure", 0),
+                             &loop_id);
+    return snprintf(out_buf, (size_t)out_cap,
+                    "{\"ok\":%s,\"code\":%d,\"loop_id\":%u}",
+                    rc == 0 ? "true" : "false", rc, loop_id);
+}
+
+static int method_import_learned_knowledge(HostCtx *ctx, const char *body,
+                                           char *out_buf, int out_cap){
+    char topic_key[PE_LK_TOPIC_LEN];
+    char claim_text[PE_LK_CLAIM_LEN];
+    char source_actor_name[PE_LK_SOURCE_NAME_LEN];
+    unsigned record_id = 0;
+    int rc;
+    if (json_get_string(body, "topic_key", topic_key, sizeof(topic_key)) != 0)
+        return snprintf(out_buf, (size_t)out_cap,
+                        "{\"error\":\"missing 'topic_key' field\"}");
+    if (json_get_string(body, "claim_text", claim_text, sizeof(claim_text)) != 0)
+        return snprintf(out_buf, (size_t)out_cap,
+                        "{\"error\":\"missing 'claim_text' field\"}");
+    json_opt_string(body, "source_actor_name", source_actor_name, sizeof(source_actor_name));
+    rc = ps_import_learned_knowledge(ctx->sess,
+                                     topic_key,
+                                     claim_text,
+                                     (unsigned)json_opt_int(body, "scope", PE_LK_SCOPE_REAL_WORLD),
+                                     (unsigned)json_opt_int(body, "source_type", PE_LK_SRC_IMPORTED),
+                                     (unsigned)json_opt_int(body, "source_tier", PE_LK_TIER_OFFLINE),
+                                     (unsigned)json_opt_int(body, "status", PE_LK_STATUS_CANDIDATE),
+                                     (unsigned)json_opt_int(body, "authority_rank", 35),
+                                     (unsigned)json_opt_int(body, "confidence", 450),
+                                     source_actor_name[0] ? source_actor_name : NULL,
+                                     (unsigned)json_opt_int(body, "correction_of_record_id", 0),
+                                     (unsigned)json_opt_int(body, "evidence_ref", 0),
+                                     (unsigned)json_opt_int(body, "domain_tag", 0),
+                                     &record_id);
+    return snprintf(out_buf, (size_t)out_cap,
+                    "{\"ok\":%s,\"code\":%d,\"record_id\":%u}",
+                    rc == 0 ? "true" : "false", rc, record_id);
+}
+
+static int method_import_learned_edge(HostCtx *ctx, const char *body,
+                                      char *out_buf, int out_cap){
+    unsigned edge_id = 0;
+    int rc = ps_import_learned_edge(ctx->sess,
+                                    (unsigned)json_opt_int(body, "source_record_id", 0),
+                                    (unsigned)json_opt_int(body, "relation_type", 0),
+                                    (unsigned)json_opt_int(body, "target_record_id", 0),
+                                    (unsigned)json_opt_int(body, "weight", 500),
+                                    (unsigned)json_opt_int(body, "confidence", 500),
+                                    &edge_id);
+    return snprintf(out_buf, (size_t)out_cap,
+                    "{\"ok\":%s,\"code\":%d,\"edge_id\":%u}",
+                    rc == 0 ? "true" : "false", rc, edge_id);
+}
+
 static int dispatch(HostCtx *ctx, const char *method, const char *body,
                     char *out_buf, int out_cap){
     if (!strcmp(method, "chat"))     return method_chat(ctx, body, out_buf, out_cap);
@@ -227,6 +381,13 @@ static int dispatch(HostCtx *ctx, const char *method, const char *body,
     if (!strcmp(method, "save"))     return method_save(ctx, body, out_buf, out_cap);
     if (!strcmp(method, "load"))     return method_load(ctx, body, out_buf, out_cap);
     if (!strcmp(method, "set_user")) return method_set_user(ctx, body, out_buf, out_cap);
+    if (!strcmp(method, "discard_changes")) return method_discard_changes(ctx, body, out_buf, out_cap);
+    if (!strcmp(method, "reset_runtime")) return method_reset_runtime(ctx, body, out_buf, out_cap);
+    if (!strcmp(method, "import_memory")) return method_import_memory(ctx, body, out_buf, out_cap);
+    if (!strcmp(method, "import_relationship")) return method_import_relationship(ctx, body, out_buf, out_cap);
+    if (!strcmp(method, "import_open_loop")) return method_import_open_loop(ctx, body, out_buf, out_cap);
+    if (!strcmp(method, "import_learned_knowledge")) return method_import_learned_knowledge(ctx, body, out_buf, out_cap);
+    if (!strcmp(method, "import_learned_edge")) return method_import_learned_edge(ctx, body, out_buf, out_cap);
     if (!strcmp(method, "reflections")) return method_reflections(ctx, body, out_buf, out_cap);
     if (!strcmp(method, "relationships")) return method_relationships(ctx, body, out_buf, out_cap);
     return snprintf(out_buf, (size_t)out_cap,
@@ -336,8 +497,15 @@ static void usage(const char *prog){
 int main(int argc, char **argv){
     int   port      = DEFAULT_PORT;
     int   use_stdio = 0;
+    int   autosave_on_close = 1;
     const char *web_root = WEB_ROOT_DEFAULT;
     const char *cart_path = NULL;
+
+    {
+        const char *no_autosave = getenv("PE_NO_AUTOSAVE_ON_CLOSE");
+        if (no_autosave && no_autosave[0] && strcmp(no_autosave, "0"))
+            autosave_on_close = 0;
+    }
 
     for (int i = 1; i < argc; ++i){
         if (!strcmp(argv[i], "--port") && i + 1 < argc){
@@ -371,6 +539,7 @@ int main(int argc, char **argv){
     int rc = use_stdio ? stdio_loop(&ctx)
                        : http_serve(port, route, &ctx);
 
-    ps_close(sess);
+    if (autosave_on_close) ps_close(sess);
+    else ps_close_without_save(sess);
     return rc;
 }

@@ -16,6 +16,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { spawn } = require("child_process");
 
 const LIMITS = {
   core: 20,
@@ -172,6 +173,7 @@ function importMemories(bundle) {
       topic_key: safeKey(rec.topic_key || rec.topic || "core", "core"),
       salience: clamp(rec.salience, 0, 100, 70),
       emotional_impact: clamp(rec.emotional_impact, -1000, 1000, 0),
+      pinned: !!rec.pinned,
       source_type: "imported",
       status: "pending_review",
     });
@@ -189,6 +191,7 @@ function importMemories(bundle) {
       actor_name: clipString(rec.actor_name || rec.actor || "", LIMITS.actor),
       salience: clamp(rec.salience, 0, 100, 50),
       emotional_impact: clamp(rec.emotional_impact, -1000, 1000, 0),
+      pinned: !!rec.pinned,
       happened_at: clipString(rec.happened_at || rec.date || "", 40),
       source_type: "imported",
       status: "pending_review",
@@ -337,12 +340,266 @@ function writeJson(file, value) {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
+function resolveHost(projectRoot) {
+  const host = path.join(projectRoot, "build", "persona_host");
+  if (fs.existsSync(host)) return host;
+  if (fs.existsSync(`${host}.exe`)) return `${host}.exe`;
+  return host;
+}
+
+function evidenceRefToInt(text) {
+  const s = clipString(text || "", 80);
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; ++i) {
+    h ^= s.charCodeAt(i) & 0xff;
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
+function parseJsonLines(stdout) {
+  return String(stdout || "")
+    .split("\n")
+    .map(line => line.trim())
+    .filter(line => line.startsWith("{"))
+    .map(line => JSON.parse(line));
+}
+
+function hostCallSequence(host, cartPath, requests) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(host, ["--stdio", cartPath], {
+      cwd: path.resolve(__dirname, ".."),
+      env: {
+        ...process.env,
+        PE_RENDER_BACKEND: "template",
+        PE_NO_AUTOSAVE_ON_CLOSE: "1",
+      },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    proc.stdout.on("data", d => stdout += d.toString("utf8"));
+    proc.stderr.on("data", d => stderr += d.toString("utf8"));
+    proc.on("error", reject);
+    proc.on("close", status => {
+      if (status !== 0) {
+        reject(new Error(stderr || `persona_host exited ${status}`));
+        return;
+      }
+      try {
+        resolve(parseJsonLines(stdout));
+      } catch (err) {
+        reject(err);
+      }
+    });
+    proc.stdin.write(requests.map(r => JSON.stringify(r)).join("\n") + "\n");
+    proc.stdin.end();
+    setTimeout(() => proc.kill("SIGKILL"), 30000).unref();
+  });
+}
+
+async function applyCanonicalImport(projectRoot, cartPath, staged) {
+  const host = resolveHost(projectRoot);
+  if (!fs.existsSync(host)) {
+    throw new Error(`persona_host not built: ${host}`);
+  }
+
+  const requests = [];
+  const mappings = {
+    learnedByImportId: new Map(),
+  };
+
+  for (const rec of staged.memory.core_memories) {
+    requests.push({
+      method: "import_memory",
+      summary: rec.summary,
+      topic_key: rec.topic_key,
+      actor_name: rec.actor_name || "",
+      salience: rec.salience,
+      emotional_impact: rec.emotional_impact,
+      is_core: 1,
+      is_pinned: rec.pinned ? 1 : 0,
+    });
+  }
+  for (const rec of staged.memory.episodic_memories) {
+    requests.push({
+      method: "import_memory",
+      summary: rec.summary,
+      topic_key: rec.topic_key,
+      actor_name: rec.actor_name || "",
+      salience: rec.salience,
+      emotional_impact: rec.emotional_impact,
+      is_core: 0,
+      is_pinned: rec.pinned ? 1 : 0,
+    });
+  }
+  for (const rec of staged.relationships) {
+    requests.push({
+      method: "import_relationship",
+      actor_name: rec.actor_name,
+      trust: rec.dims.trust,
+      threat: rec.dims.threat,
+      intimacy: rec.dims.intimacy,
+      resentment: rec.dims.resentment,
+      dependency: rec.dims.dependency,
+      obligation: rec.dims.obligation,
+      envy: rec.dims.envy,
+      admiration: rec.dims.admiration,
+      embarrassment: rec.dims.embarrassment,
+    });
+  }
+  for (const rec of staged.open_loops) {
+    requests.push({
+      method: "import_open_loop",
+      actor_name: rec.actor_name || "",
+      topic_key: rec.topic_key,
+      desired_speech_act: rec.desired_speech_act || "return_to",
+      urgency: rec.urgency,
+      shame_cost: rec.shame_cost,
+      avoidance_pressure: rec.avoidance_pressure,
+    });
+  }
+  for (const rec of staged.learned_knowledge.records) {
+    requests.push({
+      method: "import_learned_knowledge",
+      topic_key: rec.topic_key,
+      claim_text: rec.claim_text,
+      scope: rec.scope_id,
+      source_type: rec.source_type_id,
+      source_tier: rec.source_tier_id,
+      status: rec.status_id,
+      authority_rank: rec.authority_rank,
+      confidence: rec.confidence,
+      source_actor_name: rec.source_actor_name || "",
+      correction_of_record_id: 0,
+      evidence_ref: evidenceRefToInt(rec.evidence_ref),
+      domain_tag: 0,
+    });
+  }
+  requests.push({ method: "save" });
+  requests.push({ method: "close" });
+
+  const rows = await hostCallSequence(host, cartPath, requests);
+  let rowIndex = 0;
+  const result = {
+    core_memories: 0,
+    episodic_memories: 0,
+    relationships: 0,
+    open_loops: 0,
+    learned_knowledge: 0,
+    learned_knowledge_edges: 0,
+  };
+
+  function takeOk(expected) {
+    const row = rows[rowIndex++];
+    if (!row || row.ok !== true) {
+      throw new Error(`import apply failed during ${expected}`);
+    }
+    return row;
+  }
+
+  for (const rec of staged.memory.core_memories) {
+    const row = takeOk("core memory");
+    if (row.memory_id) result.core_memories++;
+    rec.runtime_memory_id = row.memory_id || 0;
+  }
+  for (const rec of staged.memory.episodic_memories) {
+    const row = takeOk("episodic memory");
+    if (row.memory_id) result.episodic_memories++;
+    rec.runtime_memory_id = row.memory_id || 0;
+  }
+  for (const rec of staged.relationships) {
+    takeOk("relationship");
+    result.relationships++;
+    rec.applied = true;
+  }
+  for (const rec of staged.open_loops) {
+    const row = takeOk("open loop");
+    if (row.loop_id) result.open_loops++;
+    rec.runtime_loop_id = row.loop_id || 0;
+  }
+  for (const rec of staged.learned_knowledge.records) {
+    const row = takeOk("learned knowledge");
+    if (!row.record_id) throw new Error(`learned knowledge import did not return record_id for ${rec.import_id}`);
+    rec.runtime_record_id = row.record_id;
+    mappings.learnedByImportId.set(rec.import_id, row.record_id);
+    result.learned_knowledge++;
+  }
+
+  const edgeRequests = [];
+  for (const rec of staged.learned_knowledge.records) {
+    if (!rec.correction_of) continue;
+    const source_record_id = mappings.learnedByImportId.get(rec.import_id) || 0;
+    const target_record_id = mappings.learnedByImportId.get(rec.correction_of) || 0;
+    if (!source_record_id || !target_record_id) {
+      log("warn", "learned-knowledge correction link skipped because source/target was not imported", rec);
+      continue;
+    }
+    edgeRequests.push({
+      method: "import_learned_edge",
+      source_record_id,
+      relation_type: LK_EDGE.corrects,
+      target_record_id,
+      weight: 1000,
+      confidence: 1000,
+    });
+  }
+  for (const edge of staged.learned_knowledge.edges) {
+    const source_record_id = mappings.learnedByImportId.get(edge.source_import_id) || 0;
+    const target_record_id = mappings.learnedByImportId.get(edge.target_import_id) || 0;
+    if (!source_record_id || !target_record_id) {
+      log("warn", "learned-knowledge edge skipped because source/target was not imported", edge);
+      continue;
+    }
+    edgeRequests.push({
+      method: "import_learned_edge",
+      source_record_id,
+      relation_type: edge.relation_type_id,
+      target_record_id,
+      weight: edge.weight,
+      confidence: edge.confidence,
+    });
+  }
+
+  if (edgeRequests.length) {
+    edgeRequests.push({ method: "save" });
+    edgeRequests.push({ method: "close" });
+    const edgeRows = await hostCallSequence(host, cartPath, edgeRequests);
+    let edgeIndex = 0;
+    const plannedEdges = [];
+    for (const rec of staged.learned_knowledge.records) {
+      if (!rec.correction_of) continue;
+      const source_record_id = mappings.learnedByImportId.get(rec.import_id) || 0;
+      const target_record_id = mappings.learnedByImportId.get(rec.correction_of) || 0;
+      if (!source_record_id || !target_record_id) continue;
+      plannedEdges.push(rec);
+    }
+    for (const edge of staged.learned_knowledge.edges) {
+      const source_record_id = mappings.learnedByImportId.get(edge.source_import_id) || 0;
+      const target_record_id = mappings.learnedByImportId.get(edge.target_import_id) || 0;
+      if (!source_record_id || !target_record_id) continue;
+      plannedEdges.push(edge);
+    }
+    for (const edge of plannedEdges) {
+      const row = edgeRows[edgeIndex++];
+      if (!row || row.ok !== true || !row.edge_id) {
+        throw new Error("learned-knowledge edge import failed");
+      }
+      edge.runtime_edge_id = row.edge_id;
+      result.learned_knowledge_edges++;
+    }
+  }
+
+  return result;
+}
+
 function main() {
   const args = process.argv.slice(2);
   if (args.length < 2) usage();
   const cartPath = path.resolve(args[0]);
   const bundlePath = path.resolve(args[1]);
   const dryRun = args.includes("--dry-run");
+  const apply = args.includes("--apply");
   const charDir = path.dirname(cartPath);
   if (!fs.existsSync(charDir)) {
     throw new Error(`character directory does not exist: ${charDir}`);
@@ -357,7 +614,7 @@ function main() {
       generated_at: clipString(bundle.generated_at || "", 40),
       source_description: clipString(bundle.source_description || "", 160),
       imported_at: new Date().toISOString(),
-      mode: dryRun ? "dry_run" : "staged",
+      mode: dryRun ? "dry_run" : (apply ? "staged_and_applied" : "staged"),
       authority_cap: IMPORT_AUTHORITY_CAP,
       binary_sidecars_written: false,
     },
@@ -395,13 +652,43 @@ function main() {
     const lines = report.map(r => JSON.stringify(r)).join("\n");
     fs.writeFileSync(path.join(tmpDir, "import_report.jsonl"), lines ? `${lines}\n` : "", "utf8");
   }
-
-  process.stdout.write(`${JSON.stringify({ ok: true, dryRun, charDir, counts }, null, 2)}\n`);
+  return { dryRun, apply, cartPath, charDir, staged, counts };
 }
 
-try {
-  main();
-} catch (err) {
-  process.stderr.write(`import_memory_bundle: ${err.message}\n`);
-  process.exit(1);
-}
+(async function runMain() {
+  try {
+    const result = main();
+    if (!result.dryRun && result.apply) {
+      const projectRoot = path.resolve(__dirname, "..");
+      const applied = await applyCanonicalImport(projectRoot, result.cartPath, result.staged);
+      result.staged.metadata.binary_sidecars_written = true;
+      result.staged.metadata.applied_at = new Date().toISOString();
+      result.staged.applied = applied;
+      result.counts.applied_core_memories = applied.core_memories;
+      result.counts.applied_episodic_memories = applied.episodic_memories;
+      result.counts.applied_relationships = applied.relationships;
+      result.counts.applied_open_loops = applied.open_loops;
+      result.counts.applied_learned_knowledge = applied.learned_knowledge;
+      result.counts.applied_learned_knowledge_edges = applied.learned_knowledge_edges;
+
+      const pendingDir = path.join(result.charDir, "import_pending");
+      writeJson(path.join(pendingDir, "import_summary.json"), result.staged);
+      writeJson(path.join(pendingDir, "import_apply_summary.json"), {
+        ok: true,
+        cartPath: result.cartPath,
+        charDir: result.charDir,
+        applied,
+      });
+    }
+    process.stdout.write(`${JSON.stringify({
+      ok: true,
+      dryRun: result.dryRun,
+      apply: result.apply,
+      charDir: result.charDir,
+      counts: result.counts,
+    }, null, 2)}\n`);
+  } catch (err) {
+    process.stderr.write(`import_memory_bundle: ${err.message}\n`);
+    process.exit(1);
+  }
+})();
