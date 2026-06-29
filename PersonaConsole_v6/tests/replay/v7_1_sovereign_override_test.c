@@ -63,6 +63,28 @@ int main(void){
     persona_process_input(&eng,"v7_1_sovereign_actor","zorch",out,sizeof(out));
     CHECK(eng.state.sovereign_override==0,"high threshold blocks low pressure override");
 
+    prepare(&eng,0);
+    pe_open_loops_record(&eng.open_loops, actor, topic, PE_SA_ASSERTION,
+                         400, 80, 20, eng.state.turn_count,
+                         eng.state.turn_count + 40u);
+    persona_process_input(&eng,"v7_1_sovereign_actor","zorch",out,sizeof(out));
+    CHECK(eng.state.sovereign_override==0,"zero threshold normalizes to default 500");
+
+    prepare(&eng,1000);
+    pe_open_loops_record(&eng.open_loops, actor, topic, PE_SA_ASSERTION,
+                         999, 60, 20, eng.state.turn_count,
+                         eng.state.turn_count + 40u);
+    persona_process_input(&eng,"v7_1_sovereign_actor","zorch",out,sizeof(out));
+    CHECK(eng.state.sovereign_override==0,"threshold 1000 remains valid and blocks 999 pressure");
+
+    prepare(&eng,5000);
+    eng.dissonance.feared_gap = 200;
+    pe_open_loops_record(&eng.open_loops, actor, topic, PE_SA_ASSERTION,
+                         1200, 60, 20, eng.state.turn_count,
+                         eng.state.turn_count + 40u);
+    persona_process_input(&eng,"v7_1_sovereign_actor","zorch",out,sizeof(out));
+    CHECK(eng.state.sovereign_override==1,"out-of-range threshold clamps to 1000 and stacked pressure can pass");
+
     prepare(&eng,100);
     persona_process_input(&eng,"v7_1_sovereign_actor","zorch",out,sizeof(out));
     CHECK(eng.state.sovereign_override==0,"no open loops, wants, or dissonance means no override");

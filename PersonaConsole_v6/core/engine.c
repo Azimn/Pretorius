@@ -467,6 +467,15 @@ static uint16_t pe_self_image_threat_pressure(const Engine *eng){
     return (uint16_t)(p > 1000u ? 1000u : p);
 }
 
+static uint16_t pe_normalized_sovereignty_threshold(const Engine *eng){
+    uint16_t t;
+    if (!eng) return 500u;
+    t = eng->identity.sovereignty_threshold;
+    if (t == 0u) return 500u;
+    if (t > 1000u) return 1000u;
+    return t;
+}
+
 static void pe_apply_sovereign_override(Engine *eng){
     const pe_open_loop_t *loop;
     uint16_t ol_pressure = 0, self_pressure, want_pressure, threshold;
@@ -479,7 +488,7 @@ static void pe_apply_sovereign_override(Engine *eng){
     if (eng->state.current_intent == PE_INTENT_PAUSE ||
         eng->state.current_intent == PE_INTENT_WITHDRAW)
         return;
-    threshold = eng->identity.sovereignty_threshold ? eng->identity.sovereignty_threshold : 500u;
+    threshold = pe_normalized_sovereignty_threshold(eng);
     loop = pe_open_loops_latest_for_actor(&eng->open_loops, eng->relation.user_hash);
     if (loop){
         ol_pressure = pe_open_loop_pressure(loop, eng->state.turn_count);
