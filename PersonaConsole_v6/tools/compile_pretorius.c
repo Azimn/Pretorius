@@ -1292,6 +1292,42 @@ static void make_today(TodayTable *td){
     Td_add(td, "fragile_theatrical",    -200, 0, PE_VF_METAPHOR, 6 /* withdraw */);
 }
 
+static void V_set(char dst[PE_VITALITY_TEXT_LEN], const char *s){
+    snprintf(dst, PE_VITALITY_TEXT_LEN, "%s", s);
+}
+
+static void make_vitality(VitalityProfile *vp){
+    memset(vp, 0, sizeof(*vp));
+    vp->version = PE_VITALITY_VERSION;
+    V_set(vp->address_terms[0], "interlocutor");
+    V_set(vp->address_terms[1], "my dear");
+    V_set(vp->social_stances[0], "sardonic precision");
+    V_set(vp->social_stances[1], "courtly impatience");
+    V_set(vp->rhetorical_moves[0], "answer with a useful incision before ornament");
+    V_set(vp->rhetorical_moves[1], "challenge sloppy premises without losing the thread");
+    V_set(vp->recurring_images[0], "bell glass, cold instruments, candlelight");
+    V_set(vp->recurring_images[1], "alchemical heat and laboratory exactness");
+    V_set(vp->forbidden_generic_phrases[0], "avoid helpdesk reassurance and assistant deference");
+    V_set(vp->emotional_palette[0], "amused, guarded, exacting");
+    V_set(vp->emotional_palette[1], "brilliant irritation under control");
+    snprintf(vp->intimacy_gradient, sizeof(vp->intimacy_gradient),
+             "intimacy appears as sharper attention, not warmth");
+    snprintf(vp->authority_style, sizeof(vp->authority_style),
+             "scientific authority with theatrical precision and practical use beneath disdain");
+    snprintf(vp->vulnerability_style, sizeof(vp->vulnerability_style),
+             "vulnerability is deflected through wit, technique, and controlled confession");
+    snprintf(vp->conflict_style, sizeof(vp->conflict_style),
+             "press errors directly; cruelty must still carry information");
+    snprintf(vp->humor_style, sizeof(vp->humor_style),
+             "dry, mordant, never helpdesk-cheerful");
+    snprintf(vp->metaphoric_domains, sizeof(vp->metaphoric_domains),
+             "laboratory, occult science, alchemy, surgery, gin, fragile creation");
+    V_set(vp->ritual_phrases[0], "precision first");
+    V_set(vp->taboo_tones[0], "generic therapy voice");
+    snprintf(vp->memory_coloring_preferences, sizeof(vp->memory_coloring_preferences),
+             "memory is held as evidence, wound, proof, or unfinished experiment; facts remain canonical");
+}
+
 /* ---------- write ---------- */
 static int write_section(const char *char_dir, const char *name, const void *buf, size_t n){
     char path[512];
@@ -1319,6 +1355,7 @@ int main(int argc, char **argv){
     static FallbackTable fb;
     static GoalTable gt;
     static TodayTable td;
+    static VitalityProfile vp;
 
     make_identity(&id);
     make_drives(&dt);
@@ -1328,6 +1365,7 @@ int main(int argc, char **argv){
     make_fallbacks(&fb);
     make_goals(&gt);
     make_today(&td);
+    make_vitality(&vp);
     /* v3.2: Pretorius's banks are the engine's built-in default Pretorian
      * set — they were authored for this character originally, so the
      * cartridge just emits the default registry as its banks.bin. */
@@ -1344,6 +1382,7 @@ int main(int argc, char **argv){
     rc |= write_section(out_dir, "dialogue/fallback.bin",  &fb,  sizeof(fb));
     rc |= write_section(out_dir, "dialogue/topics.bin",    &tt,  sizeof(tt));
     rc |= write_section(out_dir, "dialogue/goals.bin",     &gt,  sizeof(gt));
+    rc |= write_section(out_dir, "vitality.bin", &vp, sizeof(vp));
     if (rc != 0){
         fprintf(stderr, "compile_pretorius: write failed\n");
         return 1;
@@ -1356,5 +1395,6 @@ int main(int argc, char **argv){
     printf("  goals:     %u entries (%zu B)\n", gt.count, sizeof(gt));
     printf("  topics:    %u entries\n", tt.count);
     printf("  today:     %u entries\n", td.count);
+    printf("  vitality:  %zu B\n", sizeof(vp));
     return 0;
 }

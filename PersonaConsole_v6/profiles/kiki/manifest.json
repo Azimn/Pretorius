@@ -10,6 +10,7 @@
     {"name": "dialogue/templates.bin", "path": "profiles/kiki/dialogue/templates.bin"},
     {"name": "dialogue/fallback.bin", "path": "profiles/kiki/dialogue/fallback.bin"},
     {"name": "dialogue/topics.bin", "path": "profiles/kiki/dialogue/topics.bin"},
-    {"name": "dialogue/goals.bin", "path": "profiles/kiki/dialogue/goals.bin"}
+    {"name": "dialogue/goals.bin", "path": "profiles/kiki/dialogue/goals.bin"},
+    {"name": "vitality.bin", "path": "profiles/kiki/vitality.bin"}
   ]
 }

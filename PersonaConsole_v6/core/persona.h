@@ -85,6 +85,13 @@ extern "C" {
 #define PE_COLD_OPEN_CASES      4
 #define PE_COLD_OPEN_VARIANTS   4
 #define PE_COLD_OPEN_LEN        128
+#define PE_VITALITY_TEXT_LEN    96
+#define PE_VITALITY_LONG_LEN    160
+#define PE_VITALITY_SLOT_COUNT  6
+#define PE_VITALITY_FRAME_SHORT 128
+#define PE_VITALITY_FRAME_MED   160
+#define PE_VITALITY_FRAME_LONG  256
+#define PE_VITALITY_VERSION     1u
 
 /* V5 Phase 2: per-slot actor tagging for episodic memory.
  * Included after PE_EPISODIC_MAX is defined; the header depends on it. */
@@ -335,6 +342,39 @@ typedef struct {
     uint16_t topic_id;
     uint16_t momentum;
 } TopicState;
+
+typedef struct {
+    char address_terms[PE_VITALITY_SLOT_COUNT][PE_VITALITY_TEXT_LEN];
+    char social_stances[PE_VITALITY_SLOT_COUNT][PE_VITALITY_TEXT_LEN];
+    char rhetorical_moves[PE_VITALITY_SLOT_COUNT][PE_VITALITY_TEXT_LEN];
+    char recurring_images[PE_VITALITY_SLOT_COUNT][PE_VITALITY_TEXT_LEN];
+    char forbidden_generic_phrases[PE_VITALITY_SLOT_COUNT][PE_VITALITY_TEXT_LEN];
+    char emotional_palette[PE_VITALITY_SLOT_COUNT][PE_VITALITY_TEXT_LEN];
+    char intimacy_gradient[PE_VITALITY_LONG_LEN];
+    char authority_style[PE_VITALITY_LONG_LEN];
+    char vulnerability_style[PE_VITALITY_LONG_LEN];
+    char conflict_style[PE_VITALITY_LONG_LEN];
+    char humor_style[PE_VITALITY_LONG_LEN];
+    char metaphoric_domains[PE_VITALITY_LONG_LEN];
+    char ritual_phrases[PE_VITALITY_SLOT_COUNT][PE_VITALITY_TEXT_LEN];
+    char taboo_tones[PE_VITALITY_SLOT_COUNT][PE_VITALITY_TEXT_LEN];
+    char memory_coloring_preferences[PE_VITALITY_LONG_LEN];
+    uint32_t version;
+    uint32_t flags;
+} VitalityProfile;
+
+typedef struct {
+    char emotional_posture[PE_VITALITY_FRAME_SHORT];
+    char social_stance[PE_VITALITY_FRAME_SHORT];
+    char active_desire[PE_VITALITY_FRAME_MED];
+    char conversational_tactic[PE_VITALITY_FRAME_MED];
+    char unresolved_thread[PE_VITALITY_FRAME_MED];
+    char style_anchor[PE_VITALITY_FRAME_LONG];
+    char memory_boundary[PE_VITALITY_FRAME_LONG];
+    char avoid_generic[PE_VITALITY_FRAME_MED];
+    uint8_t neutral;
+    uint8_t _pad[3];
+} VitalityFrame;
 
 /* Trace ring entry — recorded every process_input for instrumentation. */
 typedef struct {
@@ -696,6 +736,8 @@ struct Engine {
     FallbackTable  fallbacks;
     GoalTable      goals;
     TodayTable     todays;
+    VitalityProfile vitality_profile;       /* V7.2 optional cartridge-authored soul surface */
+    VitalityFrame   vitality_frame;         /* V7.2 synthesized per-turn consequence packet */
 
     /* mutable */
     NPCState         state;

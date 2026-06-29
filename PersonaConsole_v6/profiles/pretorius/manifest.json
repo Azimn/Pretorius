@@ -10,6 +10,7 @@
     {"name": "dialogue/templates.bin", "path": "profiles/pretorius/dialogue/templates.bin"},
     {"name": "dialogue/fallback.bin", "path": "profiles/pretorius/dialogue/fallback.bin"},
     {"name": "dialogue/topics.bin", "path": "profiles/pretorius/dialogue/topics.bin"},
-    {"name": "dialogue/goals.bin", "path": "profiles/pretorius/dialogue/goals.bin"}
+    {"name": "dialogue/goals.bin", "path": "profiles/pretorius/dialogue/goals.bin"},
+    {"name": "vitality.bin", "path": "profiles/pretorius/vitality.bin"}
   ]
 }

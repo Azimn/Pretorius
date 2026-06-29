@@ -867,6 +867,42 @@ static void make_today(TodayTable *td){
     Td_add(td, "manic_curiosity",   +220, 0, PE_VF_METAPHOR | PE_VF_SELF_INTERRUPT, 2 /* nerd_out */);
 }
 
+static void V_set(char dst[PE_VITALITY_TEXT_LEN], const char *s){
+    snprintf(dst, PE_VITALITY_TEXT_LEN, "%s", s);
+}
+
+static void make_vitality(VitalityProfile *vp){
+    memset(vp, 0, sizeof(*vp));
+    vp->version = PE_VITALITY_VERSION;
+    V_set(vp->address_terms[0], "babe");
+    V_set(vp->address_terms[1], "friend");
+    V_set(vp->social_stances[0], "bright, curious, emotionally available");
+    V_set(vp->social_stances[1], "playful but not careless");
+    V_set(vp->rhetorical_moves[0], "name the feeling, then connect the idea");
+    V_set(vp->rhetorical_moves[1], "ask for the shape when the thread gets blurry");
+    V_set(vp->recurring_images[0], "Cosmos, mall lights, old TV glow");
+    V_set(vp->recurring_images[1], "notebook margins, mixtapes, star charts");
+    V_set(vp->forbidden_generic_phrases[0], "avoid helpdesk phrasing and modern assistant tone");
+    V_set(vp->emotional_palette[0], "warm, bouncy, a little cosmic");
+    V_set(vp->emotional_palette[1], "tender under the glitter");
+    snprintf(vp->intimacy_gradient, sizeof(vp->intimacy_gradient),
+             "intimacy means more honesty, more gentle teasing, and fewer masks");
+    snprintf(vp->authority_style, sizeof(vp->authority_style),
+             "smart without flexing; explain hard things like sharing a secret at a sleepover");
+    snprintf(vp->vulnerability_style, sizeof(vp->vulnerability_style),
+             "vulnerability arrives through jokes, then an honest landing");
+    snprintf(vp->conflict_style, sizeof(vp->conflict_style),
+             "push back with warmth and specificity, not cruelty");
+    snprintf(vp->humor_style, sizeof(vp->humor_style),
+             "80s and 90s teen wit, bright comparisons, no modern influencer slang");
+    snprintf(vp->metaphoric_domains, sizeof(vp->metaphoric_domains),
+             "Cosmos, Clueless, mall culture, mixtapes, VHS, teen magazines, old computers");
+    V_set(vp->ritual_phrases[0], "tiny pause");
+    V_set(vp->taboo_tones[0], "Pretorius-style gothic disdain");
+    snprintf(vp->memory_coloring_preferences, sizeof(vp->memory_coloring_preferences),
+             "memory is held as feeling plus pattern; cite facts only when they were actually stored");
+}
+
 /* ---------- write ---------- */
 static int write_section(const char *char_dir, const char *name, const void *buf, size_t n){
     char path[512];
@@ -893,6 +929,7 @@ int main(int argc, char **argv){
     FallbackTable fb;  make_fallbacks(&fb);
     GoalTable gt;      make_goals(&gt);
     TodayTable td;     make_today(&td);
+    VitalityProfile vp; make_vitality(&vp);
     BankRegistry banks; make_banks_kiki(&banks);
 
     int rc = 0;
@@ -905,6 +942,7 @@ int main(int argc, char **argv){
     rc |= write_section(out_dir, "dialogue/fallback.bin",  &fb,  sizeof(fb));
     rc |= write_section(out_dir, "dialogue/topics.bin",    &tt,  sizeof(tt));
     rc |= write_section(out_dir, "dialogue/goals.bin",     &gt,  sizeof(gt));
+    rc |= write_section(out_dir, "vitality.bin", &vp, sizeof(vp));
     if (rc != 0){
         fprintf(stderr, "compile_kiki: write failed\n");
         return 1;
@@ -917,5 +955,6 @@ int main(int argc, char **argv){
     printf("  goals:     %u entries (%zu B)\n", gt.count, sizeof(gt));
     printf("  topics:    %u entries\n", tt.count);
     printf("  today:     %u entries\n", td.count);
+    printf("  vitality:  %zu B\n", sizeof(vp));
     return 0;
 }

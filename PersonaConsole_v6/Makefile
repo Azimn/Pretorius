@@ -52,7 +52,8 @@ CORE_SRC := \
     core/cartridge.c    \
     core/intent.c       \
     core/identity.c     \
-    core/environment.c
+    core/environment.c  \
+    core/vitality.c
 
 MEMORY_SRC := \
     memory/memory.c          \

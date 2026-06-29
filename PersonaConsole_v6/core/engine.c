@@ -10,6 +10,7 @@
 #include "identity.h"
 #include "environment.h"
 #include "engine_clock.h"        /* canonical Layer 1 clock */
+#include "vitality.h"            /* V7.2 cartridge vitality profile */
 #include "../render/render_backend.h"   /* v4: renderer dispatch */
 #include "../render/prompt_compiler.h"  /* v6 packet experiment */
 #include "../memory/affect_curve.h"     /* v4: nonlinear affect */
@@ -2391,6 +2392,7 @@ int persona_open(Engine *eng, const char *character_dir){
     if (load_static_section(character_dir, is_cart, "dialogue/fallback.bin",  &eng->fallbacks, sizeof(FallbackTable)) != 0) return -6;
     if (load_static_section(character_dir, is_cart, "dialogue/topics.bin",    &eng->topics,    sizeof(TopicTable)) != 0)    return -7;
     if (load_static_section(character_dir, is_cart, "dialogue/goals.bin",     &eng->goals,     sizeof(GoalTable)) != 0)     return -8;
+    pe_vitality_load_optional(eng, character_dir, is_cart);
     pe_merge_baseline_patterns(&eng->patterns);
     pe_merge_baseline_templates(&eng->templates);
     pe_default_mind_affect_knobs(eng);
@@ -2911,6 +2913,7 @@ int persona_process_input(Engine *eng,
     pe_apply_memory_attention(eng, &ev, input_len);
     pe_build_turn_frame(eng);
     pe_update_private_thought_frame(eng);
+    pe_vitality_synthesize(eng);
     eng->last_audit_result = PE_AUDIT_PASS;
     eng->last_audit_violation = PE_AUDIT_V_NONE;
     eng->last_audit_hardness = PE_AUDIT_SOFT;
