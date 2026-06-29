@@ -38,11 +38,11 @@ extern "C" {
  * from the renderer's perspective.  Indices index into the engine's
  * working memory ring or AETHER cold scratch. */
 typedef struct {
-    int   episodic_idx[4];      /* up to 4 episodic memories */
+    int   episodic_idx[6];      /* up to 6 episodic memories */
     int   episodic_count;
-    int   cold_aether_idx[4];   /* up to 4 cold AETHER promotions */
+    int   cold_aether_idx[6];   /* up to 6 cold AETHER promotions */
     int   cold_aether_count;
-    int   core_idx[4];          /* up to 4 core memories (never decay) */
+    int   core_idx[6];          /* up to 6 core memories (never decay) */
     int   core_count;
 } RetrievedMemorySet;
 

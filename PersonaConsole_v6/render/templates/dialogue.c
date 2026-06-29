@@ -139,6 +139,14 @@ static void sanitize_template_output(char *s, size_t cap){
                 continue;
             }
         }
+        if ((c == '.' || c == '!' || c == '?') && w > 0 && out[w - 1] == ' ')
+            --w;
+        if ((c == '.' || c == '!' || c == '?') && w > 0
+            && (out[w - 1] == '.' || out[w - 1] == '!' || out[w - 1] == '?')){
+            if (out[w - 1] != c) out[w - 1] = c;
+            last_punct = 1;
+            continue;
+        }
         if ((c == '.' || c == '!' || c == '?') && last_punct){
             if (out[w - 1] != c) out[w - 1] = c;
             continue;
@@ -466,6 +474,9 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
         if (f[0]){
             size_t L = strlen(buf);
             size_t fl = strlen(f);
+            if (f[0] == ',' || f[0] == '.' || f[0] == '!' || f[0] == '?')
+                trim_terminal_punctuation(buf);
+            L = strlen(buf);
             if (L + fl + 1 < cap){
                 memcpy(buf + L, f, fl);
                 buf[L + fl] = 0;
@@ -869,8 +880,25 @@ static int render_direct_callback_question(Engine *eng, const char *input,
         return 1;
     }
 
-    snprintf(out, n, "I remember the thread of it: %s, and your habit of circling the dangerous part.",
-             topic_name_for_reply(eng, eng->primary_topic));
+    {
+        const char *topic = topic_name_for_reply(eng, eng->primary_topic);
+        char first[160];
+        uint32_t first_id;
+        snprintf(first, sizeof(first),
+                 "I remember the thread of it: %s, and your habit of circling the dangerous part.",
+                 topic);
+        first_id = usage_id(PE_USAGE_MEMORY, persona_hash(first));
+        if (!phrase_recently_used(eng, first_id, PE_MEMORY_BLACKOUT_TURNS)){
+            snprintf(out, n, "%s", first);
+            record_use(&eng->memory, first_id, eng->state.turn_count);
+        } else {
+            snprintf(out, n,
+                     "The earlier thread was %s. You kept testing its dangerous edge.",
+                     topic);
+            record_use(&eng->memory, usage_id(PE_USAGE_MEMORY, persona_hash(out)),
+                       eng->state.turn_count);
+        }
+    }
     return 1;
 }
 

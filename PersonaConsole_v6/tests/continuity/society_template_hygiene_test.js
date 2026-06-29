@@ -99,6 +99,12 @@ ok(!/\[[a-z_]+\]/i.test(joined),
    "no raw [tag] markers in long transcript");
 ok(!/[!?]{2,}|\.{2,}/.test(joined),
    "no doubled terminal punctuation or ellipses in long transcript");
+ok(!/[.!?],[.!?]?/.test(joined),
+   "no punctuation collision before flourish commas");
+ok(!/[\u2013\u2014]/.test(joined),
+   "no en dash or em dash leaks into rendered transcript");
+ok(!/\s[.!?](\s|$)/.test(joined),
+   "no blank optional slot leaves a space before punctuation");
 ok(!/(^|\s)[.!?][A-Za-z]/.test(joined),
    "no leading terminal punctuation stuck to a word");
 ok(!/undefined|null/.test(joined),

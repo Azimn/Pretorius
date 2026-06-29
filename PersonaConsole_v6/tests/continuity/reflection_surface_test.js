@@ -112,7 +112,7 @@ const PROBES = [
 
   const rows = all.slice(FOCUSED.length + 1).filter(r => r && typeof r.reply === 'string');
   const surfaced = rows.find(r => typeof r.reply === 'string'
-    && /(always .* returns|sense its weight|pattern in how we talk|accumulating|circled|unfinished between us|comes back to me now|years are not kind|keep returning to|did i ever finish that thought|let us return to)/i.test(r.reply)
+    && /(always .* returns|sense its weight|pattern in how we talk|accumulating|circled|unfinished between us|comes back to me now|years are not kind|keeps? returning to|did i ever finish that thought|let us return to)/i.test(r.reply)
     && !/\[reflection/i.test(r.reply));
   ok(!!surfaced,
      `reflection can surface via dialogue memory slot: ${surfaced ? surfaced.reply : rows.map(r => `${r.state && r.state.intent}:${r.reply}`).join(' | ')}`);

@@ -188,7 +188,7 @@ static const char *SA_NAMES[PE_SA_COUNT] = {
     "none","assertion","question","request","command","apology","praise",
     "insult","threat","disclosure","refusal","correction","greeting",
     "farewell","evasion","confession","concession","promise","deflection",
-    "pause","withdrawal","meta_conversation"
+    "pause","withdrawal","meta_conversation","redirect"
 };
 
 const char *pe_speech_act_name(uint8_t sa){

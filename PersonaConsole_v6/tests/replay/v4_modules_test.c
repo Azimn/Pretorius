@@ -229,8 +229,8 @@ static void test_prompt_compiler(void){
     n = prompt_compile(&ctx, &cfg, buf, sizeof(buf));
     CHECK(n > 0 && strstr(buf, "renderer_profile=tiny") != NULL,
           "prompt_compile: tiny profile labeled");
-    CHECK(strstr(buf, "Do not begin with weather") != NULL,
-          "prompt_compile: tiny profile blocks filler");
+    CHECK(strstr(buf, "concrete language") != NULL,
+          "prompt_compile: tiny profile asks for concrete language");
     CHECK(strstr(buf, "[EXAMPLES]") != NULL &&
           strstr(buf, "<START>") != NULL &&
           strstr(buf, "Wait, which part") != NULL &&

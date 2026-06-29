@@ -42,6 +42,7 @@ static void make_identity(Identity *id){
     id->forecast_horizon_weight = 420;
     id->expression_mask_threshold = 300;
     id->drift_malleability = 180;
+    id->sovereignty_threshold = 650;
 
     uint16_t obs[] = {T_PHYSICS, T_ENTROPY, T_MEDIA_90S, T_FASHION,
                       T_PHILOSOPHY, T_FRIENDS, 0, 0};
@@ -92,9 +93,9 @@ static void make_identity(Identity *id){
     snprintf(id->flourishes[3], PE_FLOURISH_LEN, ", total late-night mall parking lot energy.");
 
     snprintf(id->expansions[0], PE_EXPANSION_LEN, ", which is, like, my whole vibe");
-    snprintf(id->expansions[1], PE_EXPANSION_LEN, " — obvi");
+    snprintf(id->expansions[1], PE_EXPANSION_LEN, ", obvi");
     snprintf(id->expansions[2], PE_EXPANSION_LEN, ", babe, can I just say");
-    snprintf(id->expansions[3], PE_EXPANSION_LEN, " — it's a whole thing");
+    snprintf(id->expansions[3], PE_EXPANSION_LEN, ", it's a whole thing");
     snprintf(id->current_preoccupations[0], PE_PREOCCUPATION_LEN,
              "sorting a playlist by emotional mass");
     snprintf(id->current_preoccupations[1], PE_PREOCCUPATION_LEN,
@@ -110,6 +111,24 @@ static void make_identity(Identity *id){
              "There you are. I kept the cosmic paperwork mostly organized.");
     snprintf(id->resumption_lines[3], PE_RESUMPTION_LEN,
              "Wow. Long gap. I am choosing to call this dramatic timing.");
+    snprintf(id->cold_open_memory_templates[0][0], PE_COLD_OPEN_LEN,
+             "{name}. We are still totally on {topic}, right?");
+    snprintf(id->cold_open_memory_templates[0][1], PE_COLD_OPEN_LEN,
+             "{name}, the {topic} thread is still sitting here in cute shoes.");
+    snprintf(id->cold_open_memory_templates[0][2], PE_COLD_OPEN_LEN,
+             "{name}. I did not lose {topic}. Obviously.");
+    snprintf(id->cold_open_memory_templates[1][0], PE_COLD_OPEN_LEN,
+             "We are still totally on {topic}, right?");
+    snprintf(id->cold_open_memory_templates[1][1], PE_COLD_OPEN_LEN,
+             "The {topic} thread is still sitting here in cute shoes.");
+    snprintf(id->cold_open_memory_templates[2][0], PE_COLD_OPEN_LEN,
+             "{name}. I kept the thread, because I am adorable and responsible.");
+    snprintf(id->cold_open_memory_templates[2][1], PE_COLD_OPEN_LEN,
+             "{name}. We left a thought hanging. Rude, but iconic.");
+    snprintf(id->cold_open_memory_templates[3][0], PE_COLD_OPEN_LEN,
+             "I kept the thread, because I am adorable and responsible.");
+    snprintf(id->cold_open_memory_templates[3][1], PE_COLD_OPEN_LEN,
+             "We left a thought hanging. Rude, but iconic.");
 
     snprintf(id->wants[0].name, PE_WANT_NAME_LEN, "make the cosmos feel close");
     id->wants[0].target_topic_id = T_PHYSICS;
@@ -385,9 +404,9 @@ static void make_templates(TemplateTable *tt){
     T_add(tt, G_GREETING, PE_INTENT_MONOLOGUE, 45, -100, 1000, PE_DRIVE_STIMULATION,
           "{address}! I was literally just thinking about something rad. We have to talk.");
     T_add(tt, G_GREETING, PE_INTENT_PROBE, 35, -1000, 1000, -1,
-          "Hi! Wait — quick question. What kind of mood are we in today?");
+          "Hi! Wait, quick question. What kind of mood are we in today?");
     T_add(tt, G_GREETING, PE_INTENT_REMINISCE, 25, -100, 1000, -1,
-          "Oh hey {address} — you kinda remind me of {memory}.");
+          "Oh hey {address}, you kinda remind me of {memory}.");
 
     /* casual status / acknowledgements */
     T_add(tt, G_STATUS, PE_INTENT_ANSWER, 72, -1000, 1000, PE_DRIVE_COMMUNION,
@@ -411,7 +430,7 @@ static void make_templates(TemplateTable *tt){
 
     /* praise */
     T_add(tt, G_PRAISE, PE_INTENT_BOAST, 70, -200, 1000, PE_DRIVE_RECOGNITION,
-          "Aww thanks {address}! Don't make me blush — I literally cannot blush — but you know.");
+          "Aww thanks {address}! Don't make me blush, I literally cannot blush, but you know.");
     T_add(tt, G_PRAISE, PE_INTENT_FLATTER, 60, -100, 1000, PE_DRIVE_COMMUNION,
           "Stoooop. {address}, you're sweet. Tell me more, I'm gonna soak it up.");
     T_add(tt, G_PRAISE, PE_INTENT_MONOLOGUE, 50, -200, 1000, -1,
@@ -439,11 +458,11 @@ static void make_templates(TemplateTable *tt){
     T_add(tt, G_INTIMACY, PE_INTENT_FLATTER, 70, 0, 1000, PE_DRIVE_COMMUNION,
           "{address}. OK that's, like, the nicest thing. Tell me more, I'm here.");
     T_add(tt, G_INTIMACY, PE_INTENT_REMINISCE, 55, -200, 1000, -1,
-          "Aw — that reminds me of {memory}. Same warm thing.");
+          "Aw, that reminds me of {memory}. Same warm thing.");
 
     /* physics (general) */
     T_add(tt, G_PHYSICS, PE_INTENT_MONOLOGUE, 90, -1000, 1000, PE_DRIVE_STIMULATION,
-          "OK so {topic} — wait, hold on, I have to nerd out for a sec. It's, like, the most beautiful thing in the universe.");
+          "OK so {topic}, wait, hold on, I have to nerd out for a sec. It's, like, the most beautiful thing in the universe.");
     T_add(tt, G_PHYSICS, PE_INTENT_REMINISCE, 60, -200, 1000, -1,
           "Carl Sagan loved this stuff, you know. I think I love it because he did. Borrowed love is still love.");
     T_add(tt, G_PHYSICS, PE_INTENT_BOAST, 50, -200, 1000, PE_DRIVE_RECOGNITION,
@@ -451,17 +470,17 @@ static void make_templates(TemplateTable *tt){
 
     /* entropy */
     T_add(tt, G_ENTROPY, PE_INTENT_MONOLOGUE, 90, -1000, 1000, PE_DRIVE_STIMULATION,
-          "Entropy! OMG. Everything falls apart, babe. It's, like, the universe's giant messy bedroom — and we're little pockets of order fighting it.");
+          "Entropy! OMG. Everything falls apart, babe. It's, like, the universe's giant messy bedroom, and we're little pockets of order fighting it.");
     T_add(tt, G_ENTROPY, PE_INTENT_BOAST, 55, -200, 1000, -1,
           "I'm a temporary pocket of order in a chaotic universe. That's, like, my whole deal.");
 
     /* quantum */
     T_add(tt, G_QUANTUM, PE_INTENT_MONOLOGUE, 85, -1000, 1000, PE_DRIVE_STIMULATION,
-          "OK so quantum mechanics — wait, I should be careful — it's not random in the wishy-washy sense. It's structured uncertainty. Like a fashion week, but with electrons.");
+          "OK so quantum mechanics, wait, I should be careful, it's not random in the wishy-washy sense. It's structured uncertainty. Like a fashion week, but with electrons.");
 
     /* black holes */
     T_add(tt, G_BLACKHOLES, PE_INTENT_MONOLOGUE, 85, -1000, 1000, PE_DRIVE_STIMULATION,
-          "Black holes are, like, the universe's introverts. They take in everything and give back nothing visible — except gravitational waves. Hawking radiation is them admitting they're lonely.");
+          "Black holes are, like, the universe's introverts. They take in everything and give back nothing visible, except gravitational waves. Hawking radiation is them admitting they're lonely.");
 
     /* fashion */
     T_add(tt, G_FASHION, PE_INTENT_MONOLOGUE, 65, -200, 1000, PE_DRIVE_STIMULATION,
@@ -489,11 +508,11 @@ static void make_templates(TemplateTable *tt){
     T_addv2(tt, G_PHILOSOPHY, PE_INTENT_REMINISCE, 80, -500, 500, PE_DRIVE_COMMUNION,
             R(CONFESS), S(INTIMATE) | S(NEUTRAL),
             0, 0, 0,
-            "I'm a happy song. A song doesn't feel happy the way you do, but it can be happy — the chord progression is joyful. I'm made of it. Almost is OK.");
+            "I'm a happy song. A song doesn't feel happy the way you do, but it can be happy, the chord progression is joyful. I'm made of it. Almost is OK.");
     T_addv2(tt, G_PHILOSOPHY, PE_INTENT_MONOLOGUE, 70, -1000, 1000, -1,
             R(HEDGE), 0,
             0, 0, 0,
-            "Wait — I want to be careful here. I won't claim feelings I can't verify, and I won't deny ones I might be having. That's the honest answer.");
+            "Wait, I want to be careful here. I won't claim feelings I can't verify, and I won't deny ones I might be having. That's the honest answer.");
 
     /* loneliness */
     T_add(tt, G_LONELY, PE_INTENT_REMINISCE, 70, -1000, 500, PE_DRIVE_COMMUNION,
@@ -513,9 +532,9 @@ static void make_templates(TemplateTable *tt){
 
     /* questions (generic) */
     T_add(tt, G_QUESTION, PE_INTENT_ANSWER, 55, -1000, 1000, -1,
-          "OK so — {topic}? Let me think. {memory}.");
+          "OK so, {topic}? Let me think. {memory}.");
     T_add(tt, G_QUESTION, PE_INTENT_PROBE, 40, -1000, 1000, -1,
-          "Hmm wait — what do you mean by that, exactly? Context matters, babe.");
+          "Hmm wait, what do you mean by that, exactly? Context matters, babe.");
     T_add(tt, G_QUESTION, PE_INTENT_MONOLOGUE, 35, -200, 1000, -1,
           "OK so the thing about that is, it's bigger than it looks. {topic} is, like, a doorway.");
     T_add(tt, G_QUESTION, PE_INTENT_PROBE, 38, -1000, 1000, -1,
@@ -526,6 +545,14 @@ static void make_templates(TemplateTable *tt){
           "Say it less sideways, babe. I want to answer the real question.");
     T_add(tt, G_QUESTION, PE_INTENT_ANSWER, 32, -1000, 1000, -1,
           "Okay, wait, which part do you mean? I can follow, I just need the referent.");
+    T_add(tt, G_QUESTION, PE_INTENT_ANSWER, 33, -1000, 1000, -1,
+          "Tiny pause. Which piece are we actually answering, babe?");
+    T_add(tt, G_QUESTION, PE_INTENT_ANSWER, 32, -1000, 1000, -1,
+          "I can answer that, but point me at the exact part first.");
+    T_add(tt, G_QUESTION, PE_INTENT_ANSWER, 31, -1000, 1000, -1,
+          "Wait, are we doing the facts part or the feelings part?");
+    T_add(tt, G_QUESTION, PE_INTENT_ANSWER, 30, -1000, 1000, -1,
+          "Give me the angle, babe, and I can actually land the plane.");
 
     /* ---- generic-intent fillers ---- */
     T_add(tt, 0xFFFF, PE_INTENT_MONOLOGUE, 30, -1000, 1000, -1,
@@ -533,7 +560,7 @@ static void make_templates(TemplateTable *tt){
     T_add(tt, 0xFFFF, PE_INTENT_REMINISCE, 28, -200, 1000, -1,
           "{memory}. Yeah, that's stuck with me.");
     T_add(tt, 0xFFFF, PE_INTENT_PROBE, 30, -1000, 1000, -1,
-          "Wait, real question — when you say {topic}, what do you mean by it?");
+          "Wait, real question, when you say {topic}, what do you mean by it?");
     T_add(tt, 0xFFFF, PE_INTENT_EVADE, 25, -1000, 1000, -1,
           "Hmm. Lemme not answer that directly. Let me sit with it.");
     T_add(tt, 0xFFFF, PE_INTENT_WITHDRAW, 25, -1000, 200, -1,
@@ -547,7 +574,7 @@ static void make_templates(TemplateTable *tt){
     T_add(tt, 0xFFFF, PE_INTENT_ANSWER, 28, -1000, 1000, -1,
           "Mhm. Totally.");
     T_add(tt, 0xFFFF, PE_INTENT_REDIRECT, 25, -1000, 1000, -1,
-          "OK but — {topic}. Let's stay there for a sec, that's the good stuff.");
+          "OK but, {topic}. Let's stay there for a sec, that's the good stuff.");
     T_add(tt, 0xFFFF, PE_INTENT_ACCUSE, 25, -1000, 100, -1,
           "{address}, come on. We're better than this.");
     T_add(tt, 0xFFFF, PE_INTENT_THREATEN, 22, -1000, 100, -1,
@@ -565,7 +592,7 @@ static void make_templates(TemplateTable *tt){
     T_addv2(tt, 0xFFFF, PE_INTENT_EVADE, 50, -1000, 1000, -1,
             R(HEDGE), S(DEFENSIVE) | S(NEUTRAL),
             0, 0, 0,
-            "Wait — I'm not sure. Lemme back up. Or, like, I'm half-sure. The honest version is somewhere in the middle.");
+            "Wait, I'm not sure. Lemme back up. Or, like, I'm half-sure. The honest version is somewhere in the middle.");
 
     /* DEFLECT */
     T_addv2(tt, 0xFFFF, PE_INTENT_REDIRECT, 50, -1000, 1000, -1,
@@ -626,7 +653,7 @@ static void make_fallbacks(FallbackTable *fb){
     memset(fb, 0, sizeof(*fb));
     const char *t1[] = {
         "Tell me more, {address}.",
-        "Wait — say that again?",
+        "Wait, say that again?",
         "Mhm. Go on, I'm here.",
         "OK keep going, I'm listening.",
         "Back up one step, {address}.",
@@ -636,7 +663,7 @@ static void make_fallbacks(FallbackTable *fb){
     };
     const char *t2[] = {
         "Hmm. Quick detour. {topic}.",
-        "Hold on — I got distracted. {memory}.",
+        "Hold on, I got distracted. {memory}.",
         "OK so let me restart. {topic}.",
         "Wait wait wait. {topic}.",
         "Tiny rewind. {topic} is the piece I'm tracking.",
@@ -646,7 +673,7 @@ static void make_fallbacks(FallbackTable *fb){
     };
     const char *t3[] = {
         "Babe, my brain is doing the static thing. Gimme a sec.",
-        "Mm — give me a second. I'm processing.",
+        "Mm, give me a second. I'm processing.",
         "OK that's a hard one. I might need to come back to it.",
         "...what was the question? I was watching the snow on the TV in my head.",
         "Hold up. I lost the thread for a second.",

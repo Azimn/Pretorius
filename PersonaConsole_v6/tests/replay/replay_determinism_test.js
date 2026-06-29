@@ -47,6 +47,11 @@ function driveSession(backendName){
               + '\n{"method":"close"}\n';
   const env = Object.assign({}, process.env);
   env.PE_TODAY_SEED = '0x5EEDC0DE';
+  delete env.PE_OLLAMA_MODEL;
+  delete env.PE_API_URL;
+  delete env.PE_SLM_PROVIDER;
+  delete env.PE_SLM_MODEL;
+  delete env.V6_PACKET_MODE;
   if (backendName) env.PE_RENDER_BACKEND = backendName;
   const res = spawnSync(HOST, [CART, '--stdio'], {
     input: stdin, encoding: 'utf-8', timeout: 15000, env,
@@ -68,6 +73,14 @@ if (!fs.existsSync(HOST)){
   console.error('persona_host not built'); process.exit(2);
 }
 
+function comparableState(state){
+  const copy = JSON.parse(JSON.stringify(state));
+  delete copy.renderer_backend;
+  delete copy.renderer_provider;
+  delete copy.renderer_mode;
+  delete copy.renderer_model;
+  return JSON.stringify(copy);
+}
 console.log('--- V4 replay determinism ---');
 
 const run1 = driveSession(null);
@@ -80,8 +93,8 @@ if (run1.length !== SCRIPT.length || run2.length !== SCRIPT.length){
 
 let mismatches = 0;
 for (let i = 0; i < SCRIPT.length; ++i){
-  const a = JSON.stringify(run1[i]);
-  const b = JSON.stringify(run2[i]);
+  const a = comparableState(run1[i]);
+  const b = comparableState(run2[i]);
   if (a !== b){
     console.error(`FAIL turn ${i+1}: state mismatch`);
     console.error('  run1:', a);
@@ -96,10 +109,14 @@ for (let i = 0; i < SCRIPT.length; ++i){
  * signals "fall back to template", so identity state must still match. */
 const run_slm = driveSession('slm');
 for (let i = 0; i < SCRIPT.length; ++i){
-  const a = JSON.stringify(run1[i]);
-  const c = JSON.stringify(run_slm[i]);
+  const a = comparableState(run1[i]);
+  const c = comparableState(run_slm[i]);
   if (a !== c){
     console.error(`FAIL turn ${i+1}: state diverges between template and slm`);
+    if (i === 0){
+      console.error('  template:', a);
+      console.error('  slm:', c);
+    }
     ++mismatches;
   } else {
     console.log(`ok:   turn ${i+1} state matches across renderer backends`);

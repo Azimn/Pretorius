@@ -170,6 +170,14 @@ enum {
     PE_INTENT_COUNT
 };
 
+/* ---------- sovereign override reasons ---------- */
+enum {
+    PE_SOV_NONE = 0,
+    PE_SOV_OPEN_LOOP = 1,
+    PE_SOV_SELF_IMAGE = 2,
+    PE_SOV_WANT = 3
+};
+
 /* ---------- rhetorical modes (UtterancePlan.rhetorical_mode) ---------- */
 enum {
     PE_RHET_ASSERT = 0,
@@ -306,7 +314,7 @@ typedef struct {
     uint16_t forecast_horizon_weight;    /* 0..1000: past topic affect bias */
     uint16_t expression_mask_threshold;  /* trust below this masks expression */
     uint16_t drift_malleability;         /* 0..1000: earned long-arc baseline drift bound */
-    uint16_t _pad_mind2;
+    uint16_t sovereignty_threshold;      /* 0..1000: pressure needed to redirect from own agenda */
 } Identity;
 
 typedef struct {
@@ -418,13 +426,13 @@ typedef struct {
 
     /* ---- v5: proactive presence runtime ---- */
     uint8_t  neutral_streak;
-    uint8_t  _pad_v5a;
+    uint8_t  sovereign_override;
     uint16_t turns_since_unprompted_recall;
     uint16_t unresolved_threads[8];
     uint8_t  unresolved_count;
     uint8_t  unresolved_head;
     uint8_t  milestones_seen;
-    uint8_t  _pad_v5b;
+    uint8_t  sovereign_reason;
     uint16_t want_turns_since_engaged[PE_WANT_COUNT];
     char     resumption_pending[PE_RESUMPTION_LEN];
     uint8_t  turns_since_question;

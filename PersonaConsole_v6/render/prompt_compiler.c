@@ -36,8 +36,13 @@ static int slm_chat_format_from_string(const char *s){
 
 int v6_packet_mode_is_situation(void){
     const char *m = getenv("V6_PACKET_MODE");
-    return (m && (!strcmp(m, "situation") || !strcmp(m, "rich") ||
-                  !strcmp(m, "experiment")));
+    if (m && m[0]){
+        if (!strcmp(m, "off") || !strcmp(m, "minimal")) return 0;
+        if (!strcmp(m, "situation") || !strcmp(m, "rich") ||
+            !strcmp(m, "experiment")) return 1;
+    }
+    return (getenv("PE_OLLAMA_MODEL") != NULL ||
+            getenv("PE_API_URL")      != NULL);
 }
 
 void prompt_compiler_default_config(PromptCompilerConfig *out){
@@ -331,6 +336,49 @@ static const char *stance_token(int stance){
     return "neutral";
 }
 
+static const char *memory_weight_tag(const MemoryNode *m,
+                                     const pe_relation_dims_t *rel,
+                                     int16_t current_mood_valence,
+                                     int16_t dissonance_pressure){
+    int anger, joy, sadness;
+    if (!m || !rel) return NULL;
+    anger = (m->emotion.valence < -20 && m->emotion.arousal > 30)
+          ? (int)m->emotion.arousal : 0;
+    joy = (m->emotion.valence > 30) ? (int)m->emotion.valence : 0;
+    sadness = (m->emotion.valence < -30 && m->emotion.arousal <= 60)
+            ? -(int)m->emotion.valence : 0;
+    if (m->private_threshold > 1 && rel->trust < 400) return "private";
+    if (rel->resentment > 600 && anger > 30) return "raw";
+    if (rel->intimacy > 700 && joy > 30) return "tender";
+    if (dissonance_pressure > 300 && m->emotion.dominance > 50) return "defended";
+    if (current_mood_valence < -200 && sadness > 30) return "wound";
+    if (current_mood_valence > 200 && joy > 30) return "warm";
+    if (m->salience > 200 && rel->admiration > 600) return "proud";
+    return NULL;
+}
+
+static uint16_t prompt_dissonance_pressure(const Engine *eng){
+    uint32_t p;
+    if (!eng) return 0;
+    p = (uint32_t)eng->dissonance.ideal_gap +
+        (uint32_t)eng->dissonance.ought_gap +
+        (uint32_t)eng->dissonance.feared_gap;
+    return (uint16_t)(p > 1000u ? 1000u : p);
+}
+
+static void append_memory_surface(char *out_buf, int cap, int *pos,
+                                  const char *label, const MemoryNode *m,
+                                  const Engine *eng, int summary_cap){
+    const char *tag = memory_weight_tag(m, eng ? &eng->relation_dims : NULL,
+                                        eng ? eng->state.mood : 0,
+                                        (int16_t)prompt_dissonance_pressure(eng));
+    if (tag && tag[0])
+        append(out_buf, cap, pos, "%s[weight=%s]=%.*s\n", label, tag,
+               summary_cap, m ? m->summary : "");
+    else
+        append(out_buf, cap, pos, "%s=%.*s\n", label,
+               summary_cap, m ? m->summary : "");
+}
 static const char *speech_act_token(int act){
     switch (act){
     case PE_SA_APOLOGY:    return "apology";
@@ -347,21 +395,28 @@ static const char *speech_act_token(int act){
     case PE_SA_PAUSE:      return "pause";
     case PE_SA_WITHDRAWAL: return "withdrawal";
     case PE_SA_DISCLOSURE: return "disclosure";
+    case PE_SA_REDIRECT:   return "redirect";
     default:               return "assertion";
     }
 }
 
+static int prompt_selected_intent(const Engine *eng, const RenderContext *ctx){
+    if (ctx && ctx->frame) return ctx->frame->selected_intent;
+    return eng ? eng->state.current_intent : PE_INTENT_ANSWER;
+}
+
 static const char *response_band(const Engine *eng, const CanonicalTurnFrame *f){
+    int selected_intent = f ? f->selected_intent : (eng ? eng->state.current_intent : PE_INTENT_ANSWER);
     if (f && f->speech_act == PE_SA_PAUSE) return "pause or near-silence";
     if (f && (f->speech_act == PE_SA_REFUSAL || f->speech_act == PE_SA_WITHDRAWAL))
         return "brief and final";
-    if (eng && eng->state.current_intent == PE_INTENT_MONOLOGUE)
+    if (selected_intent == PE_INTENT_MONOLOGUE)
         return "expansive, but coherent";
-    if (eng && eng->state.current_intent == PE_INTENT_REMINISCE)
+    if (selected_intent == PE_INTENT_REMINISCE)
         return "reflective";
-    if (eng && eng->state.current_intent == PE_INTENT_PROBE)
+    if (selected_intent == PE_INTENT_PROBE)
         return "question-led";
-    if (eng && eng->state.current_intent == PE_INTENT_ATTEND)
+    if (selected_intent == PE_INTENT_ATTEND)
         return "short acknowledgement";
     if (eng && eng->state.exhaustion > 700)
         return "tired and compressed";
@@ -369,7 +424,6 @@ static const char *response_band(const Engine *eng, const CanonicalTurnFrame *f)
         return "allowed to elaborate";
     return "natural conversational";
 }
-
 static const char *profile_token(int profile){
     switch (profile){
     case PE_SLM_PROFILE_TINY:       return "tiny";
@@ -529,7 +583,7 @@ static int prompt_compile_gemma_raw(const RenderContext *ctx,
         append(out_buf, cap, &pos, "addressing=%s\n", eng->relation.known_as);
     append(out_buf, cap, &pos, "renderer_profile=%s chat_format=gemma\n", profile_token(cfg->render_profile));
     append(out_buf, cap, &pos, "Speak in complete, short, grounded dialogue turns. No assistant phrasing.\n");
-    append(out_buf, cap, &pos, "No atmosphere-setting filler. Do not begin with weather, darkness, silence, ash, or bones.\n");
+    append(out_buf, cap, &pos, "Use concrete language without leaning on the same opener every turn.\n");
     append(out_buf, cap, &pos, "Use the current user line directly before expanding.\n");
     append(out_buf, cap, &pos, "Speak to the other person from inside the scene. Do not say anyone \"sounds like\" or describe the role from outside.\n");
     append(out_buf, cap, &pos, "Do not rename the addressee or call them by a memory name unless [USER] says that is their name.\n");
@@ -541,7 +595,7 @@ static int prompt_compile_gemma_raw(const RenderContext *ctx,
     if (eng){
         append(out_buf, cap, &pos, "affect=mood:%d obsession:%d exhaustion:%d\n",
                eng->state.mood, eng->state.obsession_pressure, eng->state.exhaustion);
-        append(out_buf, cap, &pos, "intent=%s\n", intent_token(eng->state.current_intent));
+        append(out_buf, cap, &pos, "intent=%s\n", intent_token(prompt_selected_intent(eng, ctx)));
         if (ctx->frame){
             const char *tn = topic_name_lookup(eng, ctx->frame->primary_topic);
             if (tn && tn[0]) append(out_buf, cap, &pos, "topic=%s\n", tn);
@@ -672,7 +726,8 @@ static int prompt_compile_situation(const RenderContext *ctx,
     append(out_buf, cap, &pos, "You are composing the next spoken turn for %s.\n", who);
     append(out_buf, cap, &pos, "The C runtime is the identity, memory, state, and audit authority.\n");
     append(out_buf, cap, &pos, "Do not write memory. Do not explain the system. Do not mention packets, state, Layer 1, renderer, audit, or prompts.\n");
-    append(out_buf, cap, &pos, "Do not invent new facts, relationships, dates, places, family, or memories.\n");
+    append(out_buf, cap, &pos, "Do not claim new facts about your history, relationships, or past events beyond what [MEMORY] and [WORLD] contain. Sensory detail, atmosphere, present-moment thought, and expressive texture are yours to supply freely; they are performance, not memory.\n");
+    append(out_buf, cap, &pos, "Do not invent named people, named places, or specific past events not in [MEMORY]. Unnamed sensory experience and present impression are not restricted.\n");
 
     append(out_buf, cap, &pos, "\n[CHARACTER]\n");
     append(out_buf, cap, &pos, "name=%s\n", who);
@@ -715,7 +770,7 @@ static int prompt_compile_situation(const RenderContext *ctx,
     if (ctx->frame){
         append(out_buf, cap, &pos,
                "canonical_frame=intent:%s speech_act:%s stance:%u mode:%s open_loop_pressure:%u\n",
-               eng ? intent_token(eng->state.current_intent) : "answer",
+               intent_token(prompt_selected_intent(eng, ctx)),
                speech_act_token(ctx->frame->speech_act),
                (unsigned)ctx->frame->stance,
                rhet_token(ctx->frame->rhetorical_mode),
@@ -724,17 +779,29 @@ static int prompt_compile_situation(const RenderContext *ctx,
             const char *tn = topic_name_lookup(eng, ctx->frame->primary_topic);
             if (tn && tn[0]) append(out_buf, cap, &pos, "primary_topic=%s\n", tn);
         }
+        if (eng && eng->state.sovereign_override){
+            const char *reason = eng->state.sovereign_reason == PE_SOV_OPEN_LOOP ? "open_loop" :
+                                 eng->state.sovereign_reason == PE_SOV_SELF_IMAGE ? "self_image" :
+                                 eng->state.sovereign_reason == PE_SOV_WANT ? "want" : "mixed";
+            append(out_buf, cap, &pos, "\n[PRESSURE]\n");
+            append(out_buf, cap, &pos, "sovereign_override=1 reason=%s surface_pressure=1\n", reason);
+            append(out_buf, cap, &pos, "You are choosing to redirect this turn. Acknowledge what the user said but pivot to the pressure topic. Do not pretend the user topic was addressed.\n");
+        }
     }
 
     append(out_buf, cap, &pos, "\n[MEMORY_AS_MOTIVE]\n");
     if (ctx->memories && eng && ctx->memories->episodic_count > 0){
-        for (int i = 0; i < ctx->memories->episodic_count && i < 3; ++i){
+        int motive_cap = v6_packet_mode_is_situation() ? 6 : 4;
+        for (int i = 0; i < ctx->memories->episodic_count && i < motive_cap; ++i){
             int idx = ctx->memories->episodic_idx[i];
             if (idx < 0 || idx >= PE_EPISODIC_MAX) continue;
             const MemoryNode *m = &eng->memory.episodic[idx];
             const char *tn = topic_name_lookup(eng, m->topic_id);
-            append(out_buf, cap, &pos, "memory_%d=motive topic:%s summary:%.90s\n",
-                   i, (tn && tn[0]) ? tn : "none", m->summary);
+            const char *tag = memory_weight_tag(m, &eng->relation_dims, eng->state.mood,
+                                                (int16_t)prompt_dissonance_pressure(eng));
+            append(out_buf, cap, &pos, "memory_%d%s%s%s=motive topic:%s summary:%.90s\n",
+                   i, tag ? "[weight=" : "", tag ? tag : "", tag ? "]" : "",
+                   (tn && tn[0]) ? tn : "none", m->summary);
         }
     } else {
         append(out_buf, cap, &pos, "none_selected=1\n");
@@ -919,21 +986,21 @@ int prompt_compile_with_input(const RenderContext *ctx,
     /* ----- [MEMORY] ----- */
     if (cfg->include_memory_hooks && ctx->memories && eng){
         int header = 0;
-        for (int i = 0; i < ctx->memories->episodic_count && i < 4; ++i){
+        for (int i = 0; i < ctx->memories->episodic_count && i < (v6_packet_mode_is_situation() ? 6 : 4); ++i){
             int idx = ctx->memories->episodic_idx[i];
             if (idx < 0 || idx >= PE_EPISODIC_MAX) continue;
             const MemoryNode *m = &eng->memory.episodic[idx];
             if (!m->summary[0]) continue;
             if (!header){ append(out_buf, cap, &pos, "\n[MEMORY]\n"); header = 1; }
-            append(out_buf, cap, &pos, "recent=%.96s\n", m->summary);
+            append_memory_surface(out_buf, cap, &pos, "recent", m, eng, 96);
         }
-        for (int i = 0; i < ctx->memories->core_count && i < 4; ++i){
+        for (int i = 0; i < ctx->memories->core_count && i < (v6_packet_mode_is_situation() ? 6 : 4); ++i){
             int idx = ctx->memories->core_idx[i];
             if (idx < 0 || idx >= PE_CORE_SEED_MAX) continue;
             const MemoryNode *m = &eng->identity.core_memories_seed[idx];
             if (!m->summary[0]) continue;
             if (!header){ append(out_buf, cap, &pos, "\n[MEMORY]\n"); header = 1; }
-            append(out_buf, cap, &pos, "core=%.86s\n", m->summary);
+            append_memory_surface(out_buf, cap, &pos, "core", m, eng, 86);
         }
     }
 
@@ -943,7 +1010,7 @@ int prompt_compile_with_input(const RenderContext *ctx,
     if (cfg->include_intent && ctx->plan && eng){
         const UtterancePlan *p = ctx->plan;
         append(out_buf, cap, &pos, "\n[INTENT]\n");
-        append(out_buf, cap, &pos, "intent=%s\n", intent_token(eng->state.current_intent));
+        append(out_buf, cap, &pos, "intent=%s\n", intent_token(prompt_selected_intent(eng, ctx)));
         if (ctx->frame)
             append(out_buf, cap, &pos, "speech_act=%s\n", speech_act_token(ctx->frame->speech_act));
         if (ctx->frame){
@@ -1000,11 +1067,12 @@ int prompt_compile_with_input(const RenderContext *ctx,
         append(out_buf, cap, &pos, "Avoid [FATIGUE] terms this turn unless needed to answer a direct question.\n");
     append(out_buf, cap, &pos, "Vary sentence shape; do not reuse a striking metaphor, opener, or signature reference every turn.\n");
     append(out_buf, cap, &pos, "You may discuss general world knowledge and user-provided outside topics.\n");
-    append(out_buf, cap, &pos, "Do NOT invent personal history, relationship continuity, family details, or memories not grounded in [MEMORY], [LEARNED_KNOWLEDGE], or [USER].\n");
+    append(out_buf, cap, &pos, "Do not claim new facts about your history, relationships, or past events beyond what [MEMORY] and [WORLD] contain. Sensory detail, atmosphere, present-moment thought, and expressive texture are yours to supply freely; they are performance, not memory.\n");
+    append(out_buf, cap, &pos, "Do not invent named people, named places, or specific past events not in [MEMORY]. Unnamed sensory experience and present impression are not restricted.\n");
     append(out_buf, cap, &pos, "No assistant tone, no helpdesk phrasing, no meta-commentary.\n");
     if (cfg->render_profile == PE_SLM_PROFILE_TINY){
-        append(out_buf, cap, &pos, "Tiny model rules: use one concrete noun from [WORLD], [MEMORY], or the user's current topic; no atmospheric filler.\n");
-        append(out_buf, cap, &pos, "Prefer plain subject-verb sentences. Do not begin with weather, darkness, silence, or vague mood.\n");
+        append(out_buf, cap, &pos, "Tiny model rules: use concrete language; ground at least one detail in [WORLD], [MEMORY], or the user's current topic.\n");
+        append(out_buf, cap, &pos, "Prefer plain subject-verb sentences. Avoid reusing the same opener or vague mood phrase every turn.\n");
     } else if (cfg->render_profile == PE_SLM_PROFILE_EXPRESSIVE){
         append(out_buf, cap, &pos, "Expressive model rules: richer phrasing is allowed, but answer first and stay with the user's subject.\n");
         append(out_buf, cap, &pos, "Three or four sentences are fine when the user opens a broader topic, as long as the reply stays grounded and in character.\n");

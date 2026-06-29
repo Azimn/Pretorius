@@ -1234,6 +1234,102 @@ Notes:
 - The web issue was not model bleed. It was persisted cartridge state plus an unhelpful generic cold-open fallback.
 - Cartridge separation remains intact: Kiki and Pretorius now both stay on their own surface language through the same host binary and web load path.
 
+## 2026-06-29 - V7.1 Renderer Expressiveness And Memory Reconstruction
+
+What changed:
+
+- Relaxed the model renderer task packet so canonical facts still come from `[MEMORY]` and `[WORLD]`, while sensory detail, atmosphere, present-moment thought, and expressive texture are allowed as performance.
+- Situation packet mode now becomes the default whenever a model backend is configured through `PE_OLLAMA_MODEL` or `PE_API_URL`. Template-only sessions keep the minimal packet unless explicitly overridden.
+- Memory surfaces now carry compact reconstruction tags such as `recent[weight=raw]` and `recent[weight=tender]`, based on relation state, mood, memory emotion, and dissonance pressure.
+- Situation mode now surfaces up to six recent and six core memories. Template/default mode remains capped at four and four.
+- Added cartridge-authored `sovereignty_threshold` and a deterministic sovereign override path. High open-loop, self-image, or want pressure can redirect a low-pressure turn, and the redirect is logged in the speech ledger.
+- Strengthened generic template hygiene so optional empty slots do not leave punctuation seams, raw tags, doubled punctuation, or repeated direct memory fallback lines.
+- Varied generic learned-knowledge correction surfaces so repeated correction answers do not collapse into the same line.
+- Rebuilt Kiki and Pretorius cartridge assets from their authored compilers. Kiki strings were kept Kiki-authored and cleaned to avoid dash punctuation.
+
+Why this matters:
+
+- The LLM tier now has room to breathe without weakening Layer 1 memory authority.
+- Memory can color a response as pressure or feeling, not only as a flat retrieved fact.
+- The engine still owns continuity and arbitration, while cartridges continue to own character surface.
+- The spillover guard remains explicit: Kiki, Pretorius, and the demo-pack profiles all use the same engine path without moving their voice into core engine branches.
+
+Character isolation safeguards:
+
+- No Pretorius-specific language was added to core renderer or engine fallbacks.
+- New sovereign override mechanics are thresholded by cartridge data, not hardcoded by character name.
+- Prompt examples remain neutral or cartridge-derived.
+- Society hygiene now gates exact repeats, opener repeats, unresolved `{tag}` patterns, raw `[tag]` patterns, doubled punctuation, and dash punctuation in long template-only transcripts.
+
+Validation:
+
+- `make host`: passed, clean build.
+- `make v6_renderer_expressiveness_run`: passed.
+- `make v6_memory_reconstruction_run`: passed.
+- `make v6_situation_mode_default_run`: passed.
+- `make v6_sovereign_override_run`: passed.
+- `make v6_gate_chunked`: passed.
+- `PE_SOCIETY_TURNS=48 make society_pair_probe`: passed.
+- `make v6_believability_battery_run`: passed.
+- `make v5_transcript_quality_run`: passed.
+- `make v6_demo_pack_battery_run`: passed.
+
+Gate timing:
+
+| Target | Result | Time |
+|---|---:|---:|
+| v6_gate_chunk_1 | green | 11s |
+| v6_gate_chunk_2 | green | 11s |
+| v6_gate_chunk_3 | green | 15s |
+| v6_gate_chunk_4 | green | 45s |
+| v6_gate_chunked | green | 1m21s |
+
+Society probe:
+
+| Metric | Result |
+|---|---:|
+| replies | 48 |
+| exactRepeats | 0 |
+| openerRepeats | 1 |
+| avgLen | 13 |
+| questionRate | 46 |
+| assistantTone | false |
+| roughPunctuationOrTags | false |
+| actorTags | 33 |
+| speechEvents | 48 |
+| openLoops | 1 |
+| auditCounts | {"0":24,"1":7,"2":17} |
+
+Quality scores:
+
+| Battery | Result | Baseline |
+|---|---:|---:|
+| V6 believability battery | 91/100 | 91/100 |
+| V5 transcript quality | 98/100 | 97/100 |
+
+Demo-pack scores:
+
+| Cartridge | Overall |
+|---|---:|
+| Pretorius | 87/100 |
+| Friendly | 88/100 |
+| Rival | 91/100 |
+| Quiet | 88/100 |
+| Mentor | 91/100 |
+| Kiki | 88/100 |
+
+Sample packet signals:
+
+- `recent[weight=raw]=...`
+- `recent[weight=tender]=...`
+- `[PRESSURE] sovereign_override=1 reason=open_loop`
+
+Remaining polish issues:
+
+- The main believability battery still has relationship differentiation as its weakest axis at 50/100, although the overall score remains at baseline.
+- Some demo-pack contradiction scores remain at 45/100 for Pretorius, Friendly, Quiet, and Kiki.
+- Long society dialogue is now free of exact repeats and punctuation seams, but some learned-knowledge correction chains still read mechanically when one character corrects a correction.
+
 ## Future Test Entries Template
 
 Copy this block for each substantial run:

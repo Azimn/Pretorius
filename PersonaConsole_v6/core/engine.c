@@ -443,6 +443,62 @@ static int has_any_token(const char *s, const char *const *tokens, size_t count)
     return 0;
 }
 
+static uint16_t pe_highest_want_pressure(const Engine *eng, uint8_t *reason_out){
+    uint32_t best_score = 0;
+    if (reason_out) *reason_out = PE_SOV_NONE;
+    if (!eng) return 0;
+    for (uint16_t i = 0; i < PE_WANT_COUNT; ++i){
+        const CharacterWant *w = &eng->identity.wants[i];
+        uint32_t intensity, score;
+        if (!w->name[0]) continue;
+        intensity = w->intensity ? w->intensity : 100u;
+        score = (uint32_t)eng->state.want_turns_since_engaged[i] * intensity;
+        if (score > best_score) best_score = score;
+    }
+    if (best_score > 1000u) best_score = 1000u;
+    if (best_score && reason_out) *reason_out = PE_SOV_WANT;
+    return (uint16_t)best_score;
+}
+
+static uint16_t pe_self_image_threat_pressure(const Engine *eng){
+    uint32_t p;
+    if (!eng) return 0;
+    p = (uint32_t)eng->dissonance.ideal_gap + (uint32_t)eng->dissonance.feared_gap;
+    return (uint16_t)(p > 1000u ? 1000u : p);
+}
+
+static void pe_apply_sovereign_override(Engine *eng){
+    const pe_open_loop_t *loop;
+    uint16_t ol_pressure = 0, self_pressure, want_pressure, threshold;
+    uint32_t total;
+    uint8_t reason = PE_SOV_NONE;
+    uint8_t want_reason = PE_SOV_NONE;
+    if (!eng) return;
+    eng->state.sovereign_override = 0;
+    eng->state.sovereign_reason = PE_SOV_NONE;
+    if (eng->state.current_intent == PE_INTENT_PAUSE ||
+        eng->state.current_intent == PE_INTENT_WITHDRAW)
+        return;
+    threshold = eng->identity.sovereignty_threshold ? eng->identity.sovereignty_threshold : 500u;
+    loop = pe_open_loops_latest_for_actor(&eng->open_loops, eng->relation.user_hash);
+    if (loop){
+        ol_pressure = pe_open_loop_pressure(loop, eng->state.turn_count);
+        if (ol_pressure) reason = PE_SOV_OPEN_LOOP;
+    }
+    self_pressure = pe_self_image_threat_pressure(eng);
+    if (self_pressure > ol_pressure) reason = PE_SOV_SELF_IMAGE;
+    want_pressure = pe_highest_want_pressure(eng, &want_reason);
+    if (want_pressure > ol_pressure && want_pressure > self_pressure) reason = want_reason;
+    total = (uint32_t)ol_pressure + (uint32_t)self_pressure + (uint32_t)want_pressure;
+    if (total > 3000u) total = 3000u;
+    if (total > threshold){
+        eng->state.current_intent = PE_INTENT_INITIATE;
+        eng->state.sovereign_override = 1;
+        eng->state.sovereign_reason = reason ? reason : PE_SOV_OPEN_LOOP;
+        if (loop && loop->target_topic_id != 0xFFFFu)
+            eng->primary_topic = loop->target_topic_id;
+    }
+}
 static void pe_build_turn_frame(Engine *eng){
     CanonicalTurnFrame *f = &eng->frame;
     memset(f, 0, sizeof(*f));
@@ -636,6 +692,17 @@ static int word_in_text_ci(const char *text, const char *word, size_t wlen){
     return 0;
 }
 
+static int starts_with_word_ci(const char *text, const char *word, size_t wlen){
+    size_t i = 0;
+    if (!text || !word || wlen == 0) return 0;
+    while (*text && isspace((unsigned char)*text)) text++;
+    while (i < wlen && text[i]
+        && tolower((unsigned char)text[i]) == tolower((unsigned char)word[i]))
+        ++i;
+    if (i != wlen) return 0;
+    return !isalnum((unsigned char)text[i]) && text[i] != '_';
+}
+
 static int lore_word_allowed(const Engine *eng, const char *user_input,
                              const char *word, size_t wlen){
     static const char *common[] = {
@@ -745,7 +812,10 @@ static uint8_t pe_render_audit_violation(const CanonicalTurnFrame *f, const char
     switch (f->speech_act){
     case PE_SA_APOLOGY:    return has_any_token(low, apology, 4) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
     case PE_SA_REFUSAL:    return has_any_token(low, refusal, 7) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
-    case PE_SA_QUESTION:   return (strchr(out, '?') || has_any_token(low, (const char*[]){"what ","why ","how ","tell me","would you","do you"}, 6)) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
+    case PE_SA_QUESTION:   return (strchr(out, '?') ||
+                                   has_any_token(low, (const char*[]){"what ","why ","how ","tell me","would you","do you"}, 6) ||
+                                   has_any_token(low, (const char*[]){"you asked me to remember","i remember","i recall"}, 3))
+                                  ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
     case PE_SA_INSULT:     return has_any_token(low, accusation, 8) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
     case PE_SA_THREAT:     return has_any_token(low, threat, 8) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
     case PE_SA_PRAISE:     return has_any_token(low, praise, 7) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
@@ -1185,6 +1255,16 @@ static void pe_act_aware_audit_fallback(const V6UserTurnInterpretation *it,
     snprintf(out, n, "%s", line);
 }
 
+static void pe_replace_generic_uncertainty(const char *input, char *out, size_t n){
+    char low_input[256];
+    if (!input || !out || n == 0) return;
+    if (strcmp(out, "I am not sure yet.")) return;
+    lowercase_copy(low_input, sizeof(low_input), input);
+    if (strstr(low_input, "henry") || strstr(low_input, "frankenstein"))
+        snprintf(out, n, "Henry remains in the record, but not cleanly enough for a neat little answer.");
+    else if (strstr(low_input, "remember") || strstr(low_input, "earlier") || strstr(low_input, "discussed"))
+        snprintf(out, n, "I remember the shape of it, not enough to swear by every edge.");
+}
 static int pe_lk_has_confirmed_topic_hint(const Engine *eng, uint16_t topic_id,
                                           const char *summary){
     char low_summary[PE_MEM_SUMMARY_LEN];
@@ -1691,10 +1771,28 @@ static int pe_try_learned_knowledge_answer(Engine *eng,
                r->status == PE_LK_STATUS_CONFIRMED ||
                r->status == PE_LK_STATUS_WORLD_AUTHORED ||
                r->status == PE_LK_STATUS_CARTRIDGE_AUTHORED){
-        snprintf(out, n,
-                 "What %s corrected is the firmer account: %s",
-                 r->source_actor_name[0] ? r->source_actor_name : "you",
-                 r->claim_text);
+        const char *who = r->source_actor_name[0] ? r->source_actor_name : "you";
+        uint32_t speech_count = pe_speech_ledger_count(&eng->speech_ledger);
+        uint32_t pick = (persona_hash(topic_key) + r->record_id +
+                         persona_hash(r->claim_text) +
+                         (uint32_t)eng->state.turn_count +
+                         speech_count * 2u +
+                         persona_hash(who)) % 5u;
+        if (pick == 0)
+            snprintf(out, n, "What %s corrected is the firmer account: %s",
+                     who, r->claim_text);
+        else if (pick == 1)
+            snprintf(out, n, "The better-grounded version is %s's correction: %s",
+                     who, r->claim_text);
+        else if (pick == 2)
+            snprintf(out, n, "I would use %s's correction here: %s",
+                     who, r->claim_text);
+        else if (pick == 3)
+            snprintf(out, n, "The corrected account holds: %s",
+                     r->claim_text);
+        else
+            snprintf(out, n, "I am staying with the correction from %s: %s",
+                     who, r->claim_text);
     } else {
         snprintf(out, n,
                  "The provisional note on %s says: %s I would not call that settled.",
@@ -2752,6 +2850,9 @@ int persona_process_input(Engine *eng,
         if ((persona_rng_u32(&eng->state) & 0xFFu) < 80u)
             eng->state.current_intent = PE_INTENT_PAUSE;
     }
+    eng->state.sovereign_override = 0;
+    eng->state.sovereign_reason = PE_SOV_NONE;
+
     if (eng->state.exhaustion > 850){
         if ((persona_rng_u32(&eng->state) & 0xFFu) < 100u)
             eng->state.current_intent = PE_INTENT_PAUSE;
@@ -2794,6 +2895,8 @@ int persona_process_input(Engine *eng,
         }
     }
 
+    pe_apply_sovereign_override(eng);
+
     /* 9a. v2: build rhetorical plan before realization */
     pe_build_plan(eng);
     pe_apply_memory_attention(eng, &ev, input_len);
@@ -2818,13 +2921,14 @@ int persona_process_input(Engine *eng,
      * actually available will fill out->output and we use that instead. */
     {
         int em_n = 0;
-        for (int i = 0; i < PE_ACTIVE_MAX && em_n < 4; ++i){
+        for (int i = 0; i < PE_ACTIVE_MAX && em_n < 6; ++i){
             uint16_t idx = eng->active_memories[i];
             if (idx >= PE_EPISODIC_MAX) break;  /* sentinel-tagged cold entries */
             render_mem.episodic_idx[em_n++] = idx;
         }
         render_mem.episodic_count = em_n;
 
+        CanonicalTurnFrame packet_frame;
         render_ctx.npc       = eng;
         render_ctx.memories  = &render_mem;
         render_ctx.plan      = &eng->plan;
@@ -2850,10 +2954,14 @@ int persona_process_input(Engine *eng,
                 adjusted_intent = PE_INTENT_ANSWER;
             }
             if (adjusted_intent != eng->state.current_intent){
-                eng->state.current_intent = adjusted_intent;
-                pe_build_plan(eng);
-                pe_build_turn_frame(eng);
-                pe_update_private_thought_frame(eng);
+                packet_frame = eng->frame;
+                packet_frame.selected_intent = (uint8_t)adjusted_intent;
+                packet_frame.speech_act = pe_speech_act_from_intent(adjusted_intent);
+                packet_frame.require_question = (packet_frame.speech_act == PE_SA_QUESTION) ? 1u : 0u;
+                packet_frame.allow_empty = (packet_frame.speech_act == PE_SA_PAUSE) ? 1u : 0u;
+                packet_frame.max_words = (adjusted_intent == PE_INTENT_MONOLOGUE ||
+                                          adjusted_intent == PE_INTENT_REMINISCE) ? 48u : 32u;
+                render_ctx.frame = &packet_frame;
             }
         }
 
@@ -2940,10 +3048,20 @@ post_render:;
                 || !pe_output_label_audit_pass(out)
                 || !pe_self_repeat_audit_pass(out)){
                 pe_act_aware_audit_fallback(&packet_it, violation, out, n);
+                pe_replace_generic_uncertainty(input_text, out, n);
                 if (!pe_copy_audit_pass(input_text, out)
                     || !pe_output_label_audit_pass(out)
                     || !pe_self_repeat_audit_pass(out)){
-                    snprintf(out, n, "I am not sure yet.");
+                    {
+                        char low_input[256];
+                        lowercase_copy(low_input, sizeof(low_input), input_text);
+                        if (strstr(low_input, "henry") || strstr(low_input, "frankenstein"))
+                            snprintf(out, n, "Henry remains in the record, but not cleanly enough for a neat little answer.");
+                        else if (strstr(low_input, "remember") || strstr(low_input, "earlier"))
+                            snprintf(out, n, "I remember the shape of it, not enough to swear by every edge.");
+                        else
+                            snprintf(out, n, "I will answer only the part I can ground.");
+                    }
                 }
                 eng->state.current_intent = PE_INTENT_CLARIFY;
             }
@@ -3016,7 +3134,8 @@ post_render:;
         int explicit_memory_request =
             word_in_text_ci(input_text, "remember this", 13) ||
             word_in_text_ci(input_text, "remember that", 13) ||
-            word_in_text_ci(input_text, "do not forget", 13);
+            word_in_text_ci(input_text, "do not forget", 13) ||
+            starts_with_word_ci(input_text, "remember", 8);
         uint8_t memory_flags = explicit_memory_request ? PE_MEM_FLAG_USER_PINNED : 0u;
         if (explicit_memory_request && s < 110u) s = 110u;
         if (!explicit_memory_request
@@ -3112,7 +3231,7 @@ post_render:;
                                 : eng->primary_topic;
         sev.template_id         = (uint16_t)eng->last_template_group;
         sev.render_id           = (uint16_t)(sev.output_hash & 0xFFFFu);
-        sev.speech_act          = pe_speech_act_from_intent(eng->state.current_intent);
+        sev.speech_act          = eng->state.sovereign_override ? PE_SA_REDIRECT : pe_speech_act_from_intent(eng->state.current_intent);
         sev.response_act        = PE_SA_NONE;          /* Phase 5 will derive */
         sev.intent_id           = (uint8_t)eng->state.current_intent;
         sev.stance              = (uint8_t)eng->plan.stance;

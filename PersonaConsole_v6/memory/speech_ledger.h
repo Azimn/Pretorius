@@ -50,6 +50,7 @@ enum {
     PE_SA_PAUSE,
     PE_SA_WITHDRAWAL,
     PE_SA_META_CONVERSATION,
+    PE_SA_REDIRECT,
     PE_SA_COUNT
 };
 

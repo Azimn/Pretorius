@@ -171,6 +171,7 @@ RENDER_HEADERS := \
         v6_long_gap_decay_run v6_relation_dims_long_run_softening_run v6_long_arc_drift_run \
         v6_gate_chunk_1 v6_gate_chunk_2 v6_gate_chunk_3 v6_gate_chunk_4 v6_gate_chunked \
         v6_learned_knowledge_run v6_memory_import_bundle_run \
+        v6_renderer_expressiveness_run v6_memory_reconstruction_run v6_situation_mode_default_run v6_sovereign_override_run \
         v7_api_run
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
@@ -707,6 +708,23 @@ v6_long_arc_drift_run: build/persona_host profiles/pretorius/pretorius.cart buil
 	./build/long_arc_drift_test
 	node tests/continuity/behavioral_drift.js
 
+build/v7_1_prompt_memory_test: tests/replay/v7_1_prompt_memory_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) tests/replay/v7_1_prompt_memory_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+v6_renderer_expressiveness_run: build/v7_1_prompt_memory_test
+	./build/v7_1_prompt_memory_test
+
+v6_memory_reconstruction_run: build/v7_1_prompt_memory_test
+	./build/v7_1_prompt_memory_test
+
+v6_situation_mode_default_run: build/v7_1_prompt_memory_test
+	./build/v7_1_prompt_memory_test
+
+build/v7_1_sovereign_override_test: tests/replay/v7_1_sovereign_override_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) tests/replay/v7_1_sovereign_override_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+v6_sovereign_override_run: build/v7_1_sovereign_override_test profiles/kiki/kiki.cart
+	./build/v7_1_sovereign_override_test
 lint_test: build/cartridge_lint profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart $(DEMO_CARTS)
 	./build/cartridge_lint profiles/pretorius/pretorius.cart
 	./build/cartridge_lint profiles/kiki/kiki.cart

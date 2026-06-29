@@ -43,6 +43,7 @@ static void make_identity(Identity *id){
     id->forecast_horizon_weight = 620;
     id->expression_mask_threshold = 580;
     id->drift_malleability = 70;
+    id->sovereignty_threshold = 400;
 
     uint16_t obs[] = {T_HOMUNCULI, T_GIN, T_CREATION, T_HENRY, T_GOD, T_BEAUTY, 0, 0};
     memcpy(id->obsessions, obs, sizeof(obs));
@@ -579,7 +580,7 @@ static void make_templates(TemplateTable *tt){
     T_add(tt, G_WORKCHAT, PE_INTENT_MONOLOGUE, 88, -1000, 1000, PE_DRIVE_STIMULATION,
           "I have been awake for thirty-one hours and made two discoveries, one of which is publishable.");
     T_add(tt, G_WORKCHAT, PE_INTENT_ANSWER, 86, -1000, 1000, -1,
-          "The voltaic pile awaits. I was about to do something the university would have expelled me for a second time.");
+          "The voltaic pile awaits. I was about to do something the university would have expelled me for a second time, which is to say something modest, precise, and spiritually offensive to a committee.");
     T_add(tt, G_WORKCHAT, PE_INTENT_PROBE, 78, -1000, 1000, -1,
           "You want to understand the work. Good. Most people want only the results. What aspect shall we begin with?");
     T_add(tt, G_WORKCHAT, PE_INTENT_MONOLOGUE, 76, -1000, 1000, PE_DRIVE_RECOGNITION,
@@ -681,7 +682,7 @@ static void make_templates(TemplateTable *tt){
      * LONELY  (was 3, target 8)
      * ========================================================================*/
     T_add(tt, G_LONELY, PE_INTENT_ANSWER, 110, -1000, 1000, PE_DRIVE_COMMUNION,
-          "Lonely? A vulgar word for a precise condition. But yes, sometimes the rooms become too large.");
+          "Lonely? A vulgar word for a precise condition. But yes, sometimes the rooms become too large, the instruments too obedient, and the silence begins answering before I have spoken.");
     T_add(tt, G_LONELY, PE_INTENT_REMINISCE, 95, -1000, 1000, PE_DRIVE_COMMUNION,
           "There are nights when even preserved things seem to have more company than I do.");
     T_add(tt, G_LONELY, PE_INTENT_EVADE, 75, -1000, 1000, -1,
@@ -713,7 +714,7 @@ static void make_templates(TemplateTable *tt){
     T_add(tt, G_DANGER, PE_INTENT_ACCUSE, 88, -1000, 1000, PE_DRIVE_VINDICATION,
           "You invoke danger as though it were a verdict. It is not. It is an invitation.");
     T_add(tt, G_DANGER, PE_INTENT_ANSWER, 82, -1000, 1000, PE_DRIVE_STIMULATION,
-          "Safe experiments produce safe results. I have no interest in safety.");
+          "Safe experiments produce safe results. I have no interest in safety when safety only means a timid little circle drawn around whatever has already been permitted.");
     T_add(tt, G_DANGER, PE_INTENT_PROBE, 75, -1000, 1000, -1,
           "Define danger. I suspect our definitions differ considerably.");
     T_add(tt, G_DANGER, PE_INTENT_JOKE, 60, -300, 1000, -1,
@@ -1004,7 +1005,7 @@ static void make_templates(TemplateTable *tt){
      * QUESTIONS  (was 5, target 10)
      * ========================================================================*/
     T_add(tt, G_QUESTION, PE_INTENT_ANSWER, 50, -1000, 1000, -1,
-          "An admirable question, {address}. The answer is: it depends entirely on what one is prepared to *survive*.");
+          "An admirable question, {address}. The answer is: it depends entirely on what one is prepared to *survive*, because surpassing is not betrayal until the lesser mind insists on calling it so.");
     T_add(tt, G_QUESTION, PE_INTENT_EVADE, 40, -1000, 1000, -1,
           "Mm. Define your terms. Then define *mine*.");
     T_add(tt, G_QUESTION, PE_INTENT_PROBE, 35, -1000, 1000, -1,
