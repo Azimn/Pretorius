@@ -85,7 +85,7 @@ int main(void){
     n=prompt_compile_with_input(&ctx,&cfg,"continue",prompt,sizeof(prompt));
     unsetenv("V6_PACKET_MODE");
     CHECK(n>0,"situation memory prompt compiles");
-    CHECK(count_sub(prompt,"memory_")==6,"situation mode surfaces six motive memories");
+    CHECK(count_sub(prompt,"=motive topic:")==6,"situation mode surfaces six motive memories");
 
     seed_memory(&eng,&mem);
     eng.relation_dims.resentment=720;

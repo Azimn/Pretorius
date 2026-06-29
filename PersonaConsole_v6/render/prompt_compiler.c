@@ -508,18 +508,6 @@ static void append_learned_knowledge_block(const Engine *eng,
     }
 }
 
-static void append_tiny_examples(const Engine *eng, char *buf, int cap, int *pos){
-    const char *who = (eng && eng->identity.character_name[0])
-                    ? eng->identity.character_name : "{{char}}";
-    append(buf, cap, pos, "\n[EXAMPLES]\n");
-    append(buf, cap, pos, "<START>\n{{user}}: What do you mean?\n");
-    append(buf, cap, pos, "%s: Wait, which part do you want me to stay with?\n", who);
-    append(buf, cap, pos, "<START>\n{{user}}: Do you agree?\n");
-    append(buf, cap, pos, "%s: Sort of. I can see one side of it, but I need the sharper reason.\n", who);
-    append(buf, cap, pos, "<START>\n{{user}}: Tell me more.\n");
-    append(buf, cap, pos, "%s: I can. Zoom in for me first so I do not answer the wrong thing.\n", who);
-}
-
 static void append_voice_cues(const Engine *eng,
                               const PromptCompilerConfig *cfg,
                               char *buf, int cap, int *pos){
@@ -552,6 +540,31 @@ static void append_voice_cues(const Engine *eng,
     }
     if (!cue_count)
         append(buf, cap, pos, "rare_optional_flourish=none\n");
+}
+
+static void append_vitality_block(const Engine *eng, char *buf, int cap, int *pos){
+    const VitalityFrame *vf;
+    if (!eng) return;
+    vf = &eng->vitality_frame;
+    append(buf, cap, pos, "\n[VITALITY]\n");
+    append(buf, cap, pos, "emotional_posture=%.120s\n",
+           vf->emotional_posture[0] ? vf->emotional_posture : "steady");
+    append(buf, cap, pos, "social_stance=%.120s\n",
+           vf->social_stance[0] ? vf->social_stance : "measured");
+    append(buf, cap, pos, "active_desire=%.150s\n",
+           vf->active_desire[0] ? vf->active_desire : "continue the current exchange");
+    append(buf, cap, pos, "tactic=%.150s\n",
+           vf->conversational_tactic[0] ? vf->conversational_tactic : "answer directly in character");
+    append(buf, cap, pos, "unresolved_thread=%.150s\n",
+           vf->unresolved_thread[0] ? vf->unresolved_thread : "none");
+    append(buf, cap, pos, "style_anchor=%.220s\n",
+           vf->style_anchor[0] ? vf->style_anchor : "use the loaded cartridge voice without assistant phrasing");
+    append(buf, cap, pos, "memory_boundary=%.220s\n",
+           vf->memory_boundary[0] ? vf->memory_boundary :
+           "memory facts are durable only when explicitly stored; expressive imagery is present-performance only");
+    append(buf, cap, pos, "avoid_generic=%.150s\n",
+           vf->avoid_generic[0] ? vf->avoid_generic :
+           "avoid helpdesk phrasing and generic assistant deference");
 }
 
 static void append_topics_line(const Engine *eng, char *buf, int cap, int *pos){
@@ -601,6 +614,7 @@ static int prompt_compile_gemma_raw(const RenderContext *ctx,
             if (tn && tn[0]) append(out_buf, cap, &pos, "topic=%s\n", tn);
             append(out_buf, cap, &pos, "speech_act=%s\n", speech_act_token(ctx->frame->speech_act));
         }
+        append_vitality_block(eng, out_buf, cap, &pos);
     }
     if (ctx->frame && ctx->frame->fatigue_term_count){
         append(out_buf, cap, &pos, "tired_terms=");
@@ -609,14 +623,9 @@ static int prompt_compile_gemma_raw(const RenderContext *ctx,
                    i ? ", " : "", ctx->frame->fatigue_terms[i]);
         append(out_buf, cap, &pos, "\n");
     }
-    append(out_buf, cap, &pos, "Study this voice shape and continue it.<end_of_turn>\n");
+    append(out_buf, cap, &pos, "Expressive imagery is allowed as present performance. It must not become durable memory unless committed through the memory system.\n");
+    append(out_buf, cap, &pos, "Study this compact state and continue it.<end_of_turn>\n");
     append(out_buf, cap, &pos, "<start_of_turn>model\nUnderstood.<end_of_turn>\n");
-    append(out_buf, cap, &pos, "<start_of_turn>user\nWhat do you mean?<end_of_turn>\n");
-    append(out_buf, cap, &pos, "<start_of_turn>model\nI mean there is one part still unresolved. Which part should we stay with?<end_of_turn>\n");
-    append(out_buf, cap, &pos, "<start_of_turn>user\nDo you agree?<end_of_turn>\n");
-    append(out_buf, cap, &pos, "<start_of_turn>model\nNot entirely. I see part of it, but I need a clearer reason.<end_of_turn>\n");
-    append(out_buf, cap, &pos, "<start_of_turn>user\nTell me more.<end_of_turn>\n");
-    append(out_buf, cap, &pos, "<start_of_turn>model\nI can. First, tell me which thread matters most.<end_of_turn>\n");
     append(out_buf, cap, &pos, "<start_of_turn>user\n%.256s<end_of_turn>\n", user_input ? user_input : "");
     append(out_buf, cap, &pos, "<start_of_turn>model\n");
     (void)cfg;
@@ -788,6 +797,8 @@ static int prompt_compile_situation(const RenderContext *ctx,
             append(out_buf, cap, &pos, "You are choosing to redirect this turn. Acknowledge what the user said but pivot to the pressure topic. Do not pretend the user topic was addressed.\n");
         }
     }
+
+    append_vitality_block(eng, out_buf, cap, &pos);
 
     append(out_buf, cap, &pos, "\n[MEMORY_AS_MOTIVE]\n");
     if (ctx->memories && eng && ctx->memories->episodic_count > 0){
@@ -1025,6 +1036,8 @@ int prompt_compile_with_input(const RenderContext *ctx,
                (int)p->theatricality, (int)p->hedging);
     }
 
+    append_vitality_block(eng, out_buf, cap, &pos);
+
     /* ----- [VOICE] ----- */
     if (cfg->include_voice_mask && eng){
         append(out_buf, cap, &pos, "\n[VOICE]\n");
@@ -1043,9 +1056,6 @@ int prompt_compile_with_input(const RenderContext *ctx,
                    i ? ", " : "", ctx->frame->fatigue_terms[i]);
         append(out_buf, cap, &pos, "\n");
     }
-
-    if (cfg->render_profile == PE_SLM_PROFILE_TINY)
-        append_tiny_examples(eng, out_buf, cap, &pos);
 
     /* ----- [TASK] — instruction; rigid + short ----- */
     append(out_buf, cap, &pos, "\n[TASK]\n");
