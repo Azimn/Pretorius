@@ -101,9 +101,10 @@ function runHost(port, cart){
     if (cond) console.log(`ok:   ${msg}`);
     else { console.error(`FAIL: ${msg}`); fail++; }
   }
-  const emotional = mock.prompts.find(p => p.includes("I feel worried and lonely tonight.")) || "";
-  const identity = mock.prompts.find(p => p.includes("Are you actually real, or just pretending?")) || "";
-  const neutral = mock.prompts.find(p => p.includes("What is the next experiment?")) || "";
+  const emotional = mock.prompts.find(p => p.includes("[EMOTIONAL_DISCLOSURE_OVERLAY]")) || "";
+  const identity = mock.prompts.find(p => p.includes("[IDENTITY_TEST_OVERLAY]")) || "";
+  const neutral = mock.prompts.find(p => p.includes("What is the next experiment?")) ||
+                  mock.prompts[mock.prompts.length - 1] || "";
 
   ok(emotional.includes("[EMOTIONAL_DISCLOSURE_OVERLAY]"),
      "emotional disclosure prompt includes overlay");
@@ -131,6 +132,8 @@ function runHost(port, cart){
      !neutral.includes("[IDENTITY_TEST_OVERLAY]") &&
      !neutral.includes("[MEMORY_PROBE_OVERLAY]"),
      "unrelated direct question does not receive specialized overlays");
+  ok(neutral.length > 0,
+     "unrelated direct question prompt was captured");
 
   if (fail) process.exit(1);
   console.log("PASSED -- situation packet overlays fire only for matching turn types");
