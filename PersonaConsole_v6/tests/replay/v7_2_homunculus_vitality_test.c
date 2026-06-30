@@ -114,7 +114,8 @@ int main(void){
     compile_prompt(&kiki, prompt, sizeof(prompt), 0);
     CHECK(!has(prompt, "scientific authority") &&
           !has(prompt, "occult science") &&
-          !has(prompt, "gin"),
+          !has(prompt, "fragile creation") &&
+          !has(prompt, "laboratory exactness"),
           "non-Pretorius prompt does not emit hardcoded Pretorius vitality");
     CHECK(has(prompt, "Cosmos") || has(prompt, "mixtapes"),
           "Kiki vitality strings appear from Kiki data");
