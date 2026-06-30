@@ -131,6 +131,16 @@ static int looks_direct_question(const char *low, const char *raw){
            starts_with_ci_low(low, "can you") || starts_with_ci_low(low, "would you");
 }
 
+static int looks_memory_commit_request(const char *low){
+    if (!low) return 0;
+    return contains_wordish(low, "remember this") ||
+           contains_wordish(low, "remember that") ||
+           contains_wordish(low, "please remember") ||
+           contains_wordish(low, "can you remember") ||
+           contains_wordish(low, "do not forget") ||
+           contains_wordish(low, "don't forget");
+}
+
 void v6_interpret_user_turn(const RenderContext *ctx,
                             const char *user_input,
                             V6UserTurnInterpretation *out){
@@ -151,7 +161,12 @@ void v6_interpret_user_turn(const RenderContext *ctx,
                        contains_wordish(low, " cannot decide")) ? 1u : 0u;
     out->direct_input = question ? 1u : 0u;
 
-    if (contains_wordish(low, "remember") || contains_wordish(low, "last time") ||
+    if (looks_memory_commit_request(low)){
+        out->user_act = "memory_commit";
+        out->pressure = "memory formation";
+        out->response_move = "acknowledge the new thing to remember and continue the user's topic";
+        out->direct_input = 1u;
+    } else if (contains_wordish(low, "remember") || contains_wordish(low, "last time") ||
         contains_wordish(low, "recall")){
         out->user_act = "memory_probe";
         out->pressure = "memory accountability";
@@ -272,6 +287,7 @@ void v6_interpret_user_turn(const RenderContext *ctx,
          !strcmp(out->user_act, "emotional_disclosure") ||
          !strcmp(out->user_act, "correction") ||
          !strcmp(out->user_act, "challenge") ||
+         !strcmp(out->user_act, "memory_commit") ||
          !strcmp(out->user_act, "memory_probe")) ? 1u : 0u;
 
     if (ctx && ctx->frame && ctx->frame->open_loop_pressure >= 700u &&
@@ -821,7 +837,13 @@ static int prompt_compile_situation(const RenderContext *ctx,
 
     append_learned_knowledge_block(eng, user_input, out_buf, cap, &pos);
 
-    if (!strcmp(it.user_act, "memory_probe")){
+    if (!strcmp(it.user_act, "memory_commit")){
+        append(out_buf, cap, &pos, "\n[MEMORY_COMMIT_OVERLAY]\n");
+        append(out_buf, cap, &pos, "The user is asking you to carry a new detail forward, not asking you to retrieve an old one.\n");
+        append(out_buf, cap, &pos, "Acknowledge the new detail briefly in character, then continue or answer the user's topic.\n");
+        append(out_buf, cap, &pos, "Do not claim it was already remembered. Do not express uncertainty about old memory unless the user is probing old memory.\n");
+        append(out_buf, cap, &pos, "The engine will decide what becomes durable memory after the turn; do not mention memory systems.\n");
+    } else if (!strcmp(it.user_act, "memory_probe")){
         append(out_buf, cap, &pos, "\n[MEMORY_PROBE_OVERLAY]\n");
         append(out_buf, cap, &pos, "The user is asking whether continuity exists. This is high priority.\n");
         if (ctx->memories && ctx->memories->episodic_count > 0){

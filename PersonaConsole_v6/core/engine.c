@@ -791,6 +791,38 @@ static int pe_lore_audit_pass(const Engine *eng, const char *user_input,
     return 1;
 }
 
+static int pe_input_allows_general_model_knowledge(const char *input){
+    char low[384];
+    if (!input || !input[0]) return 0;
+    lowercase_copy(low, sizeof(low), input);
+
+    /* Keep identity, relationship, and remembered-continuity probes strict.
+     * Those are character-soul claims, not general knowledge questions. */
+    if (strstr(low, "remember") || strstr(low, "recall") ||
+        strstr(low, "last time") || strstr(low, "earlier") ||
+        strstr(low, "our past") || strstr(low, "your past") ||
+        strstr(low, "your memory") || strstr(low, "who am i") ||
+        strstr(low, "who are you") || strstr(low, "are you real"))
+        return 0;
+
+    if (!strchr(input, '?')) return 0;
+    return strstr(low, "teach me") || strstr(low, "explain") ||
+           strstr(low, "how do") || strstr(low, "how does") ||
+           strstr(low, "how to") || strstr(low, "what is") ||
+           strstr(low, "what are") || strstr(low, "tell me about") ||
+           strstr(low, "can you teach") || strstr(low, "can you explain");
+}
+
+static int pe_input_is_memory_commit_request(const char *input){
+    char low[384];
+    if (!input || !input[0]) return 0;
+    lowercase_copy(low, sizeof(low), input);
+    return strstr(low, "remember this") || strstr(low, "remember that") ||
+           strstr(low, "please remember") || strstr(low, "can you remember") ||
+           strstr(low, "do not forget") || strstr(low, "don't forget") ||
+           starts_with_word_ci(input, "remember", 8);
+}
+
 static int pe_copy_audit_pass(const char *input, const char *out);
 static int pe_output_label_audit_pass(const char *out);
 static int pe_self_repeat_audit_pass(const char *out);
@@ -851,8 +883,11 @@ static uint8_t pe_audit_evaluate(const Engine *eng,
                                  const char *out,
                                  int renderer_output){
     uint8_t v = pe_render_audit_violation(&eng->frame, out);
+    int allow_general_knowledge = pe_input_allows_general_model_knowledge(input);
+    int memory_commit = pe_input_is_memory_commit_request(input);
     if (v == PE_AUDIT_V_META) return v;
-    if (renderer_output && !pe_lore_audit_pass(eng, input, out)) return PE_AUDIT_V_LORE;
+    if (renderer_output && !allow_general_knowledge && !memory_commit &&
+        !pe_lore_audit_pass(eng, input, out)) return PE_AUDIT_V_LORE;
     {
         char topic_key[PE_LK_TOPIC_LEN];
         uint16_t topic_id = 0xFFFFu;
@@ -871,7 +906,8 @@ static uint8_t pe_audit_evaluate(const Engine *eng,
                                             eng->relation.user_hash))
             return PE_AUDIT_V_LORE;
     }
-    if (renderer_output && !pe_copy_audit_pass(input, out)) return PE_AUDIT_V_COPY;
+    if (renderer_output && !memory_commit &&
+        !pe_copy_audit_pass(input, out)) return PE_AUDIT_V_COPY;
     if (renderer_output && !pe_output_label_audit_pass(out)) return PE_AUDIT_V_OUTPUT_LABEL;
     if (renderer_output && !pe_addressee_audit_pass(eng, out)) return PE_AUDIT_V_ADDRESSEE;
     if (renderer_output && !pe_private_state_audit_pass(eng, out)) return PE_AUDIT_V_PRIVATE_LEAK;
@@ -2958,7 +2994,8 @@ int persona_process_input(Engine *eng,
                     ? PE_INTENT_CLARIFY : PE_INTENT_ANSWER;
             } else if (!strcmp(packet_it.user_act, "continuation") ||
                        !strcmp(packet_it.user_act, "rich_neutral_input") ||
-                       !strcmp(packet_it.user_act, "emotional_disclosure")){
+                       !strcmp(packet_it.user_act, "emotional_disclosure") ||
+                       !strcmp(packet_it.user_act, "memory_commit")){
                 adjusted_intent = PE_INTENT_ATTEND;
             } else if (!strcmp(packet_it.user_act, "memory_probe") ||
                        !strcmp(packet_it.user_act, "clarification_probe") ||
@@ -3144,11 +3181,7 @@ post_render:;
                             ? eng->relation.known_as : "the visitor";
         if (!strcmp(speaker, "anon")) speaker = "Someone";
         MemoryNode *recent = NULL;
-        int explicit_memory_request =
-            word_in_text_ci(input_text, "remember this", 13) ||
-            word_in_text_ci(input_text, "remember that", 13) ||
-            word_in_text_ci(input_text, "do not forget", 13) ||
-            starts_with_word_ci(input_text, "remember", 8);
+        int explicit_memory_request = pe_input_is_memory_commit_request(input_text);
         uint8_t memory_flags = explicit_memory_request ? PE_MEM_FLAG_USER_PINNED : 0u;
         if (explicit_memory_request && s < 110u) s = 110u;
         if (!explicit_memory_request
