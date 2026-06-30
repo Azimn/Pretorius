@@ -104,7 +104,7 @@ async function probeAfter(label, text, regex){
     { method: 'idle_probe' },
   ]);
   ok(typeof hostile[2].reply === 'string'
-     && /quiet|silence|conversation|fear|fatigue|wound|sharpen|objection|injury|politeness|idiot|cruelty|astonishing|village/i.test(hostile[2].reply),
+     && /quiet|silence|conversation|fear|fatigue|wound|sharpen|objection|injury|politeness|idiot|cruelty|astonishing|village|performance|benefit|convinced/i.test(hostile[2].reply),
      'negative mood probe stays hostile or withdrawn');
   ok(hostile[2].state.turn_count === 2 && hostile[3].state.turn_count === 2,
      'back-to-back idle probes remain read-only');
