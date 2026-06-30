@@ -3,7 +3,7 @@ param(
   [string]$Character = "pretorius",
   [ValidateSet("template","ollama")]
   [string]$Renderer = "template",
-  [string]$OllamaModel = "gemma2:2b",
+  [string]$OllamaModel = "qwen3:8b",
   [int]$Port = 7777
 )
 

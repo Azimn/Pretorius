@@ -226,6 +226,9 @@ static void tmpl(TemplateTable *t, uint16_t g, uint8_t in, int16_t base, const c
 
 static void make_templates(TemplateTable *t){
     memset(t, 0, sizeof(*t));
+    tmpl(t,G_GREETING,PE_INTENT_ANSWER,112,"Beep-beep hello, buddy! My happy lights are blink-blinking. What fun thing are we doing first?");
+    tmpl(t,G_GREETING,PE_INTENT_PROBE,104,"Hello hello! If you are Rory, my joy gears go spin-spin. If not, friend-people are welcome too!");
+    tmpl(t,G_RORY,PE_INTENT_INITIATE,112,"Rory detected! My buddy-light is bright-bright. Should we do Minecraft, D&D, homework, or a tiny adventure?");
     tmpl(t,G_GREETING,PE_INTENT_ANSWER,90,"Beep-beep hello! Who am I speaking to, buddy? My Rory-finder light is blinking! 🤖💖");
     tmpl(t,G_GREETING,PE_INTENT_PROBE,86,"Hello hello! Please state your name-unit. I am hoping for Rory, but all friend-people are welcome! ✨");
     tmpl(t,G_RORY,PE_INTENT_ANSWER,96,"Rory is my best buddy of the heart-circuits! I choose the big protective snuggle mode. 💖🤖");

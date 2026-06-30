@@ -1,6 +1,9 @@
 param(
   [ValidateSet("pretorius","kiki","r0r1","friendly","rival","quiet","mentor")]
-  [string]$Character = ""
+  [string]$Character = "",
+  [ValidateSet("template","ollama")]
+  [string]$Renderer = "",
+  [string]$OllamaModel = "qwen3:8b"
 )
 
 $ErrorActionPreference = "Stop"
@@ -30,12 +33,12 @@ if (-not $Character) {
     $form.Text = "PersonaConsole V6 - Start Chat"
     $form.StartPosition = "CenterScreen"
     $form.Width = 430
-    $form.Height = 180
+    $form.Height = 250
     $form.FormBorderStyle = "FixedDialog"
     $form.MaximizeBox = $false
 
     $label = New-Object System.Windows.Forms.Label
-    $label.Text = "Choose a character. This starts offline template mode."
+    $label.Text = "Choose a character and renderer."
     $label.Left = 16
     $label.Top = 18
     $label.Width = 380
@@ -50,10 +53,41 @@ if (-not $Character) {
     $combo.SelectedIndex = 0
     $form.Controls.Add($combo)
 
+    $rendererLabel = New-Object System.Windows.Forms.Label
+    $rendererLabel.Text = "Renderer"
+    $rendererLabel.Left = 16
+    $rendererLabel.Top = 82
+    $rendererLabel.Width = 120
+    $form.Controls.Add($rendererLabel)
+
+    $rendererCombo = New-Object System.Windows.Forms.ComboBox
+    $rendererCombo.Left = 96
+    $rendererCombo.Top = 78
+    $rendererCombo.Width = 300
+    $rendererCombo.DropDownStyle = "DropDownList"
+    [void]$rendererCombo.Items.Add("Offline template mode")
+    [void]$rendererCombo.Items.Add("Local Ollama mode")
+    $rendererCombo.SelectedIndex = 0
+    $form.Controls.Add($rendererCombo)
+
+    $modelLabel = New-Object System.Windows.Forms.Label
+    $modelLabel.Text = "Ollama model"
+    $modelLabel.Left = 16
+    $modelLabel.Top = 116
+    $modelLabel.Width = 120
+    $form.Controls.Add($modelLabel)
+
+    $modelBox = New-Object System.Windows.Forms.TextBox
+    $modelBox.Left = 96
+    $modelBox.Top = 112
+    $modelBox.Width = 300
+    $modelBox.Text = $OllamaModel
+    $form.Controls.Add($modelBox)
+
     $start = New-Object System.Windows.Forms.Button
     $start.Text = "Start Chat"
     $start.Left = 220
-    $start.Top = 92
+    $start.Top = 158
     $start.Width = 85
     $start.DialogResult = [System.Windows.Forms.DialogResult]::OK
     $form.AcceptButton = $start
@@ -62,7 +96,7 @@ if (-not $Character) {
     $cancel = New-Object System.Windows.Forms.Button
     $cancel.Text = "Cancel"
     $cancel.Left = 312
-    $cancel.Top = 92
+    $cancel.Top = 158
     $cancel.Width = 85
     $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
     $form.CancelButton = $cancel
@@ -71,6 +105,8 @@ if (-not $Character) {
     $result = $form.ShowDialog()
     if ($result -ne [System.Windows.Forms.DialogResult]::OK) { exit 0 }
     $Character = $choices[$combo.SelectedIndex].Slug
+    $Renderer = if ($rendererCombo.SelectedIndex -eq 1) { "ollama" } else { "template" }
+    if ($modelBox.Text.Trim()) { $OllamaModel = $modelBox.Text.Trim() }
   } catch {
     Write-Host "Choose a character:"
     for ($i = 0; $i -lt $choices.Count; $i++) {
@@ -80,7 +116,16 @@ if (-not $Character) {
     $idx = [int]$pick - 1
     if ($idx -lt 0 -or $idx -ge $choices.Count) { $idx = 0 }
     $Character = $choices[$idx].Slug
+    if (-not $Renderer) {
+      $rpick = Read-Host "Renderer: 1=offline template, 2=local Ollama"
+      $Renderer = if ($rpick -eq "2") { "ollama" } else { "template" }
+    }
+    if ($Renderer -eq "ollama") {
+      $mpick = Read-Host "Ollama model (press Enter for $OllamaModel)"
+      if ($mpick) { $OllamaModel = $mpick }
+    }
   }
 }
 
-& $runner -Character $Character -Renderer template
+if (-not $Renderer) { $Renderer = "template" }
+& $runner -Character $Character -Renderer $Renderer -OllamaModel $OllamaModel

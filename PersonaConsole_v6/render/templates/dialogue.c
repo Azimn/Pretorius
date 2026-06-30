@@ -607,11 +607,7 @@ static void apply_style(Engine *eng, const Template *t, char *buf, size_t cap){
         }
     }
     }
-    if (p->rhetorical_mode == PE_RHET_CONFESS && p->certainty < 100){
-        char tmp[PE_TEMPLATE_TEXT];
-        snprintf(tmp, sizeof(tmp), "I shall confess: %s", buf);
-        snprintf(buf, cap, "%s", tmp);
-    }
+    (void)p;
 }
 
 /* ---------- candidate scoring ---------- */
