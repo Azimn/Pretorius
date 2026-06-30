@@ -16,6 +16,11 @@ p{color:var(--muted);margin:0}
 .primary{display:inline-block;margin:18px 10px 0 0;background:var(--accent);color:#16120d;text-decoration:none;border-radius:8px;padding:12px 16px;font-weight:700}
 .secondary{display:inline-block;margin-top:18px;color:var(--text);text-decoration:none;border:1px solid var(--border);border-radius:8px;padding:11px 14px}
 .secondary:hover{border-color:var(--accent)}
+.note{margin-top:14px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:#141519;color:var(--muted)}
+.steps{display:grid;gap:10px;margin-top:16px}
+.step{padding:14px 16px;border:1px solid var(--border);border-radius:8px;background:#141519}
+.step b{color:var(--text)}
+.step p{margin-top:4px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:18px}
 .card{display:block;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px;color:inherit;text-decoration:none}
 .card:hover{background:var(--panel2);border-color:var(--accent)}
@@ -37,9 +42,20 @@ li{margin:5px 0}
 
   <section class="hero">
     <h2>Start Chat</h2>
-    <p>Double-click <code>Start_Chat.cmd</code> in this folder. Choose a character, and the familiar chat interface will open at <code>http://127.0.0.1:7777/</code>.</p>
-    <a class="primary" href="Start_Chat.cmd">Start_Chat.cmd</a>
-    <a class="secondary" href="http://127.0.0.1:7777/">Open Chat UI if already running</a>
+    <p>The chat page only works after the local PersonaConsole server is running.</p>
+    <div class="steps">
+      <div class="step">
+        <b>1. Start the local server</b>
+        <p>In this folder, double-click <code>Start_Chat.cmd</code> from File Explorer. Choose a character in the small window that opens.</p>
+      </div>
+      <div class="step">
+        <b>2. Open the chat page</b>
+        <p>After the server starts, open <code>http://127.0.0.1:7777/</code>. If Chrome says the site cannot be reached, the server is not running yet.</p>
+      </div>
+    </div>
+    <a class="primary" href="http://127.0.0.1:7777/">Open Chat UI</a>
+    <a class="secondary" href="Start_Chat.cmd">Show Start_Chat.cmd</a>
+    <p class="note">Browsers usually cannot run <code>Start_Chat.cmd</code> directly for security reasons. Use File Explorer to double-click it.</p>
   </section>
 
   <section class="grid">
