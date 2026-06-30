@@ -1,5 +1,5 @@
 param(
-  [ValidateSet("pretorius","kiki","friendly","rival","quiet","mentor")]
+  [ValidateSet("pretorius","kiki","r0r1","friendly","rival","quiet","mentor")]
   [string]$Character = "pretorius",
   [ValidateSet("template","ollama")]
   [string]$Renderer = "template",
@@ -20,6 +20,7 @@ $url = "http://127.0.0.1:$Port/"
 $cartMap = @{
   pretorius = "profiles\pretorius\pretorius.cart"
   kiki      = "profiles\kiki\kiki.cart"
+  r0r1      = "profiles\r0r1\r0r1.cart"
   friendly  = "profiles\friendly\friendly.cart"
   rival     = "profiles\rival\rival.cart"
   quiet     = "profiles\quiet\quiet.cart"
@@ -63,6 +64,7 @@ function Test-ActiveCharacter([object]$State, [string]$Requested) {
   if ($null -eq $State -or -not $State.name) { return $false }
   $active = ([string]$State.name).ToLowerInvariant()
   if ($Requested -eq "pretorius") { return $active -like "*pretorius*" }
+  if ($Requested -eq "r0r1") { return ($active -eq "r0-r1" -or $active -eq "r0r1") }
   return $active -eq $Requested
 }
 

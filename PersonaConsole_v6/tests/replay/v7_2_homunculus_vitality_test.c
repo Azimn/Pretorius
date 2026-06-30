@@ -60,7 +60,7 @@ static int compile_prompt(Engine *eng, char *prompt, size_t prompt_n, int tiny){
 }
 
 int main(void){
-    Engine eng, old_cart, pretorius, kiki;
+    static Engine eng, old_cart, pretorius, kiki, r0r1;
     char prompt[PE_PROMPT_MAX_BYTES];
     char anchors[5][PE_VITALITY_FRAME_LONG];
     const char *names[5] = {"Devil NPC","Queen","Archbishop","Priest","Ballerina"};
@@ -120,6 +120,18 @@ int main(void){
     CHECK(has(prompt, "Cosmos") || has(prompt, "mixtapes"),
           "Kiki vitality strings appear from Kiki data");
     persona_close(&kiki);
+
+    CHECK(persona_open(&r0r1, "profiles/r0r1") == 0,
+          "R0-R1 profile with vitality loads");
+    pe_vitality_synthesize(&r0r1);
+    compile_prompt(&r0r1, prompt, sizeof(prompt), 0);
+    CHECK(has(prompt, "sparkle circuits") || has(prompt, "child-safe helper"),
+          "R0-R1 vitality strings appear from R0-R1 data");
+    CHECK(!has(prompt, "scientific authority") &&
+          !has(prompt, "occult science") &&
+          !has(prompt, "Cosmos"),
+          "R0-R1 prompt does not inherit Pretorius or Kiki vitality");
+    persona_close(&r0r1);
 
     for (int i = 0; i < 5; ++i){
         make_fixture(&eng, names[i], stances[i], authority[i], domains[i]);

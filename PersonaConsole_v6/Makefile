@@ -173,13 +173,13 @@ RENDER_HEADERS := \
         v6_gate_chunk_1 v6_gate_chunk_2 v6_gate_chunk_3 v6_gate_chunk_4 v6_gate_chunked \
         v6_learned_knowledge_run v6_memory_import_bundle_run \
         v6_renderer_expressiveness_run v6_memory_reconstruction_run v6_situation_mode_default_run v6_sovereign_override_run \
-        v7_api_run
+        v7_api_run r0r1_character
 
 all: build/libpersona.a build/liblsh.a build/libplasticity.a build/libaether.a \
-     build/compile_cartridge build/compile_pretorius build/compile_kiki build/compile_demo_pack \
+     build/compile_cartridge build/compile_pretorius build/compile_kiki build/compile_r0r1 build/compile_demo_pack \
      build/repl build/build_lm build/cartridge_stats build/cartridge_lint \
      profiles/pretorius/voice.lm profiles/kiki/voice.lm \
-     profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart $(DEMO_CARTS)
+     profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart profiles/r0r1/r0r1.cart $(DEMO_CARTS)
 
 build:
 	@mkdir -p build
@@ -265,6 +265,9 @@ build/compile_pretorius: tools/compile_pretorius.c build/libpersona.a build/libp
 build/compile_kiki: tools/compile_kiki.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
 	$(CC) $(CFLAGS) tools/compile_kiki.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
 
+build/compile_r0r1: tools/compile_r0r1.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) tools/compile_r0r1.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
 build/compile_demo_pack: tools/compile_demo_pack.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
 	$(CC) $(CFLAGS) tools/compile_demo_pack.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
 
@@ -299,6 +302,11 @@ profiles/kiki/.bins.stamp: build/compile_kiki
 	./build/compile_kiki profiles/kiki
 	@touch $@
 
+profiles/r0r1/.bins.stamp: build/compile_r0r1
+	@mkdir -p profiles/r0r1
+	./build/compile_r0r1 profiles/r0r1
+	@touch $@
+
 profiles/pretorius/voice.lm: data/corpus.txt build/build_lm
 	./build/build_lm data/corpus.txt 5 profiles/pretorius/voice.lm
 
@@ -306,7 +314,11 @@ profiles/kiki/voice.lm: data/corpus_kiki.txt build/build_lm
 	@mkdir -p profiles/kiki
 	./build/build_lm data/corpus_kiki.txt 5 profiles/kiki/voice.lm
 
-lm_build: profiles/pretorius/voice.lm profiles/kiki/voice.lm
+profiles/r0r1/voice.lm: build/build_lm profiles/r0r1/.bins.stamp
+	@mkdir -p profiles/r0r1
+	./build/build_lm data/corpus_r0r1.txt 5 profiles/r0r1/voice.lm
+
+lm_build: profiles/pretorius/voice.lm profiles/kiki/voice.lm profiles/r0r1/voice.lm
 
 profiles/pretorius/pretorius.cart: profiles/pretorius/manifest.json profiles/pretorius/.bins.stamp build/compile_cartridge profiles/pretorius/voice.lm
 	./build/compile_cartridge profiles/pretorius/manifest.json
@@ -314,7 +326,12 @@ profiles/pretorius/pretorius.cart: profiles/pretorius/manifest.json profiles/pre
 profiles/kiki/kiki.cart: profiles/kiki/manifest.json profiles/kiki/.bins.stamp build/compile_cartridge profiles/kiki/voice.lm
 	./build/compile_cartridge profiles/kiki/manifest.json
 
-cartridges: profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart $(DEMO_CARTS)
+profiles/r0r1/r0r1.cart: profiles/r0r1/.bins.stamp build/compile_cartridge profiles/r0r1/voice.lm
+	./build/compile_cartridge profiles/r0r1/manifest.json
+
+r0r1_character: profiles/r0r1/r0r1.cart
+
+cartridges: profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart profiles/r0r1/r0r1.cart $(DEMO_CARTS)
 # ----- REPL + host -----
 build/repl: tests/repl.c build/libpersona.a build/libplasticity.a build/liblsh.a build/libaether.a
 	$(CC) $(CFLAGS) tests/repl.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
@@ -347,7 +364,7 @@ host: build/persona_host build/libpersona_host.so
 build/host_test: tests/host_test.c build/libpersona_host.a build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
 	$(CC) $(CFLAGS) -Ibridges tests/host_test.c build/libpersona_host.a build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
 
-host_test: build/host_test profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart $(DEMO_CARTS)
+host_test: build/host_test profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart profiles/r0r1/r0r1.cart $(DEMO_CARTS)
 
 host_run: host_test
 	./build/host_test
@@ -730,7 +747,7 @@ v6_sovereign_override_run: build/v7_1_sovereign_override_test profiles/kiki/kiki
 build/v7_2_homunculus_vitality_test: tests/replay/v7_2_homunculus_vitality_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
 	$(CC) $(CFLAGS) tests/replay/v7_2_homunculus_vitality_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
 
-v7_2_homunculus_vitality_run: build/v7_2_homunculus_vitality_test profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart profiles/friendly/friendly.cart
+v7_2_homunculus_vitality_run: build/v7_2_homunculus_vitality_test profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart profiles/r0r1/r0r1.cart profiles/friendly/friendly.cart
 	./build/v7_2_homunculus_vitality_test
 lint_test: build/cartridge_lint profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart $(DEMO_CARTS)
 	./build/cartridge_lint profiles/pretorius/pretorius.cart

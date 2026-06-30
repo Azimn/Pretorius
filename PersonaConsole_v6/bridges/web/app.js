@@ -93,6 +93,7 @@ const LK_EDGE_IDS = {
 const CHARACTER_CATALOG = {
     pretorius: { name: "Dr. Pretorius", path: "profiles/pretorius/pretorius.cart" },
     kiki:      { name: "Kiki",          path: "profiles/kiki/kiki.cart" },
+    r0r1:      { name: "R0-R1",         path: "profiles/r0r1/r0r1.cart" },
     friendly:  { name: "Mira",          path: "profiles/friendly/friendly.cart" },
     rival:     { name: "Cassian Vale",  path: "profiles/rival/rival.cart" },
     quiet:     { name: "Eli Rowan",     path: "profiles/quiet/quiet.cart" },
@@ -196,6 +197,7 @@ function slugFromState(s) {
     const raw = String((s && (s.profile_slug || s.name)) || "").toLowerCase();
     if (raw.includes("pretorius")) return "pretorius";
     if (raw.includes("kiki")) return "kiki";
+    if (raw.includes("r0-r1") || raw.includes("r0r1")) return "r0r1";
     if (raw.includes("mira") || raw.includes("friendly")) return "friendly";
     if (raw.includes("cassian") || raw.includes("rival")) return "rival";
     if (raw.includes("eli") || raw.includes("quiet")) return "quiet";

@@ -1,5 +1,5 @@
 param(
-  [ValidateSet("pretorius","kiki","friendly","rival","quiet","mentor")]
+  [ValidateSet("pretorius","kiki","r0r1","friendly","rival","quiet","mentor")]
   [string]$Character = ""
 )
 
@@ -11,9 +11,10 @@ if (-not (Test-Path -LiteralPath $runner)) {
   throw "Missing Run_Character.ps1"
 }
 
-$choices = @(
+  $choices = @(
   @{Label="Dr. Pretorius - sardonic gothic scientist"; Slug="pretorius"},
   @{Label="Kiki - 90s-style affectionate friend"; Slug="kiki"},
+  @{Label="R0-R1 - child-safe creative companion droid"; Slug="r0r1"},
   @{Label="Mira - friendly companion"; Slug="friendly"},
   @{Label="Cassian Vale - rival antagonist"; Slug="rival"},
   @{Label="Eli Rowan - quiet restrained character"; Slug="quiet"},
@@ -75,7 +76,7 @@ if (-not $Character) {
     for ($i = 0; $i -lt $choices.Count; $i++) {
       Write-Host ("{0}. {1}" -f ($i + 1), $choices[$i].Label)
     }
-    $pick = Read-Host "Enter 1-6"
+    $pick = Read-Host "Enter 1-7"
     $idx = [int]$pick - 1
     if ($idx -lt 0 -or $idx -ge $choices.Count) { $idx = 0 }
     $Character = $choices[$idx].Slug

@@ -22,6 +22,7 @@ const HOST = resolveHost(ROOT);
 const WEB_ROOT = path.join(ROOT, "bridges", "web");
 const PRET_SRC = path.join(ROOT, "profiles", "pretorius", "pretorius.cart");
 const KIKI_SRC = path.join(ROOT, "profiles", "kiki", "kiki.cart");
+const R0R1_SRC = path.join(ROOT, "profiles", "r0r1", "r0r1.cart");
 const FRIENDLY_SRC = path.join(ROOT, "profiles", "friendly", "friendly.cart");
 const RIVAL_SRC = path.join(ROOT, "profiles", "rival", "rival.cart");
 const QUIET_SRC = path.join(ROOT, "profiles", "quiet", "quiet.cart");
@@ -50,9 +51,15 @@ const KIKI_MARKERS = [
   "carl sagan", "cosmic paperwork", "like, the whole", "omg", "rad",
 ];
 
+const R0R1_MARKERS = [
+  "beep-beep", "rory", "minecraft", "crafty", "farzy", "sparkle",
+  "friend-person", "droid", "r2-d2", "unicorn", "pink droid",
+];
+
 const PROFILE_MARKERS = {
   pretorius: PRETORIUS_MARKERS,
   kiki: KIKI_MARKERS,
+  r0r1: R0R1_MARKERS,
   friendly: ["dear one", "repair this carefully", "emotionally safe", "warmth can still"],
   rival: ["competitor", "rival", "rematch", "keeping score", "underestimated"],
   quiet: ["trusted one", "silence settle", "small note", "not fill every room"],
@@ -181,6 +188,7 @@ async function waitState(port){
 
   const pretCart = tempCart(PRET_SRC, "pretorius");
   const kikiCart = tempCart(KIKI_SRC, "kiki");
+  const r0r1Cart = fs.existsSync(R0R1_SRC) ? tempCart(R0R1_SRC, "r0r1") : null;
   const mentorCart = fs.existsSync(MENTOR_SRC) ? tempCart(MENTOR_SRC, "mentor") : null;
   const script = [
     { method: "set_user", user_id: "tester" },
@@ -205,6 +213,7 @@ async function waitState(port){
   const allProfiles = [
     ["pretorius", PRET_SRC],
     ["kiki", KIKI_SRC],
+    ["r0r1", R0R1_SRC],
     ["friendly", FRIENDLY_SRC],
     ["rival", RIVAL_SRC],
     ["quiet", QUIET_SRC],
@@ -268,6 +277,19 @@ async function waitState(port){
       const mentorChat = await httpJson(port, "POST", "/chat", { text: "Good evening." });
       const mentorLeaks = markerHits(String(mentorChat.reply || ""), SHARED_VOICE_LEAKS);
       ok(mentorLeaks.length === 0, `Mentor HTTP reply has no shared reflection leak (${mentorLeaks.join(", ") || "none"})`);
+    }
+    if (r0r1Cart){
+      const loadDroid = await httpJson(port, "POST", "/load", { path: r0r1Cart });
+      ok(loadDroid && loadDroid.ok === true, "HTTP /load accepts R0-R1 cart after Mentor/Kiki");
+      const droidState = await waitState(port);
+      ok(/r0-r1/i.test(droidState.name || "") || /r0r1/i.test(droidState.profile_slug || ""),
+         `HTTP /state reports R0-R1 after load (name=${droidState.name}, slug=${droidState.profile_slug})`);
+      const droidChat = await httpJson(port, "POST", "/chat", { text: "Good evening." });
+      const droidReply = String(droidChat.reply || "");
+      const droidPretLeaks = markerHits(droidReply, PRETORIUS_MARKERS);
+      const droidKikiLeaks = markerHits(droidReply, KIKI_MARKERS);
+      ok(droidPretLeaks.length === 0 && droidKikiLeaks.length === 0,
+         `R0-R1 HTTP reply has no Pretorius/Kiki markers (${droidPretLeaks.concat(droidKikiLeaks).join(", ") || "none"})`);
     }
   } finally {
     proc.kill("SIGTERM");
