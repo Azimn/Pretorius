@@ -726,6 +726,12 @@ build/v7_1_sovereign_override_test: tests/replay/v7_1_sovereign_override_test.c 
 
 v6_sovereign_override_run: build/v7_1_sovereign_override_test profiles/kiki/kiki.cart
 	./build/v7_1_sovereign_override_test
+
+build/v7_2_homunculus_vitality_test: tests/replay/v7_2_homunculus_vitality_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) tests/replay/v7_2_homunculus_vitality_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+v7_2_homunculus_vitality_run: build/v7_2_homunculus_vitality_test profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart profiles/friendly/friendly.cart
+	./build/v7_2_homunculus_vitality_test
 lint_test: build/cartridge_lint profiles/pretorius/pretorius.cart profiles/kiki/kiki.cart $(DEMO_CARTS)
 	./build/cartridge_lint profiles/pretorius/pretorius.cart
 	./build/cartridge_lint profiles/kiki/kiki.cart

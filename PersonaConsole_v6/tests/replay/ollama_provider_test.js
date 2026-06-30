@@ -81,6 +81,8 @@ function makeMock(){
           req.prompt.includes('<start_of_turn>model') &&
           req.prompt.includes('Understood.<end_of_turn>'))
         seedsSeen.gemmaRaw = (seedsSeen.gemmaRaw || 0) + 1;
+      if (req.raw === true) seedsSeen.rawTrue = (seedsSeen.rawTrue || 0) + 1;
+      if (req.raw === false) seedsSeen.rawFalse = (seedsSeen.rawFalse || 0) + 1;
       /* The V6 render audit may require question realization on a turn.
        * Keep the marker, but make the mock text question-compatible so this
        * provider test does not accidentally become an audit-fallback test. */
@@ -100,7 +102,7 @@ function makeMock(){
 }
 
 /* Run persona_host async with stdin script.  Returns Promise<{stdout, stderr, status}>. */
-function runHost(port, scriptLines){
+function runHost(port, scriptLines, extraEnv = {}){
   return new Promise((resolve, reject) => {
     const env = Object.assign({}, process.env, {
       PE_RENDER_BACKEND: 'slm',
@@ -111,7 +113,7 @@ function runHost(port, scriptLines){
       PE_OLLAMA_TIMEOUT_MS: '3000',
       PE_TODAY_SEED:     '42',
       PE_SLM_PROFILE:    'tiny',
-    });
+    }, extraEnv);
     const proc = spawn(HOST, [CART, '--stdio'], { env });
     let stdout = '', stderr = '';
     proc.stdout.on('data', d => stdout += d.toString('utf-8'));
@@ -174,6 +176,12 @@ async function main(){
     console.error(`FAIL: expected Gemma raw turn scaffold in all prompts, got ${m1.seedsSeen.gemmaRaw || 0}`);
     ++fail;
   }
+  if (m1.seedsSeen.rawTrue === 3 && !m1.seedsSeen.rawFalse){
+    console.log('ok:   Ollama requests default to raw prompt mode');
+  } else {
+    console.error(`FAIL: expected raw=true in all prompts, rawTrue=${m1.seedsSeen.rawTrue || 0} rawFalse=${m1.seedsSeen.rawFalse || 0}`);
+    ++fail;
+  }
   for (let i = 0; i < replies1.length; ++i){
     if (replies1[i].includes(MARKER)){
       console.log(`ok:   reply ${i+1} uses provider output: "${replies1[i].slice(0,60)}…"`);
@@ -203,6 +211,20 @@ async function main(){
     console.log(`ok:   per-turn seeds reproducible across replays: ${seedsRun1.join(',')}`);
   } else {
     console.error(`FAIL: seeds diverged. run1=${seedsRun1} run2=${seedsRun2}`);
+    ++fail;
+  }
+
+  /* ----- Run 4: GGUF chat-template hygiene ----- */
+  const m4 = makeMock();
+  await new Promise(r => m4.server.listen(0, '127.0.0.1', r));
+  const port4 = m4.server.address().port;
+  wipeState();
+  await runHost(port4, SCRIPT, { PE_OLLAMA_RAW: '0' });
+  m4.server.close();
+  if (m4.seedsSeen.rawTrue === 3 && !m4.seedsSeen.rawFalse){
+    console.log('ok:   PE_OLLAMA_RAW=0 is ignored unless model template use is explicitly allowed');
+  } else {
+    console.error(`FAIL: model template was trusted without explicit allow flag, rawTrue=${m4.seedsSeen.rawTrue || 0} rawFalse=${m4.seedsSeen.rawFalse || 0}`);
     ++fail;
   }
 

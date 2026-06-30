@@ -231,11 +231,9 @@ static void test_prompt_compiler(void){
           "prompt_compile: tiny profile labeled");
     CHECK(strstr(buf, "concrete language") != NULL,
           "prompt_compile: tiny profile asks for concrete language");
-    CHECK(strstr(buf, "[EXAMPLES]") != NULL &&
-          strstr(buf, "<START>") != NULL &&
-          strstr(buf, "Wait, which part") != NULL &&
-          strstr(buf, "Sort of.") != NULL,
-          "prompt_compile: tiny profile includes neutral fixed examples");
+    CHECK(strstr(buf, "[EXAMPLES]") == NULL &&
+          strstr(buf, "<START>") == NULL,
+          "prompt_compile: tiny profile omits universal fixed examples");
 
     cfg.render_profile = PE_SLM_PROFILE_BALANCED;
     n = prompt_compile(&ctx, &cfg, buf, sizeof(buf));

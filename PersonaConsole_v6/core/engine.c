@@ -817,7 +817,8 @@ static uint8_t pe_render_audit_violation(const CanonicalTurnFrame *f, const char
     if (!f || !out) return PE_AUDIT_V_EMPTY;
     lowercase_copy(low, sizeof(low), out);
     if (!f->allow_empty && low[0] == 0) return PE_AUDIT_V_EMPTY;
-    if (f->forbid_meta && has_any_token(low, (const char*[]){"as an ai","language model","how can i help","let me know"}, 4))
+    if (f->forbid_meta && (has_any_token(low, (const char*[]){"as an ai","language model","how can i help","let me know"}, 4)
+        || pe_vitality_text_has_assistant_leak(out)))
         return PE_AUDIT_V_META;
     switch (f->speech_act){
     case PE_SA_APOLOGY:    return has_any_token(low, apology, 4) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;

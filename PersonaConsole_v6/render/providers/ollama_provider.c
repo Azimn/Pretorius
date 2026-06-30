@@ -28,6 +28,7 @@ void ollama_load_config(OllamaConfig *cfg){
     const char *temp  = getenv("PE_OLLAMA_TEMP");
     const char *npred = getenv("PE_OLLAMA_NUM_PRED");
     const char *raw   = getenv("PE_OLLAMA_RAW");
+    const char *allow_template = getenv("PE_ALLOW_MODEL_TEMPLATE");
     const char *think = getenv("PE_OLLAMA_THINK");
 
     snprintf(cfg->host,  sizeof(cfg->host),  "%s", host  ? host  : "127.0.0.1");
@@ -36,7 +37,9 @@ void ollama_load_config(OllamaConfig *cfg){
     cfg->timeout_ms            = to    ? atoi(to)    : 8000;
     cfg->temperature_per_mille = temp  ? atoi(temp)  : 0;
     cfg->num_predict           = npred ? atoi(npred) : 160;
-    cfg->raw                   = raw   ? atoi(raw)   : 0;
+    cfg->raw                   = raw   ? atoi(raw)   : 1;
+    if (!cfg->raw && (!allow_template || atoi(allow_template) == 0))
+        cfg->raw = 1;
     cfg->think                 = think ? atoi(think) : 0;
 
     if (cfg->port <= 0 || cfg->port > 65535) cfg->port = 11434;

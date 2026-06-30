@@ -64,6 +64,16 @@ static const char *relation_stance(const pe_relation_dims_t *rel){
     return "measured";
 }
 
+static const char *schema_climate_stance(const SchemaState *schema){
+    if (!schema) return "";
+    if (schema->slot[SCHEMA_USER_HOSTILE] > 550) return "expects hostility from repeated evidence";
+    if (schema->slot[SCHEMA_USER_DECEPTIVE] > 550) return "tests the user's framing for deception";
+    if (schema->slot[SCHEMA_USER_TRUSTWORTHY] > 550) return "expects reliability from accumulated evidence";
+    if (schema->slot[SCHEMA_USER_INTIMATE] > 550) return "treats the exchange as familiar from accumulated evidence";
+    if (schema->slot[SCHEMA_USER_COMPETENT] > 550) return "expects competence and can move faster";
+    return "";
+}
+
 void pe_vitality_profile_init(VitalityProfile *vp){
     if (!vp) return;
     memset(vp, 0, sizeof(*vp));
@@ -130,8 +140,12 @@ void pe_vitality_synthesize(Engine *eng){
 
     pe_vitality_copy(vf->emotional_posture, sizeof(vf->emotional_posture),
                      palette[0] ? palette : affect_posture(eng->state.mood));
-    pe_vitality_copy(vf->social_stance, sizeof(vf->social_stance),
-                     stance[0] ? stance : relation_stance(&eng->relation_dims));
+    {
+        const char *climate = schema_climate_stance(&eng->schema);
+        pe_vitality_copy(vf->social_stance, sizeof(vf->social_stance),
+                         climate[0] ? climate :
+                         (stance[0] ? stance : relation_stance(&eng->relation_dims)));
+    }
 
     if (eng->state.current_intent == PE_INTENT_INITIATE){
         const char *pre = eng->identity.current_preoccupations[0];
