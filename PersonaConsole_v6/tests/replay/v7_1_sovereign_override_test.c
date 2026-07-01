@@ -48,6 +48,10 @@ int main(void){
     persona_process_input(&eng,"v7_1_sovereign_actor","zorch",out,sizeof(out));
     CHECK(eng.state.sovereign_override==1,"override fires above threshold");
     CHECK(eng.state.current_intent==PE_INTENT_INITIATE,"override sets initiate intent");
+    CHECK(strstr(eng.vitality_frame.unresolved_thread,"active:") != NULL &&
+          strstr(eng.vitality_frame.unresolved_thread,"active topic ") == NULL &&
+          strstr(eng.vitality_frame.unresolved_thread,"pressure ") == NULL,
+          "vitality unresolved thread uses topic label and urgency, not numeric dump");
     last=pe_speech_ledger_last(&eng.speech_ledger);
     CHECK(last && last->speech_act==PE_SA_REDIRECT,"redirect speech event is logged");
 

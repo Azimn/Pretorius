@@ -395,6 +395,38 @@ static void append_memory_surface(char *out_buf, int cap, int *pos,
         append(out_buf, cap, pos, "%s=%.*s\n", label,
                summary_cap, m ? m->summary : "");
 }
+
+static int memory_surface_has_weight(const MemoryNode *m, const Engine *eng){
+    const char *tag = memory_weight_tag(m, eng ? &eng->relation_dims : NULL,
+                                        eng ? eng->state.mood : 0,
+                                        (int16_t)prompt_dissonance_pressure(eng));
+    return (tag && tag[0]) ? 1 : 0;
+}
+
+static int memory_block_will_have_weight(const RenderContext *ctx,
+                                         const Engine *eng){
+    if (!ctx || !ctx->memories || !eng) return 0;
+    for (int i = 0; i < ctx->memories->episodic_count &&
+                    i < (v6_packet_mode_is_situation() ? 6 : 4); ++i){
+        int idx = ctx->memories->episodic_idx[i];
+        if (idx < 0 || idx >= PE_EPISODIC_MAX) continue;
+        const MemoryNode *m = &eng->memory.episodic[idx];
+        if (m->summary[0] && memory_surface_has_weight(m, eng)) return 1;
+    }
+    for (int i = 0; i < ctx->memories->core_count &&
+                    i < (v6_packet_mode_is_situation() ? 6 : 4); ++i){
+        int idx = ctx->memories->core_idx[i];
+        if (idx < 0 || idx >= PE_CORE_SEED_MAX) continue;
+        const MemoryNode *m = &eng->identity.core_memories_seed[idx];
+        if (m->summary[0] && memory_surface_has_weight(m, eng)) return 1;
+    }
+    return 0;
+}
+
+static void append_memory_weight_gloss(char *out_buf, int cap, int *pos){
+    append(out_buf, cap, pos,
+           "weight: tender=held with warmth, raw=held with edge or hurt, defended=tied to self-image, wound=source of pain, warm=source of comfort, proud=point of identity, private=not for this trust level, distant=faded with time\n");
+}
 static const char *speech_act_token(int act){
     switch (act){
     case PE_SA_APOLOGY:    return "apology";
@@ -1019,12 +1051,17 @@ int prompt_compile_with_input(const RenderContext *ctx,
     /* ----- [MEMORY] ----- */
     if (cfg->include_memory_hooks && ctx->memories && eng){
         int header = 0;
+        int include_weight_gloss = memory_block_will_have_weight(ctx, eng);
         for (int i = 0; i < ctx->memories->episodic_count && i < (v6_packet_mode_is_situation() ? 6 : 4); ++i){
             int idx = ctx->memories->episodic_idx[i];
             if (idx < 0 || idx >= PE_EPISODIC_MAX) continue;
             const MemoryNode *m = &eng->memory.episodic[idx];
             if (!m->summary[0]) continue;
-            if (!header){ append(out_buf, cap, &pos, "\n[MEMORY]\n"); header = 1; }
+            if (!header){
+                append(out_buf, cap, &pos, "\n[MEMORY]\n");
+                if (include_weight_gloss) append_memory_weight_gloss(out_buf, cap, &pos);
+                header = 1;
+            }
             append_memory_surface(out_buf, cap, &pos, "recent", m, eng, 96);
         }
         for (int i = 0; i < ctx->memories->core_count && i < (v6_packet_mode_is_situation() ? 6 : 4); ++i){
@@ -1032,7 +1069,11 @@ int prompt_compile_with_input(const RenderContext *ctx,
             if (idx < 0 || idx >= PE_CORE_SEED_MAX) continue;
             const MemoryNode *m = &eng->identity.core_memories_seed[idx];
             if (!m->summary[0]) continue;
-            if (!header){ append(out_buf, cap, &pos, "\n[MEMORY]\n"); header = 1; }
+            if (!header){
+                append(out_buf, cap, &pos, "\n[MEMORY]\n");
+                if (include_weight_gloss) append_memory_weight_gloss(out_buf, cap, &pos);
+                header = 1;
+            }
             append_memory_surface(out_buf, cap, &pos, "core", m, eng, 86);
         }
     }

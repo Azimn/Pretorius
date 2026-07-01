@@ -9,6 +9,11 @@
 static int fails = 0;
 #define CHECK(c,m) do{ if(c) printf("ok:   %s\n",m); else { printf("FAIL: %s\n",m); fails++; } }while(0)
 static int has(const char *s, const char *n){ return s && n && strstr(s,n)!=NULL; }
+static int before(const char *s, const char *a, const char *b){
+    const char *pa = s ? strstr(s,a) : NULL;
+    const char *pb = s ? strstr(s,b) : NULL;
+    return pa && pb && pa < pb;
+}
 static int count_sub(const char *s, const char *n){ int c=0; size_t l=strlen(n); const char *p=s; while((p=strstr(p,n))){ c++; p+=l; } return c; }
 
 static void clear_packet_env(void){
@@ -93,6 +98,10 @@ int main(void){
     eng.memory.episodic[0].emotion.arousal=70;
     n=prompt_compile_with_input(&ctx,&cfg,"continue",prompt,sizeof(prompt));
     CHECK(has(prompt,"recent[weight=raw]=episodic memory 1"),"resentful angry memory is tagged raw");
+    CHECK(has(prompt,"weight:") && has(prompt,"tender=held with warmth"),
+          "weighted memory block includes vocabulary gloss");
+    CHECK(before(prompt,"weight:","recent[weight=raw]"),
+          "weight vocabulary gloss appears before first weighted memory line");
 
     seed_memory(&eng,&mem);
     eng.relation_dims.intimacy=760;
@@ -104,6 +113,7 @@ int main(void){
     n=prompt_compile_with_input(&ctx,&cfg,"continue",prompt,sizeof(prompt));
     CHECK(has(prompt,"recent=episodic memory 1"),"neutral memory remains plain label");
     CHECK(!has(prompt,"recent[weight="),"neutral memory has no weight tag");
+    CHECK(!has(prompt,"weight:"),"neutral unweighted memory block omits weight gloss");
 
     clear_packet_env();
     setenv("PE_OLLAMA_MODEL","qwen3:8b",1);

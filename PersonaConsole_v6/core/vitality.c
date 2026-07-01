@@ -74,6 +74,20 @@ static const char *schema_climate_stance(const SchemaState *schema){
     return "";
 }
 
+static const char *vitality_topic_label(const Engine *eng, uint16_t topic_id,
+                                        char *fallback, size_t fallback_n){
+    if (eng && topic_id != 0xFFFFu){
+        for (uint32_t i = 0; i < eng->topics.count; ++i){
+            if ((uint16_t)eng->topics.topics[i].id == topic_id &&
+                eng->topics.topics[i].name[0])
+                return eng->topics.topics[i].name;
+        }
+    }
+    if (fallback && fallback_n)
+        snprintf(fallback, fallback_n, "topic_%u", (unsigned)topic_id);
+    return fallback ? fallback : "topic_unknown";
+}
+
 void pe_vitality_profile_init(VitalityProfile *vp){
     if (!vp) return;
     memset(vp, 0, sizeof(*vp));
@@ -164,10 +178,15 @@ void pe_vitality_synthesize(Engine *eng){
 
     loop = pe_open_loops_latest_for_actor(&eng->open_loops, eng->relation.user_hash);
     if (loop && pe_open_loop_pressure(loop, eng->state.turn_count) > 0){
+        uint16_t pressure = pe_open_loop_pressure(loop, eng->state.turn_count);
+        char topic_buf[32];
+        const char *topic = vitality_topic_label(eng, loop->target_topic_id,
+                                                 topic_buf, sizeof(topic_buf));
+        const char *urgency = pressure >= 700u ? "high" :
+                              pressure >= 350u ? "medium" : "low";
         snprintf(vf->unresolved_thread, sizeof(vf->unresolved_thread),
-                 "active topic %u pressure %u",
-                 (unsigned)loop->target_topic_id,
-                 (unsigned)pe_open_loop_pressure(loop, eng->state.turn_count));
+                 "active: %s urgency=%s",
+                 topic, urgency);
     }
 
     if (vp->authority_style[0] || vp->metaphoric_domains[0] || image[0]){
