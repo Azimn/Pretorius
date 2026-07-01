@@ -147,4 +147,12 @@ const char *pe_find_lower(const char *hay, const char *needle_lower);
 /* output buffer helpers */
 size_t pe_append(char *dst, size_t cap, size_t pos, const char *s);
 
+/* V7 audit probes used by focused replay tests. */
+uint8_t pe_audit_evaluate_for_test(const Engine *eng,
+                                   const char *input,
+                                   const char *out,
+                                   int renderer_output);
+int pe_audit_violation_is_hard_for_test(uint8_t violation);
+const char *pe_repair_instruction_for_test(uint8_t violation);
+
 #endif

@@ -68,7 +68,7 @@ typedef struct {
     int     chat_format;          /* SlmChatFormat, default flat */
 } PromptCompilerConfig;
 
-typedef struct {
+typedef struct V6UserTurnInterpretation {
     const char *packet_mode;       /* current or situation */
     const char *user_act;          /* greeting, direct_question, etc. */
     const char *pressure;          /* wants information, repair, challenge response... */

@@ -53,7 +53,8 @@ CORE_SRC := \
     core/intent.c       \
     core/identity.c     \
     core/environment.c  \
-    core/vitality.c
+    core/vitality.c     \
+    core/turn_drama.c
 
 MEMORY_SRC := \
     memory/memory.c          \
@@ -754,6 +755,18 @@ build/belief_ledger_test: tests/replay/belief_ledger_test.c build/libpersona.a b
 
 v6_belief_ledger_run: build/belief_ledger_test
 	./build/belief_ledger_test
+
+build/turn_drama_test: tests/replay/turn_drama_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) tests/replay/turn_drama_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+v7_turn_drama_run: build/turn_drama_test
+	./build/turn_drama_test
+
+build/flat_audit_test: tests/replay/flat_audit_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) tests/replay/flat_audit_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+v7_flat_audit_run: build/flat_audit_test
+	./build/flat_audit_test
 
 build/v7_2_homunculus_vitality_test: tests/replay/v7_2_homunculus_vitality_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
 	$(CC) $(CFLAGS) tests/replay/v7_2_homunculus_vitality_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)

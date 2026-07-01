@@ -11,6 +11,7 @@
 #include "environment.h"
 #include "engine_clock.h"        /* canonical Layer 1 clock */
 #include "vitality.h"            /* V7.2 cartridge vitality profile */
+#include "turn_drama.h"          /* V7 turn drama synthesis */
 #include "../render/render_backend.h"   /* v4: renderer dispatch */
 #include "../render/prompt_compiler.h"  /* v6 packet experiment */
 #include "../memory/affect_curve.h"     /* v4: nonlinear affect */
@@ -168,6 +169,8 @@ static const char *pe_audit_violation_name(uint8_t v){
     case PE_AUDIT_V_OUTPUT_LABEL: return "memory_label";
     case PE_AUDIT_V_ADDRESSEE:    return "wrong_addressee";
     case PE_AUDIT_V_PRIVATE_LEAK: return "private_state_leak";
+    case PE_AUDIT_V_FLAT:         return "flat";
+    case PE_AUDIT_V_ECHO:         return "echo";
     default:                      return "none";
     }
 }
@@ -824,16 +827,19 @@ static int pe_input_is_memory_commit_request(const char *input){
 }
 
 static int pe_copy_audit_pass(const char *input, const char *out);
+static int pe_echo_audit_pass(const char *input, const char *out);
 static int pe_output_label_audit_pass(const char *out);
 static int pe_self_repeat_audit_pass(const char *out);
 static int pe_fatigue_audit_pass(const CanonicalTurnFrame *f, const char *out);
+static int pe_flat_audit_pass(const Engine *eng, const char *out, int renderer_output);
 static int pe_addressee_audit_pass(const Engine *eng, const char *out);
 static int pe_private_state_audit_pass(const Engine *eng, const char *out);
 static int pe_lk_topic_key_for_input(const Engine *eng, const char *text,
                                      char *topic_key, size_t topic_cap,
                                      uint16_t *topic_id);
 
-static uint8_t pe_render_audit_violation(const CanonicalTurnFrame *f, const char *out){
+static uint8_t pe_render_audit_violation(const CanonicalTurnFrame *f, const char *out,
+                                         const char *input){
     char low[PE_RENDER_MAX_TEXT];
     const char *apology[]    = {"sorry","apolog","forgive","regret"};
     const char *refusal[]    = {"no","not","refuse","will not","won't","cannot","shall not"};
@@ -852,6 +858,7 @@ static uint8_t pe_render_audit_violation(const CanonicalTurnFrame *f, const char
     if (f->forbid_meta && (has_any_token(low, (const char*[]){"as an ai","language model","how can i help","let me know"}, 4)
         || pe_vitality_text_has_assistant_leak(out)))
         return PE_AUDIT_V_META;
+    if (input && !pe_echo_audit_pass(input, out)) return PE_AUDIT_V_ECHO;
     switch (f->speech_act){
     case PE_SA_APOLOGY:    return has_any_token(low, apology, 4) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
     case PE_SA_REFUSAL:    return has_any_token(low, refusal, 7) ? PE_AUDIT_V_NONE : PE_AUDIT_V_SPEECH_ACT;
@@ -875,14 +882,14 @@ static uint8_t pe_render_audit_violation(const CanonicalTurnFrame *f, const char
 }
 
 static int pe_render_audit_pass(const CanonicalTurnFrame *f, const char *out){
-    return pe_render_audit_violation(f, out) == PE_AUDIT_V_NONE;
+    return pe_render_audit_violation(f, out, NULL) == PE_AUDIT_V_NONE;
 }
 
 static uint8_t pe_audit_evaluate(const Engine *eng,
                                  const char *input,
                                  const char *out,
                                  int renderer_output){
-    uint8_t v = pe_render_audit_violation(&eng->frame, out);
+    uint8_t v = pe_render_audit_violation(&eng->frame, out, input);
     int allow_general_knowledge = pe_input_allows_general_model_knowledge(input);
     int memory_commit = pe_input_is_memory_commit_request(input);
     if (v == PE_AUDIT_V_META) return v;
@@ -914,6 +921,7 @@ static uint8_t pe_audit_evaluate(const Engine *eng,
     if (v != PE_AUDIT_V_NONE) return v;
     if (renderer_output && !pe_self_repeat_audit_pass(out)) return PE_AUDIT_V_SELF_REPEAT;
     if (renderer_output && !pe_fatigue_audit_pass(&eng->frame, out)) return PE_AUDIT_V_FATIGUE;
+    if (renderer_output && !pe_flat_audit_pass(eng, out, renderer_output)) return PE_AUDIT_V_FLAT;
     return PE_AUDIT_V_NONE;
 }
 
@@ -932,6 +940,10 @@ static const char *pe_repair_instruction_for(uint8_t violation,
         return "Make the same conversational move, but remove any fact, name, place, date, or relationship not present in identity, world, user input, or selected memory.";
     case PE_AUDIT_V_PRIVATE_LEAK:
         return "Make the same conversational move, but do not reveal private thought, internal valence, hidden mood, masking, or withholding mechanics.";
+    case PE_AUDIT_V_ECHO:
+        return "Restate the same conversational move without mirroring the user's phrasing. Respond from the character's own frame, not the user's words.";
+    case PE_AUDIT_V_FLAT:
+        return "The response is too thin for the pressure present. Surface one of: a memory, an emotional edge, an image from the character's world, or a genuine reaction. Do not add length without adding weight.";
     default:
         break;
     }
@@ -973,47 +985,65 @@ static int pe_try_constrained_rewrite(RenderBackend *be,
     return 1;
 }
 
+static int collect_audit_words(const char *text,
+                               char words[][24],
+                               int max_words,
+                               int min_len,
+                               int char_limit){
+    int n = 0;
+    char word[24];
+    int len = 0;
+    int seen = 0;
+    const unsigned char *p;
+    if (!text || !words || max_words <= 0) return 0;
+    for (p = (const unsigned char *)text;; ++p){
+        if (char_limit > 0 && seen >= char_limit && len == 0) break;
+        if (*p) seen++;
+        int is_word = *p && (isalnum(*p) || *p == '\'');
+        if (is_word){
+            if (len < (int)sizeof(word) - 1){
+                unsigned char c = (unsigned char)tolower(*p);
+                if (c != '\'') word[len++] = (char)c;
+            }
+            continue;
+        }
+        if (len >= min_len && n < max_words){
+            word[len] = 0;
+            snprintf(words[n++], sizeof(words[0]), "%s", word);
+        }
+        len = 0;
+        if (!*p) break;
+    }
+    return n;
+}
+
+static int pe_echo_audit_pass(const char *input, const char *out){
+    char in_words[64][24];
+    char out_words[32][24];
+    int in_n, out_n;
+    int matches = 0;
+    if (!input || !out || !input[0] || !out[0]) return 1;
+    in_n = collect_audit_words(input, in_words, 64, 4, 0);
+    out_n = collect_audit_words(out, out_words, 32, 4, 60);
+    for (int i = 0; i < in_n; ++i){
+        for (int j = 0; j < out_n; ++j){
+            if (!strcmp(in_words[i], out_words[j])){
+                matches++;
+                break;
+            }
+        }
+        if (matches >= 4) return 0;
+    }
+    return 1;
+}
+
 static int pe_copy_audit_pass(const char *input, const char *out){
     char in_words[64][24];
     char out_words[96][24];
-    int in_n = 0, out_n = 0;
-    char word[24];
-    int len = 0;
-    const unsigned char *p;
+    int in_n, out_n;
     if (!input || !out || !input[0] || !out[0]) return 1;
-    for (p = (const unsigned char *)input;; ++p){
-        int is_word = *p && (isalnum(*p) || *p == '\'');
-        if (is_word){
-            if (len < (int)sizeof(word) - 1){
-                unsigned char c = (unsigned char)tolower(*p);
-                if (c != '\'') word[len++] = (char)c;
-            }
-            continue;
-        }
-        if (len >= 3 && in_n < 64){
-            word[len] = 0;
-            snprintf(in_words[in_n++], sizeof(in_words[0]), "%s", word);
-        }
-        len = 0;
-        if (!*p) break;
-    }
-    len = 0;
-    for (p = (const unsigned char *)out;; ++p){
-        int is_word = *p && (isalnum(*p) || *p == '\'');
-        if (is_word){
-            if (len < (int)sizeof(word) - 1){
-                unsigned char c = (unsigned char)tolower(*p);
-                if (c != '\'') word[len++] = (char)c;
-            }
-            continue;
-        }
-        if (len >= 3 && out_n < 96){
-            word[len] = 0;
-            snprintf(out_words[out_n++], sizeof(out_words[0]), "%s", word);
-        }
-        len = 0;
-        if (!*p) break;
-    }
+    in_n = collect_audit_words(input, in_words, 64, 3, 0);
+    out_n = collect_audit_words(out, out_words, 96, 3, 0);
     for (int i = 0; i + 4 < in_n; ++i){
         for (int j = 0; j + 4 < out_n; ++j){
             int match = 1;
@@ -1024,6 +1054,70 @@ static int pe_copy_audit_pass(const char *input, const char *out){
         }
     }
     return 1;
+}
+
+static int audit_word_overlap(const char *a, const char *b,
+                              int min_len, int a_limit, int b_limit){
+    char a_words[96][24];
+    char b_words[96][24];
+    int a_n = collect_audit_words(a, a_words, 96, min_len, a_limit);
+    int b_n = collect_audit_words(b, b_words, 96, min_len, b_limit);
+    for (int i = 0; i < a_n; ++i){
+        for (int j = 0; j < b_n; ++j){
+            if (!strcmp(a_words[i], b_words[j])) return 1;
+        }
+    }
+    return 0;
+}
+
+static int pe_output_has_active_memory_word(const Engine *eng, const char *out){
+    if (!eng || !out || !out[0]) return 0;
+    for (uint16_t i = 0; i < eng->active_count && i < PE_ACTIVE_MAX; ++i){
+        const MemoryNode *m = pe_active_node(eng, eng->active_memories[i]);
+        if (!m || !m->summary[0]) continue;
+        if (audit_word_overlap(m->summary, out, 4, 0, 0)) return 1;
+    }
+    return 0;
+}
+
+static int pe_output_has_vitality_word(const Engine *eng, const char *out){
+    if (!eng || !out || !out[0]) return 0;
+    for (int i = 0; i < PE_VITALITY_SLOT_COUNT; ++i){
+        if (eng->vitality_profile.recurring_images[i][0] &&
+            audit_word_overlap(eng->vitality_profile.recurring_images[i], out, 4, 0, 0))
+            return 1;
+    }
+    if (eng->vitality_profile.metaphoric_domains[0] &&
+        audit_word_overlap(eng->vitality_profile.metaphoric_domains, out, 4, 0, 0))
+        return 1;
+    return 0;
+}
+
+static int pe_flat_audit_pass(const Engine *eng, const char *out, int renderer_output){
+    if (!renderer_output || !eng || !out || !v6_packet_mode_is_situation()) return 1;
+    if (strlen(out) >= 120u) return 1;
+    if (strchr(out, '?')) return 1;
+    if (!eng->state.turn_drama.hidden_pressure[0] ||
+        !strcmp(eng->state.turn_drama.hidden_pressure, "none"))
+        return 1;
+    if (pe_output_has_active_memory_word(eng, out)) return 1;
+    if (pe_output_has_vitality_word(eng, out)) return 1;
+    return 0;
+}
+
+uint8_t pe_audit_evaluate_for_test(const Engine *eng,
+                                   const char *input,
+                                   const char *out,
+                                   int renderer_output){
+    return pe_audit_evaluate(eng, input, out, renderer_output);
+}
+
+int pe_audit_violation_is_hard_for_test(uint8_t violation){
+    return pe_audit_violation_is_hard(violation);
+}
+
+const char *pe_repair_instruction_for_test(uint8_t violation){
+    return pe_repair_instruction_for(violation, NULL);
 }
 
 static int pe_output_label_audit_pass(const char *out){
@@ -3017,6 +3111,7 @@ int persona_process_input(Engine *eng,
         render_ctx.user_input = input_text;
         render_ctx.seed      = eng->state.rng_state;
         v6_interpret_user_turn(&render_ctx, input_text, &packet_it);
+        pe_synthesize_turn_drama(eng, &packet_it, &eng->state.turn_drama);
         if (v6_packet_mode_is_situation()){
             uint16_t adjusted_intent = eng->state.current_intent;
             if (!strcmp(packet_it.user_act, "correction")){

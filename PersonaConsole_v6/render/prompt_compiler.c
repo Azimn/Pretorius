@@ -82,6 +82,8 @@ static const char *audit_violation_token(uint8_t v){
     case PE_AUDIT_V_OUTPUT_LABEL: return "memory_label";
     case PE_AUDIT_V_ADDRESSEE:    return "wrong_addressee";
     case PE_AUDIT_V_PRIVATE_LEAK: return "private_state_leak";
+    case PE_AUDIT_V_FLAT:         return "flat";
+    case PE_AUDIT_V_ECHO:         return "echo";
     default:                      return "none";
     }
 }
@@ -820,6 +822,23 @@ static void append_imprint_block(const Engine *eng,
     }
 }
 
+static void append_turn_drama_block(const Engine *eng,
+                                    char *out_buf,
+                                    int cap,
+                                    int *pos){
+    if (!eng || !v6_packet_mode_is_situation()) return;
+    const TurnDrama *td = &eng->state.turn_drama;
+    append(out_buf, cap, pos, "\n[TURN_DRAMA]\n");
+    append(out_buf, cap, pos, "surface_goal=%s\n",
+           td->surface_goal[0] ? td->surface_goal : "respond naturally in character");
+    append(out_buf, cap, pos, "hidden_pressure=%s\n",
+           td->hidden_pressure[0] ? td->hidden_pressure : "none");
+    append(out_buf, cap, pos, "relationship_move=%s\n",
+           td->relationship_move[0] ? td->relationship_move : "maintain the established posture");
+    append(out_buf, cap, pos, "forbidden_failure=%s\n",
+           td->forbidden_failure[0] ? td->forbidden_failure : "producing a response that could come from any character");
+}
+
 static int prompt_compile_situation(const RenderContext *ctx,
                                     const PromptCompilerConfig *cfg,
                                     const char *user_input,
@@ -901,6 +920,7 @@ static int prompt_compile_situation(const RenderContext *ctx,
     }
 
     append_vitality_block(eng, out_buf, cap, &pos);
+    append_turn_drama_block(eng, out_buf, cap, &pos);
     append_imprint_block(eng, out_buf, cap, &pos);
 
     append(out_buf, cap, &pos, "\n[MEMORY_AS_MOTIVE]\n");
@@ -958,10 +978,7 @@ static int prompt_compile_situation(const RenderContext *ctx,
         append(out_buf, cap, &pos, "If you ask a question, ask one grounded follow-up about what the user just disclosed.\n");
     } else if (!strcmp(it.user_act, "identity_test")){
         append(out_buf, cap, &pos, "\n[IDENTITY_TEST_OVERLAY]\n");
-        append(out_buf, cap, &pos, "The user is pressing identity or continuity. Answer from inside the character.\n");
         append(out_buf, cap, &pos, "Do not mention prompts, packets, models, simulations, roleplay, or system design.\n");
-        append(out_buf, cap, &pos, "Defend or express identity according to current stance without becoming an assistant.\n");
-        append(out_buf, cap, &pos, "If uncertain, make uncertainty part of the character's reply, not a technical caveat.\n");
         if (eng){
             append(out_buf, cap, &pos, "\n[SELF_MODEL]\n");
             append(out_buf, cap, &pos,
@@ -982,6 +999,9 @@ static int prompt_compile_situation(const RenderContext *ctx,
             else
                 append(out_buf, cap, &pos, "identity_pressure=protect_aspirational_self_without_performing\n");
         }
+        append(out_buf, cap, &pos, "The user is pressing identity or continuity. Answer from inside the character.\n");
+        append(out_buf, cap, &pos, "Defend or express identity according to current stance without becoming an assistant.\n");
+        append(out_buf, cap, &pos, "If uncertain, make uncertainty part of the character's reply, not a technical caveat.\n");
     }
 
     append(out_buf, cap, &pos, "\n[USER_TURN_INTERPRETATION]\n");
@@ -994,6 +1014,7 @@ static int prompt_compile_situation(const RenderContext *ctx,
 
     append(out_buf, cap, &pos, "\n[RESPONSE_MOVE]\n");
     append(out_buf, cap, &pos, "recommendation=%s\n", it.response_move);
+    append(out_buf, cap, &pos, "The [TURN_DRAMA] block synthesizes all active pressures into a single scene. Honor it. The response must accomplish surface_goal, may be shaped by hidden_pressure, and must avoid forbidden_failure.\n");
     append(out_buf, cap, &pos, "Compose the actual response. Do not paraphrase a selected template line.\n");
     append(out_buf, cap, &pos, "If the current message is rich or direct, attend to it before resuming open loops or proactive thoughts.\n");
     append(out_buf, cap, &pos, "If the user asks a direct question, answer the question before adding color or resistance.\n");

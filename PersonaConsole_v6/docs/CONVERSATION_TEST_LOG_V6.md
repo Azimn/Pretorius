@@ -1396,6 +1396,63 @@ Next action:
 
 - Add a long-session or forced-eviction behavioral probe that shows a confirmed belief pattern changing posture in a live transcript, not only in unit state.
 
+### 2026-07-01 - V7 Turn Drama And Anti-Flatness Audit
+
+Branch/commit:
+`personaconsole-v0.7-checkpoint` working tree before commit
+Renderer:
+Template gate plus prompt/audit unit probes
+Provider/model:
+Mock provider only for existing gate tests
+Turns:
+48-turn society pair probe
+
+Metrics:
+
+| Metric | Result |
+|---|---:|
+| v7_turn_drama_run | pass |
+| v7_flat_audit_run | pass |
+| v6_gate_chunked | pass, 87.5 sec |
+| society replies | 48 |
+| society exactRepeats | 0 |
+| society openerRepeats | 1 |
+| society questionRate | 46 |
+| society assistantTone | false |
+| society roughPunctuationOrTags | false |
+| society actorTags | 33 |
+| society speechEvents | 48 |
+| society openLoops | 1 |
+| society auditCounts | {"0":24,"1":7,"2":17} |
+| V6 believability battery | 91/100 |
+| V5 transcript quality | 98/100 |
+
+What improved:
+
+- Added deterministic `TurnDrama` synthesis so the situation packet receives one compact scene demand: surface goal, hidden pressure, relationship move, and forbidden failure.
+- Added soft `flat` and `echo` audit violations. These route to constrained rewrite instead of immediate template fallback, so model-connected sessions get coaching rather than a generic drop.
+- Moved identity-test self-model data earlier in the packet to survive prompt-budget pressure.
+
+What failed or felt fake:
+
+- Initial believability run reported 83/100 because the battery did not wipe newer learned-knowledge sidecars between deterministic replay passes.
+- Fixed battery hygiene by clearing `learned_knowledge.bin` and `belief_ledger.bin`; rerun returned to 91/100.
+
+Engine-level implications:
+
+- TurnDrama does not add a memory system or sidecar. It compresses existing relation, imprint, dissonance, vitality, and interpretation state.
+- Flatness detection is conservative: short output is only flagged when hidden pressure is active and no memory or vitality signal appears.
+- Echo detection catches early user-phrase mirroring before speech-act checks.
+
+Cartridge/profile implications:
+
+- No Pretorius language was added to shared engine logic.
+- Character-specific style signal still comes from vitality recurring images and metaphoric domains.
+
+Next action:
+
+- Use local Ollama traces to see whether `flat` and `echo` repairs reduce the awkward short fallback moments in Kiki, R0-R1, and Pretorius without increasing lore fallback.
+
 ## Future Test Entries Template
 
 Copy this block for each substantial run:

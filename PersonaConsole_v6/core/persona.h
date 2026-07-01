@@ -296,6 +296,13 @@ typedef struct {
 } ExperienceImprint;
 
 typedef struct {
+    char surface_goal[96];
+    char hidden_pressure[96];
+    char relationship_move[96];
+    char forbidden_failure[96];
+} TurnDrama;
+
+typedef struct {
     char     name[PE_WANT_NAME_LEN];
     uint16_t target_topic_id;
     uint8_t  target_pattern_class;
@@ -494,6 +501,7 @@ typedef struct {
     uint8_t  turns_since_question;
     uint8_t  last_reply_had_question;
     ExperienceImprint imprint;
+    TurnDrama turn_drama;
 } NPCState;
 
 typedef struct {

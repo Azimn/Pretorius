@@ -18,7 +18,8 @@ const CHDIR = path.dirname(CART);
 function wipe(){
   for (const f of ['state.bin','memory.bin','chapters.bin',
                    'actor_index.bin','speech_events.bin','dissonance.bin',
-                   'open_loops.bin','speech_habits.bin']){
+                   'open_loops.bin','speech_habits.bin',
+                   'learned_knowledge.bin','belief_ledger.bin']){
     try { fs.unlinkSync(path.join(CHDIR, f)); } catch {}
   }
   for (const d of ['relations','aether']){
