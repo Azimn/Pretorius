@@ -55,6 +55,9 @@ int pe_generate_response(Engine *eng, const char *input,
                          char *out, size_t n);
 void pe_repetition_decay(Engine *eng);
 
+/* V7: compress durable belief-ledger patterns into per-turn pressure. */
+void pe_synthesize_imprint(Engine *eng);
+
 /* relations */
 int  pe_load_relation(Engine *eng, const char *user_id);
 int  pe_save_relation(Engine *eng);

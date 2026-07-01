@@ -5,6 +5,7 @@
 #include "engine_clock.h"
 #include "relation_dims.h"
 #include "theory_of_mind.h"
+#include "belief_ledger.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -85,6 +86,13 @@ int pe_load_relation(Engine *eng, const char *user_id){
                           eng->relation.disposition);
     pe_relation_dims_soften_for_gap(&eng->relation_dims, real_gap_seconds);
     pe_tom_load(&eng->theory_of_mind, eng->char_dir, h);
+    pe_belief_ledger_load(&eng->belief_ledger, eng->char_dir, h);
+    if (real_gap_seconds > 0){
+        uint32_t elapsed_hours = real_gap_seconds / 3600u;
+        if (elapsed_hours == 0) elapsed_hours = 1;
+        pe_belief_ledger_decay(&eng->belief_ledger, elapsed_hours);
+    }
+    pe_synthesize_imprint(eng);
     return 0;
 }
 
@@ -106,5 +114,7 @@ int pe_save_relation(Engine *eng){
      * schema. Skipped silently when no actor is loaded. */
     rc = pe_relation_dims_save(&eng->relation_dims, eng->char_dir);
     if (rc != 0) return rc;
-    return pe_tom_save(&eng->theory_of_mind, eng->char_dir);
+    rc = pe_tom_save(&eng->theory_of_mind, eng->char_dir);
+    if (rc != 0) return rc;
+    return pe_belief_ledger_save(&eng->belief_ledger, eng->char_dir);
 }

@@ -108,6 +108,8 @@ extern "C" {
 #include "speech_habits.h"
 /* V6: compact learned-knowledge graph sidecar. */
 #include "learned_knowledge.h"
+/* V7: compact per-actor behavioral scars from decayed memories. */
+#include "belief_ledger.h"
 /* V6: inferred actor mind model. */
 #include "theory_of_mind.h"
 /* V6: slow earned baseline drift. */
@@ -259,7 +261,7 @@ typedef struct {
     int8_t _pad;
 } EmotionVector;
 
-typedef struct {
+typedef struct MemoryNode {
     uint32_t id;
     uint16_t type;
     uint8_t  salience;
@@ -278,6 +280,20 @@ typedef struct {
      * distance — complements (does not replace) topic-tag matching. */
     uint64_t lsh_sig;
 } MemoryNode;
+
+typedef struct {
+    int16_t  disrespect_pressure;
+    int16_t  trust_pressure;
+    int16_t  manipulation_guard;
+    int16_t  abandonment_ache;
+    int16_t  shared_pull;
+    int16_t  self_doubt_weight;
+    int16_t  threat_vigilance;
+    int16_t  intimacy_readiness;
+    uint8_t  dominant_slot;
+    uint8_t  pattern_confirmed;
+    uint8_t  _pad[6];
+} ExperienceImprint;
 
 typedef struct {
     char     name[PE_WANT_NAME_LEN];
@@ -477,6 +493,7 @@ typedef struct {
     char     resumption_pending[PE_RESUMPTION_LEN];
     uint8_t  turns_since_question;
     uint8_t  last_reply_had_question;
+    ExperienceImprint imprint;
 } NPCState;
 
 typedef struct {
@@ -751,6 +768,7 @@ struct Engine {
     pe_open_loops_t    open_loops;            /* V6 Phase 6: carried intentions */
     pe_speech_habits_t speech_habits;         /* V6 Phase 6: conversation rhythm habits */
     pe_learned_knowledge_t learned_knowledge; /* V6: durable learned claims + correction graph */
+    pe_belief_ledger_t belief_ledger;         /* V7: durable behavioral scars from memory decay */
     pe_tom_t             theory_of_mind;      /* V6: inferred active actor mind */
     uint8_t            current_recall_mode;   /* V6 Phase 5d: selected per-turn from state */
     SchemaState      schema;                /* V4: per-relation compressed beliefs */

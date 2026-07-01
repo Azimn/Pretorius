@@ -510,6 +510,11 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         "\"relation_dims\":{\"trust\":%u,\"threat\":%u,\"intimacy\":%u,"
                           "\"resentment\":%u,\"dependency\":%u,\"obligation\":%u,"
                           "\"envy\":%u,\"admiration\":%u,\"embarrassment\":%u},"
+        "\"belief_imprint\":{\"disrespect\":%d,\"trust\":%d,"
+                          "\"manipulation_guard\":%d,\"abandonment\":%d,"
+                          "\"shared_pull\":%d,\"self_doubt\":%d,"
+                          "\"threat\":%d,\"intimacy\":%d,"
+                          "\"dominant\":\"%s\",\"pattern_confirmed\":%s},"
         "\"learned_knowledge\":{\"count\":%u,\"max_confidence\":%u,\"best_status\":%u},"
         "\"theory_of_mind\":{\"believed_valence\":%d,\"believed_arousal\":%d,"
                           "\"believed_goal_topic\":%u,\"confidence\":%u,"
@@ -627,6 +632,16 @@ int ps_state(PersonaSession *s, char *out_buf, int out_buf_size){
         (unsigned)eng->relation_dims.envy,
         (unsigned)eng->relation_dims.admiration,
         (unsigned)eng->relation_dims.embarrassment,
+        (int)eng->state.imprint.disrespect_pressure,
+        (int)eng->state.imprint.trust_pressure,
+        (int)eng->state.imprint.manipulation_guard,
+        (int)eng->state.imprint.abandonment_ache,
+        (int)eng->state.imprint.shared_pull,
+        (int)eng->state.imprint.self_doubt_weight,
+        (int)eng->state.imprint.threat_vigilance,
+        (int)eng->state.imprint.intimacy_readiness,
+        pe_belief_slot_name(eng->state.imprint.dominant_slot),
+        eng->state.imprint.pattern_confirmed ? "true" : "false",
         (unsigned)lk_count,
         (unsigned)lk_max_confidence,
         (unsigned)lk_best_status,

@@ -108,6 +108,10 @@ void pe_commit_memory_ex(Engine *eng, const char *summary,
     } else {
         slot = evict_lowest_non_core(m);
         if (m->episodic[slot].core_memory || m->episodic[slot].memory_type == MEM_CORE) return; /* nothing to evict */
+        if (eng->belief_ledger.user_hash != 0)
+            pe_belief_absorb_memory_trace(&eng->belief_ledger,
+                                          &m->episodic[slot],
+                                          eng->state.turn_count);
         /* v3.2: demote the evicted memory into AETHER long-term storage
          * before overwriting.  Working memory becomes hot tier; AETHER
          * is the cold ledger.  Soft-fails if AETHER isn't available. */
@@ -207,6 +211,10 @@ void pe_decay_episodic(Engine *eng){
     for (uint16_t i = 0; i < m->episodic_count; ++i){
         if (m->episodic[i].core_memory || m->episodic[i].memory_type == MEM_CORE || m->episodic[i].salience > 0)
             m->episodic[w++] = m->episodic[i];
+        else if (eng->belief_ledger.user_hash != 0)
+            pe_belief_absorb_memory_trace(&eng->belief_ledger,
+                                          &m->episodic[i],
+                                          eng->state.turn_count);
     }
     m->episodic_count = w;
 }

@@ -766,6 +766,60 @@ static void append_psychology_block(const RenderContext *ctx,
     }
 }
 
+static int im_abs16(int16_t v){
+    return v < 0 ? -(int)v : (int)v;
+}
+
+static void append_imprint_block(const Engine *eng,
+                                 char *out_buf,
+                                 int cap,
+                                 int *pos){
+    if (!eng || !v6_packet_mode_is_situation()) return;
+    const ExperienceImprint *im = &eng->state.imprint;
+    int wrote = 0;
+    append(out_buf, cap, pos, "\n[IMPRINT]\n");
+    if (im_abs16(im->disrespect_pressure) > 100){
+        append(out_buf, cap, pos, "disrespect=%d ", (int)im->disrespect_pressure);
+        wrote = 1;
+    }
+    if (im_abs16(im->trust_pressure) > 100){
+        append(out_buf, cap, pos, "trust=%d ", (int)im->trust_pressure);
+        wrote = 1;
+    }
+    if (im_abs16(im->manipulation_guard) > 100){
+        append(out_buf, cap, pos, "manipulation_guard=%d ", (int)im->manipulation_guard);
+        wrote = 1;
+    }
+    if (im_abs16(im->abandonment_ache) > 100){
+        append(out_buf, cap, pos, "abandonment=%d ", (int)im->abandonment_ache);
+        wrote = 1;
+    }
+    if (im_abs16(im->shared_pull) > 100){
+        append(out_buf, cap, pos, "shared_pull=%d ", (int)im->shared_pull);
+        wrote = 1;
+    }
+    if (im_abs16(im->self_doubt_weight) > 100){
+        append(out_buf, cap, pos, "self_doubt=%d ", (int)im->self_doubt_weight);
+        wrote = 1;
+    }
+    if (im_abs16(im->threat_vigilance) > 100){
+        append(out_buf, cap, pos, "threat=%d ", (int)im->threat_vigilance);
+        wrote = 1;
+    }
+    if (im_abs16(im->intimacy_readiness) > 100){
+        append(out_buf, cap, pos, "intimacy=%d ", (int)im->intimacy_readiness);
+        wrote = 1;
+    }
+    if (!wrote){
+        append(out_buf, cap, pos, "pressure=low\n");
+    } else {
+        append(out_buf, cap, pos, "\n");
+        append(out_buf, cap, pos, "dominant=%s pattern_confirmed=%u\n",
+               pe_belief_slot_name(im->dominant_slot),
+               (unsigned)im->pattern_confirmed);
+    }
+}
+
 static int prompt_compile_situation(const RenderContext *ctx,
                                     const PromptCompilerConfig *cfg,
                                     const char *user_input,
@@ -847,6 +901,7 @@ static int prompt_compile_situation(const RenderContext *ctx,
     }
 
     append_vitality_block(eng, out_buf, cap, &pos);
+    append_imprint_block(eng, out_buf, cap, &pos);
 
     append(out_buf, cap, &pos, "\n[MEMORY_AS_MOTIVE]\n");
     if (ctx->memories && eng && ctx->memories->episodic_count > 0){
@@ -944,6 +999,7 @@ static int prompt_compile_situation(const RenderContext *ctx,
     append(out_buf, cap, &pos, "If the user asks a direct question, answer the question before adding color or resistance.\n");
     append(out_buf, cap, &pos, "Use the character voice, but do not over-perform it. Prefer listening and direct relevance over catchphrases or signature references.\n");
     append(out_buf, cap, &pos, "You may use general knowledge or reason about topics outside memory when the user brings them in. Do not turn that into new personal history.\n");
+    append(out_buf, cap, &pos, "The [IMPRINT] block reflects durable behavioral patterns compressed from past experience. Let it bias tone and posture without narrating it directly.\n");
     append_repair_block(ctx, out_buf, cap, &pos);
 
     append(out_buf, cap, &pos, "\n[OUTPUT]\n");

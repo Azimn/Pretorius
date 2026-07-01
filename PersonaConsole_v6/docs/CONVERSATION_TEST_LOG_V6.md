@@ -1330,6 +1330,72 @@ Remaining polish issues:
 - Some demo-pack contradiction scores remain at 45/100 for Pretorius, Friendly, Quiet, and Kiki.
 - Long society dialogue is now free of exact repeats and punctuation seams, but some learned-knowledge correction chains still read mechanically when one character corrects a correction.
 
+### 2026-07-01 - V7 Belief Ledger Ghost-Bond Pass
+
+Branch/commit:
+`personaconsole-v0.7-checkpoint` working tree before commit
+
+Renderer:
+template for regression probes; situation packet unit test for `[IMPRINT]`
+
+Provider/model:
+none required
+
+Turns:
+48 for society pair probe
+
+What changed:
+
+- Added `memory/belief_ledger.{h,c}` as a compact per-actor sidecar at `relations/<hash>.blfl`.
+- Added `ExperienceImprint` as a per-turn, non-persisted pressure packet synthesized from the belief ledger.
+- Hooked belief absorption only into existing memory eviction and salience-zero compaction paths.
+- Surfaced `[IMPRINT]` in situation packets only, with an instruction to bias tone and posture without narrating internals.
+- Exposed `belief_imprint` in `/state` JSON.
+
+Metrics:
+
+| Metric | Result |
+|---|---:|
+| `make host` | pass, zero warnings |
+| `make v6_belief_ledger_run` | pass |
+| `make v6_memory_reconstruction_run` | pass |
+| `make v6_sovereign_override_run` | pass |
+| `make v6_gate_chunked` | pass, 118 sec |
+| `PE_SOCIETY_TURNS=48 make society_pair_probe` | pass |
+| society exactRepeats | 0 |
+| society openerRepeats | 1 |
+| society assistantTone | false |
+| society roughPunctuationOrTags | false |
+| society `belief_imprint` present in state | 2/2 final states |
+| society nonzero imprint slots | 0 |
+| society `pattern_confirmed` | 0 |
+| V6 believability battery | 91/100 |
+| V5 transcript quality | 98/100 |
+
+What improved:
+
+- Decayed or evicted memories can now leave a durable behavioral trace instead of vanishing cleanly.
+- The trace is actor-specific and stored with relation sidecars, not in global engine prose.
+- Situation-mode models receive a tiny pressure block rather than a pile of old events.
+
+What failed or felt fake:
+
+- The ordinary 48-turn society probe did not naturally trigger nonzero belief scars because the new ledger only absorbs when memories are discarded or compacted.
+- This is correct for the current hook policy, but future stress probes should deliberately force eviction/decay if we want to observe scar formation in transcript behavior.
+
+Engine-level implications:
+
+- The ghost-bond layer is additive to relation dimensions, recall modes, open loops, dissonance, and learned knowledge.
+- Memory writing and the memory firewall were not touched.
+
+Cartridge/profile implications:
+
+- No character voice was added to the ledger. Cartridges should later decide how confirmed patterns sound through vitality and templates.
+
+Next action:
+
+- Add a long-session or forced-eviction behavioral probe that shows a confirmed belief pattern changing posture in a live transcript, not only in unit state.
+
 ## Future Test Entries Template
 
 Copy this block for each substantial run:

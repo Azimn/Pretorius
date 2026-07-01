@@ -73,6 +73,7 @@ MEMORY_SRC := \
     memory/open_loops.c       \
     memory/speech_habits.c    \
     memory/learned_knowledge.c \
+    memory/belief_ledger.c     \
     memory/import_runtime.c    \
     memory/theory_of_mind.c    \
     memory/affect_dynamics.c   \
@@ -747,6 +748,12 @@ build/v7_1_sovereign_override_test: tests/replay/v7_1_sovereign_override_test.c 
 
 v6_sovereign_override_run: build/v7_1_sovereign_override_test profiles/kiki/kiki.cart
 	./build/v7_1_sovereign_override_test
+
+build/belief_ledger_test: tests/replay/belief_ledger_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
+	$(CC) $(CFLAGS) tests/replay/belief_ledger_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)
+
+v6_belief_ledger_run: build/belief_ledger_test
+	./build/belief_ledger_test
 
 build/v7_2_homunculus_vitality_test: tests/replay/v7_2_homunculus_vitality_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a
 	$(CC) $(CFLAGS) tests/replay/v7_2_homunculus_vitality_test.c build/libpersona.a build/libplasticity.a build/libaether.a build/liblsh.a -o $@ $(LDFLAGS)

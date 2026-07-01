@@ -2398,6 +2398,35 @@ static int compute_delay(Engine *eng){
     return delay;
 }
 
+void pe_synthesize_imprint(Engine *eng){
+    if (!eng) return;
+    ExperienceImprint *im = &eng->state.imprint;
+    const pe_belief_ledger_t *bl = &eng->belief_ledger;
+    memset(im, 0, sizeof(*im));
+    im->disrespect_pressure = bl->slots[PE_BELIEF_DISRESPECT].pressure;
+    im->trust_pressure = bl->slots[PE_BELIEF_TRUST_EARNED].pressure;
+    im->manipulation_guard = bl->slots[PE_BELIEF_MANIPULATION].pressure;
+    im->abandonment_ache = bl->slots[PE_BELIEF_ABANDONMENT].pressure;
+    im->shared_pull = bl->slots[PE_BELIEF_SHARED_PROJECT].pressure;
+    im->self_doubt_weight = bl->slots[PE_BELIEF_SELF_FAILURE].pressure;
+    im->threat_vigilance = bl->slots[PE_BELIEF_THREAT_PATTERN].pressure;
+    im->intimacy_readiness = bl->slots[PE_BELIEF_INTIMACY_EARNED].pressure;
+
+    int16_t best = 0;
+    uint8_t best_slot = 0;
+    for (int i = 0; i < PE_BELIEF_COUNT; ++i){
+        int16_t p = bl->slots[i].pressure;
+        int16_t mag = p < 0 ? (int16_t)-p : p;
+        if (mag > best){
+            best = mag;
+            best_slot = (uint8_t)i;
+        }
+    }
+    im->dominant_slot = best_slot;
+    im->pattern_confirmed =
+        (best > 200 && bl->slots[best_slot].evidence_count >= 3u) ? 1u : 0u;
+}
+
 /* ---------- public API ---------- */
 int persona_open(Engine *eng, const char *character_dir){
     int is_cart = pe_is_cart_path(character_dir);
@@ -2950,6 +2979,7 @@ int persona_process_input(Engine *eng,
     pe_apply_memory_attention(eng, &ev, input_len);
     pe_build_turn_frame(eng);
     pe_update_private_thought_frame(eng);
+    pe_synthesize_imprint(eng);
     pe_vitality_synthesize(eng);
     eng->last_audit_result = PE_AUDIT_PASS;
     eng->last_audit_violation = PE_AUDIT_V_NONE;
